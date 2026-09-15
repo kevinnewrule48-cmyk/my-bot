@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deriv Over/Under Lab</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <div><p class="eyebrow">DEMO-FIRST · SIGNAL RESEARCH</p><h1>Over / Under Lab</h1></div>
+      <div><span id="connection" class="pill muted">SIMULATED FEED</span> <button id="connect" class="secondary">Connect demo account</button></div>
+    </header>
+    <main>
+      <section class="warning"><strong>Important:</strong> tick patterns do not create a guaranteed edge. This dashboard produces test signals only. Real-money execution is intentionally unavailable in this starter.</section>
+      <section class="panel controls">
+        <label>Symbol <input id="symbol" value="R_100" maxlength="30" /></label>
+        <label>Tick window <input id="window" type="number" min="50" max="1000" value="200" /></label>
+        <label>Minimum confidence <input id="minimum" type="number" min="55" max="95" value="65" /><span>%</span></label>
+        <button id="start">Start live feed</button><button class="secondary" id="pricing">Refresh live pricing</button><button class="secondary" id="backtest">Backtest collected ticks</button><button class="secondary" id="stop">Stop</button>
+      </section>
+      <section class="grid metrics">
+        <article class="panel"><p>Latest tick</p><strong id="price">—</strong><small id="tickTime">Waiting for data</small></article>
+        <article class="panel"><p>Ticks sampled</p><strong id="sample">0</strong><small id="sampleNote">Need at least 50</small></article>
+        <article class="panel"><p>Suggested entry</p><strong id="signal">NO SIGNAL</strong><small id="signalNote">Collecting data</small></article>
+        <article class="panel"><p>Fixed strategies</p><strong>OVER 1 / UNDER 8</strong><small>Each loses on two digits</small></article>
+      </section>
+      <section class="grid split">
+        <article class="panel"><h2>Terminal-digit distribution</h2><div id="digits" class="digits"></div><p class="hint">The score compares observed frequency with the neutral 10% expectation. It includes a small-sample penalty; it is not a probability forecast.</p></article>
+        <article class="panel"><h2>Signal settings</h2>
+          <p><b>OVER 1</b> loses on 0 or 1. <b>UNDER 8</b> loses on 8 or 9.</p>
+          <p class="hint">The analyzer picks the side with the lower recent loss-digit rate. The displayed rate is descriptive of the sample, not a promise about the next tick.</p>
+          <label>Evaluate after <input id="duration" type="number" min="1" max="20" value="1" /><span>ticks</span></label>
+          <label>Test stake (USD) <input id="stake" type="number" min="0.35" step="0.01" value="1" /></label>
+          <label>Signal cooldown <input id="cooldown" type="number" min="1" max="100" value="10" /><span>ticks</span></label>
+          <label class="check"><input id="paper" type="checkbox" checked /> Evaluate qualifying test signals</label>
+          <p class="automation"><b>Automation:</b> testing only. Results are determined from later digit ticks—no simulated payout, no order, and no account balance. Real execution needs Deriv OAuth, a demo account, daily loss limits, a maximum-trade cap, and an explicit user arm action.</p>
+        </article>
+      </section>
+      <section class="grid metrics report">
+        <article class="panel"><p>OVER 1 live price</p><strong id="overPrice">—</strong><small id="overBreakEven">Connect live feed to request a quote</small></article>
+        <article class="panel"><p>UNDER 8 live price</p><strong id="underPrice">—</strong><small id="underBreakEven">Connect live feed to request a quote</small></article>
+        <article class="panel"><p>Pricing gate</p><strong id="pricingGate">WAIT</strong><small id="pricingNote">No quotes yet</small></article>
+        <article class="panel"><p>Execution mode</p><strong>LOCKED</strong><small>Research and alert only</small></article>
+      </section>
+      <section class="grid metrics report">
+        <article class="panel"><p>Signals evaluated</p><strong id="evaluated">0</strong><small>After the chosen tick duration</small></article>
+        <article class="panel"><p>Test win rate</p><strong id="winRate">—</strong><small id="outcomes">No settled signals</small></article>
+        <article class="panel"><p>Pending signals</p><strong id="pending">0</strong><small>Waiting for later tick data</small></article>
+        <article class="panel"><p>Test rule</p><strong id="rule">OVER 1 / UNDER 8</strong><small>Two fixed loss-digit pairs</small></article>
+      </section>
+      <section class="panel"><h2>Test-signal log</h2><div id="log" class="log"><p class="empty">No signals yet.</p></div></section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

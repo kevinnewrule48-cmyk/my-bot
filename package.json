@@ -1,0 +1,10 @@
+{
+  "name": "deriv-over-under-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local, demo-first Over/Under signal and paper-trading dashboard for Deriv.",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": { "node": ">=22" }
+}

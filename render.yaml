@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: deriv-over-under-lab
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DERIV_CLIENT_ID
+        sync: false
+      - key: DERIV_REDIRECT_URI
+        sync: false

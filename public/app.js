@@ -11,6 +11,7 @@ let lastAutoSignalTick = -Infinity, lastAutoSide = null, autoMomentumOrders = 0;
 const storedOrders = () => { try { const value = JSON.parse(localStorage.getItem('derivAccountOrders') || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } };
 let accountOrderHistory = storedOrders();
 let lastSettledOrder = accountOrderHistory.at(-1) ?? null;
+let recentOrderPoll;
 const autoCooldownTicks = 5;
 let executionPreparing = false;
 const scannerSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
@@ -70,14 +71,22 @@ const updateActualPerformance = () => {
 };
 const renderLastSettledOrder = (order) => {
   if (!order) return;
+  const settled = order.state === 'settled' || order.exitTick !== undefined && order.exitTick !== null;
   const won = order.won === true;
   $('actualEntryTick').textContent = order.entryDigit ?? tickDigit(order.entryTick);
   $('actualEntryDigit').textContent = `Entry price: ${order.entryTick ?? '—'}`;
-  $('actualExitTick').textContent = order.exitDigit ?? tickDigit(order.exitTick);
-  $('actualExitDigit').textContent = `Settlement price: ${order.exitTick ?? '—'}`;
-  $('actualOrderOutcome').textContent = won ? 'WON' : 'LOST';
-  $('actualOrderOutcome').className = won ? 'positive' : 'negative';
-  $('actualOrderSide').textContent = `${order.label ?? 'ORDER'} · ${order.source ?? 'Account order'}`;
+  $('actualExitTick').textContent = settled ? (order.exitDigit ?? tickDigit(order.exitTick)) : '—';
+  $('actualExitDigit').textContent = `Settlement price: ${settled ? order.exitTick : 'waiting for the next tick'}`;
+  $('actualOrderOutcome').textContent = settled ? (won ? 'WON' : 'LOST') : 'ORDER ENTERED';
+  $('actualOrderOutcome').className = settled ? (won ? 'positive' : 'negative') : '';
+  $('actualOrderSide').textContent = settled ? `${order.label ?? 'ORDER'} · ${order.source ?? 'Account order'}` : `${order.label ?? 'ORDER'} · waiting for settlement`;
+};
+const showOrderEntry = (type, result, source) => {
+  const label = type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
+  lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), entryTick:result.entryTick, state:'entered', label, source, time:Date.now() };
+  $('entryExecutionStatus').textContent = `ORDER ENTERED · ${label} · ${source} · entry number ${tickDigit(result.entryTick)} · waiting for the next tick to settle · contract ${result.contractId}`;
+  $('entryExecutionStatus').className = 'entryExecutionStatus';
+  renderLastSettledOrder(lastSettledOrder); update();
 };
 const showContractResult = (type, result, source) => {
   const label = type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
@@ -85,7 +94,7 @@ const showContractResult = (type, result, source) => {
   const outcome = won ? 'WON' : 'LOST';
   $('entryExecutionStatus').textContent = `ORDER PLACED · ${outcome} · ${label} · ${source} · executed on ${result.entryTick} (digit ${tickDigit(result.entryTick)}) · settled on ${result.exitTick} (digit ${tickDigit(result.exitTick)}) · contract ${result.contractId}`;
   $('entryExecutionStatus').className = `entryExecutionStatus ${won ? 'positive' : 'negative'}`;
-  lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), exitDigit:tickDigit(result.exitTick), won, entryTick:result.entryTick, exitTick:result.exitTick, profit:Number(result.profit || 0), label, source, time:Date.now() };
+  lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), exitDigit:tickDigit(result.exitTick), won, entryTick:result.entryTick, exitTick:result.exitTick, profit:Number(result.profit || 0), state:'settled', label, source, time:Date.now() };
   if (!accountOrderHistory.some((order) => order.contractId && order.contractId === lastSettledOrder.contractId)) accountOrderHistory.push(lastSettledOrder);
   saveAccountOrderHistory(); renderLastSettledOrder(lastSettledOrder); updateActualPerformance();
   update();
@@ -227,7 +236,7 @@ const update = () => {
     const isEntry = lastSettledOrder?.entryDigit === String(digit);
     const isExit = lastSettledOrder?.exitDigit === String(digit);
     const resultClass = isExit ? (lastSettledOrder.won ? ' order-won-digit' : ' order-lost-digit') : '';
-    const marker = isExit ? `<em>${lastSettledOrder.won ? 'WIN' : 'LOSS'}</em>` : (isEntry ? '<em>ENTRY</em>' : '');
+    const marker = isEntry && isExit ? `<em>ENTRY · ${lastSettledOrder.won ? 'WIN' : 'LOSS'}</em>` : (isExit ? `<em>${lastSettledOrder.won ? 'WIN' : 'LOSS'}</em>` : (isEntry ? '<em>ENTRY</em>' : ''));
     return `<div class="digit${latest?.digit === digit ? ' latest-digit' : ''}${isEntry ? ' order-entry-digit' : ''}${resultClass}"><b>${digit}</b><span>${displayed ? (value/displayed*100).toFixed(1) : '0.0'}%</span>${marker}</div>`;
   }).join('');
   if(n < 50) return showSignal(null);
@@ -366,7 +375,7 @@ const loadAccounts = async ({ preserveSelection = false, refreshOnly = false } =
     else if (demo) selector.value = demo.accountId;
     selector.disabled = availableAccounts.length === 0;
     showSelectedBalance();
-    if (availableAccounts.length) { $('entryExecutionStatus').textContent = 'NO ORDER PLACED YET'; $('entryExecutionStatus').className = 'entryExecutionStatus'; }
+    if (availableAccounts.length && !lastSettledOrder) { $('entryExecutionStatus').textContent = 'NO ORDER PLACED YET'; $('entryExecutionStatus').className = 'entryExecutionStatus'; }
     $('accountHelp').textContent = availableAccounts.length ? (refreshOnly ? 'Account balance refreshed from Deriv after the completed order.' : 'Select the account you want to use. Real-money ordering is disabled unless you explicitly enable it on the server.') : 'No active Options account was returned by Deriv.';
   } catch (error) { $('accountHelp').textContent = `Account connection unavailable: ${error.message}`; }
   updateDemoArmState(); prepareFastExecution();
@@ -389,8 +398,16 @@ const loadRecentOrder = async () => {
     const result = await response.json();
     if (!response.ok || !result.order) return;
     const order = result.order;
-    showContractResult(order.type, order, 'Account order');
+    if (order.state === 'settled' || order.exitTick !== undefined && order.exitTick !== null) {
+      if (recentOrderPoll) { clearInterval(recentOrderPoll); recentOrderPoll = undefined; }
+      if (lastSettledOrder?.contractId !== order.contractId || lastSettledOrder?.state !== 'settled') showContractResult(order.type, order, 'Account order');
+    } else if (order.entryTick !== undefined && order.entryTick !== null && lastSettledOrder?.contractId !== order.contractId) showOrderEntry(order.type, order, 'Account order');
   } catch { /* The live order receipt will still appear after the next completed order. */ }
+};
+const trackRecentOrder = () => {
+  if (recentOrderPoll) clearInterval(recentOrderPoll);
+  recentOrderPoll = setInterval(loadRecentOrder, 300);
+  loadRecentOrder();
 };
 const loadAuthStatus = async () => {
   try {
@@ -434,9 +451,8 @@ const executeOrder = async (type) => {
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'The order was not accepted.');
-    const outcome = result.status === 'won' || Number(result.profit) > 0 ? 'won' : 'lost';
-    $('demoOrderStatus').textContent = `ORDER PLACED · ${outcome}. Entered on digit ${tickDigit(result.entryTick)} and settled on digit ${tickDigit(result.exitTick)}. Contract ${result.contractId}.`;
-    showContractResult(type, result, 'Manual bot');
+    $('demoOrderStatus').textContent = `ORDER ENTERED on digit ${tickDigit(result.entryTick)}. Waiting for the next tick to settle. Contract ${result.contractId}.`;
+    showOrderEntry(type, result, 'Manual bot'); trackRecentOrder();
   } catch (error) { $('demoOrderStatus').textContent = `No order placed: ${error.message}`; button.disabled = false; }
 };
 const maybeAutoOrder = async (signal) => {
@@ -453,8 +469,8 @@ const maybeAutoOrder = async (signal) => {
     if (!response.ok) throw new Error(result.error || 'Auto order was not accepted.');
     if (sameMomentum) autoMomentumOrders = 2; else autoMomentumOrders = 1;
     lastAutoSignalTick = currentTick; lastAutoSide = signal.type;
-    const outcome = result.status === 'won' || Number(result.profit) > 0 ? 'won' : 'lost'; $('autoStatus').textContent = `ORDER PLACED · ${outcome}. Entered on digit ${tickDigit(result.entryTick)} and settled on digit ${tickDigit(result.exitTick)}. Next new momentum scan begins after ${autoCooldownTicks} ticks.`;
-    showContractResult(signal.type, result, 'Auto bot');
+    $('autoStatus').textContent = `ORDER ENTERED on digit ${tickDigit(result.entryTick)}. Waiting for the next tick to settle. Next momentum scan begins after ${autoCooldownTicks} ticks.`;
+    showOrderEntry(signal.type, result, 'Auto bot'); trackRecentOrder();
     updateCooldownMonitor();
   } catch (error) { autoEnabled = false; $('autoStatus').textContent = `Auto bot stopped: ${error.message}`; }
   finally { autoInFlight = false; updateAutoState(); }

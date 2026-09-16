@@ -292,13 +292,21 @@ const refreshPricing = () => {
 const classifyMarket = (symbol, rawPrices) => {
   const prices = rawPrices.map(Number).filter(Number.isFinite);
   if (prices.length < 20) return { symbol, regime:'UNAVAILABLE', score:0, note:'Not enough recent prices' };
-  let movement = 0;
-  for (let i = 1; i < prices.length; i++) movement += Math.abs(prices[i] - prices[i - 1]);
-  const net = prices.at(-1) - prices[0];
-  const efficiency = movement ? Math.abs(net) / movement : 0;
-  const direction = net >= 0 ? 'UPTREND' : 'DOWNTREND';
-  const trending = efficiency >= 0.35 && movement > 0;
-  return { symbol, regime: trending ? direction : 'CONSOLIDATION', score:Math.round(efficiency * 100), note: trending ? `${direction === 'UPTREND' ? 'Up' : 'Down'} movement is relatively consistent` : 'Price movement is choppy / sideways' };
+  const measure = (series) => {
+    let movement = 0;
+    for (let i = 1; i < series.length; i++) movement += Math.abs(series[i] - series[i - 1]);
+    const net = series.at(-1) - series[0];
+    return { net, efficiency: movement ? Math.abs(net) / movement : 0 };
+  };
+  const full = measure(prices);
+  const recent = measure(prices.slice(-20));
+  // Prefer a sustained recent move when the older candles hide a new trend.
+  const bestWindow = recent.efficiency >= full.efficiency ? recent : full;
+  const direction = bestWindow.net >= 0 ? 'UPTREND' : 'DOWNTREND';
+  const trending = bestWindow.efficiency >= 0.22 && Math.abs(bestWindow.net) > 0;
+  const score = Math.round(bestWindow.efficiency * 100);
+  const windowNote = bestWindow === recent ? 'recent 20-minute movement' : 'recent 50-minute movement';
+  return { symbol, regime: trending ? direction : 'CONSOLIDATION', score, note: trending ? `${direction === 'UPTREND' ? 'Up' : 'Down'} movement is consistent in the ${windowNote}` : 'Price movement is choppy / sideways across both scan windows' };
 };
 const fetchMarketHistory = (symbol) => new Promise((resolve) => {
   let done = false;

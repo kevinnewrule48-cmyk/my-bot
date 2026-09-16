@@ -47,7 +47,16 @@ const openTradeChannel = async ({ key, token, accountId, accountType }) => {
       const data = JSON.parse(event.data);
       if (data.error) return active.fail(new Error(data.error.message ?? 'Deriv rejected the order.'));
       if (data.proposal?.id && active.stage === 'proposal') { active.stage = 'buy'; return channel.ws.send(JSON.stringify({ buy:data.proposal.id, price:data.proposal.ask_price })); }
-      if (data.buy && active.stage === 'buy') return active.finish({ contractId:data.buy.contract_id, buyPrice:data.buy.buy_price, transactionId:data.buy.transaction_id });
+      if (data.buy && active.stage === 'buy') {
+        active.stage = 'settlement';
+        active.buy = data.buy;
+        return channel.ws.send(JSON.stringify({ proposal_open_contract:1, contract_id:data.buy.contract_id, subscribe:1 }));
+      }
+      if (data.proposal_open_contract && active.stage === 'settlement') {
+        const contract = data.proposal_open_contract;
+        if (!contract.is_sold) return;
+        return active.finish({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick:contract.entry_tick, exitTick:contract.exit_tick, status:contract.status, profit:contract.profit, payout:contract.payout });
+      }
     });
   });
   return channel.ready;
@@ -57,7 +66,7 @@ const accountOrder = async ({ key, token, accountId, accountType, currency, type
   if (channel.active) throw new Error('An order is already being processed for this account.');
   return new Promise((resolve, reject) => {
     const finish = (value) => { clearTimeout(timeout); channel.active = null; value instanceof Error ? reject(value) : resolve(value); };
-    const timeout = setTimeout(() => finish(new Error('Order timed out.')), 12_000);
+    const timeout = setTimeout(() => finish(new Error('Order result timed out.')), 15_000);
     channel.active = { stage:'proposal', finish:(result) => finish(result), fail:(error) => finish(error) };
     channel.ws.send(JSON.stringify({ proposal:1, amount:stake, basis:'stake', contract_type:type, currency, duration:1, duration_unit:'t', barrier:type === 'DIGITOVER' ? '1' : '8', underlying_symbol:symbol }));
   });
@@ -83,7 +92,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const response = await deriv('/trading/v1/options/accounts', session.accessToken);
       if (!response.ok) throw new Error('Deriv could not retrieve your accounts.');
-      const accounts = ((await response.json())?.data ?? []).filter((account) => account.status === 'active' && ['demo','real'].includes(account.account_type)).map((account) => ({ accountId:account.account_id, accountType:account.account_type, currency:account.currency }));
+      const accounts = ((await response.json())?.data ?? []).filter((account) => account.status === 'active' && ['demo','real'].includes(account.account_type)).map((account) => ({ accountId:account.account_id, accountType:account.account_type, currency:account.currency, balance:account.balance }));
       return json(res, 200, { accounts, realTradingEnabled });
     } catch (error) { return json(res, 502, { error:error.message || 'Accounts could not be retrieved.' }); }
   }

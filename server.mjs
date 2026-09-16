@@ -16,6 +16,8 @@ const redirectUri = process.env.DERIV_REDIRECT_URI;
 const realTradingEnabled = process.env.ENABLE_REAL_TRADING === 'true';
 const oauthReady = Boolean(clientId && redirectUri && redirectUri.startsWith('https://'));
 const base64url = (value) => Buffer.from(value).toString('base64url');
+const contractEntrySpot = (contract) => contract.entry_tick ?? contract.entry_spot ?? contract.current_spot ?? null;
+const contractExitSpot = (contract) => contract.exit_tick ?? contract.exit_spot ?? contract.sell_spot ?? contract.current_spot ?? null;
 const cookieValue = (req, name) => (req.headers.cookie ?? '').split(';').map(x => x.trim()).find(x => x.startsWith(`${name}=`))?.slice(name.length + 1);
 const readJson = async (req) => {
   let raw = '';
@@ -55,12 +57,15 @@ const openTradeChannel = async ({ key, token, accountId, accountType }) => {
       }
       if (data.proposal_open_contract && active.stage === 'settlement') {
         const contract = data.proposal_open_contract;
-        if (!active.entrySent && contract.entry_tick !== undefined && contract.entry_tick !== null) {
+        const entryTick = contractEntrySpot(contract);
+        const exitTick = contractExitSpot(contract);
+        if (!active.entrySent && entryTick !== null) {
           active.entrySent = true;
-          active.entry({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick:contract.entry_tick });
+          active.entryTick = entryTick;
+          active.entry({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick });
         }
         if (!contract.is_sold) return;
-        return active.finish({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick:contract.entry_tick, exitTick:contract.exit_tick, status:contract.status, profit:contract.profit, payout:contract.payout });
+        return active.finish({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick:active.entryTick ?? entryTick, exitTick, status:contract.status, profit:contract.profit, payout:contract.payout });
       }
     });
   });

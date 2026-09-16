@@ -55,6 +55,10 @@ const openTradeChannel = async ({ key, token, accountId, accountType }) => {
       }
       if (data.proposal_open_contract && active.stage === 'settlement') {
         const contract = data.proposal_open_contract;
+        if (!active.entrySent && contract.entry_tick !== undefined && contract.entry_tick !== null) {
+          active.entrySent = true;
+          active.entry({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick:contract.entry_tick });
+        }
         if (!contract.is_sold) return;
         return active.finish({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick:contract.entry_tick, exitTick:contract.exit_tick, status:contract.status, profit:contract.profit, payout:contract.payout });
       }
@@ -65,12 +69,15 @@ const openTradeChannel = async ({ key, token, accountId, accountType }) => {
 const accountOrder = async ({ key, token, accountId, accountType, currency, type, symbol, stake }) => {
   const channel = await openTradeChannel({ key, token, accountId, accountType });
   if (channel.active) throw new Error('An order is already being processed for this account.');
-  return new Promise((resolve, reject) => {
-    const finish = (value) => { clearTimeout(timeout); channel.active = null; value instanceof Error ? reject(value) : resolve(value); };
-    const timeout = setTimeout(() => finish(new Error('Order result timed out.')), 15_000);
-    channel.active = { stage:'proposal', finish:(result) => finish(result), fail:(error) => finish(error) };
-    channel.ws.send(JSON.stringify({ proposal:1, amount:stake, basis:'stake', contract_type:type, currency, duration:1, duration_unit:'t', barrier:type === 'DIGITOVER' ? '1' : '8', underlying_symbol:symbol }));
-  });
+  let acceptEntry, rejectEntry, acceptSettlement, rejectSettlement;
+  const entry = new Promise((resolve, reject) => { acceptEntry = resolve; rejectEntry = reject; });
+  const settlement = new Promise((resolve, reject) => { acceptSettlement = resolve; rejectSettlement = reject; });
+  const fail = (error) => { clearTimeout(timeout); channel.active = null; rejectEntry(error); rejectSettlement(error); };
+  const finish = (result) => { clearTimeout(timeout); channel.active = null; acceptSettlement(result); };
+  const timeout = setTimeout(() => fail(new Error('Order result timed out.')), 15_000);
+  channel.active = { stage:'proposal', entry:acceptEntry, finish, fail, entrySent:false };
+  channel.ws.send(JSON.stringify({ proposal:1, amount:stake, basis:'stake', contract_type:type, currency, duration:1, duration_unit:'t', barrier:type === 'DIGITOVER' ? '1' : '8', underlying_symbol:symbol }));
+  return { entry, settlement };
 };
 
 async function exchangeCode(code, verifier) {
@@ -136,10 +143,15 @@ const server = http.createServer(async (req, res) => {
       if (budget.trades >= tradeLimit) return json(res, 403, { error:`Daily trade limit (${tradeLimit}) reached.` });
       if (budget.exposure + amount > dailyLimit) return json(res, 403, { error:`Daily demo risk ceiling ($${dailyLimit}) would be exceeded.` });
       const sessionKey = cookieValue(req, 'deriv_session');
-      const result = await accountOrder({ key:`${sessionKey}:${accountId}`, token:session.accessToken, accountId:selectedAccount.account_id, accountType, currency:selectedAccount.currency, type, symbol, stake:amount });
+      const orderFlow = await accountOrder({ key:`${sessionKey}:${accountId}`, token:session.accessToken, accountId:selectedAccount.account_id, accountType, currency:selectedAccount.currency, type, symbol, stake:amount });
+      const entry = await orderFlow.entry;
       dailyDemoRisk.set(key, { trades:budget.trades + 1, exposure:budget.exposure + amount });
-      const receipt = { type, symbol, accountType, accountId:selectedAccount.account_id, currency:selectedAccount.currency, ...result, completedAt:Date.now() };
+      const receipt = { type, symbol, accountType, accountId:selectedAccount.account_id, currency:selectedAccount.currency, ...entry, state:'entered', enteredAt:Date.now() };
       recentOrders.set(sessionKey, receipt);
+      orderFlow.settlement.then((result) => {
+        const settledReceipt = { ...receipt, ...result, state:'settled', completedAt:Date.now() };
+        recentOrders.set(sessionKey, settledReceipt);
+      }).catch(() => {});
       return json(res, 200, { ok:true, account:`${accountType === 'real' ? 'Real' : 'Demo'} ${selectedAccount.account_id}`, currency:selectedAccount.currency, ...receipt, remainingTrades:tradeLimit-budget.trades-1, remainingRisk:dailyLimit-budget.exposure-amount });
     } catch (error) { return json(res, 502, { error:error.message || 'Demo order could not be completed.' }); }
   }

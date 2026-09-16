@@ -18,6 +18,7 @@ const oauthReady = Boolean(clientId && redirectUri && redirectUri.startsWith('ht
 const base64url = (value) => Buffer.from(value).toString('base64url');
 const contractEntrySpot = (contract) => contract.entry_tick ?? contract.entry_spot ?? contract.current_spot ?? null;
 const contractExitSpot = (contract) => contract.exit_tick ?? contract.exit_spot ?? contract.sell_spot ?? contract.current_spot ?? null;
+const proposalKey = ({ type, symbol, stake, currency }) => `${type}:${symbol}:${stake}:${currency}`;
 const cookieValue = (req, name) => (req.headers.cookie ?? '').split(';').map(x => x.trim()).find(x => x.startsWith(`${name}=`))?.slice(name.length + 1);
 const readJson = async (req) => {
   let raw = '';
@@ -38,7 +39,7 @@ const openTradeChannel = async ({ key, token, accountId, accountType }) => {
   if (!otp.ok) throw new Error('Deriv could not prepare the trading connection.');
   const otpBody = await otp.json(), url = otpBody?.data?.url;
   if (!url || !new RegExp(`/ws/${accountType}\\?otp=`).test(url)) throw new Error(`Deriv did not return a valid ${accountType} trading session.`);
-  const channel = { ws:new WebSocket(url), active:null, ready:null };
+  const channel = { ws:new WebSocket(url), active:null, ready:null, warm:new Map(), warmRequests:new Map(), warmSequence:1000, warmConfig:null };
   tradeChannels.set(key, channel);
   channel.ready = new Promise((resolve, reject) => {
     const failReady = (message) => { tradeChannels.delete(key); reject(new Error(message)); };
@@ -46,8 +47,13 @@ const openTradeChannel = async ({ key, token, accountId, accountType }) => {
     channel.ws.addEventListener('error', () => { if (channel.active) channel.active.fail(new Error('Trading connection failed.')); else failReady('Trading connection failed.'); });
     channel.ws.addEventListener('close', () => { tradeChannels.delete(key); if (channel.active) channel.active.fail(new Error('Trading connection closed.')); });
     channel.ws.addEventListener('message', (event) => {
-      const active = channel.active; if (!active) return;
       const data = JSON.parse(event.data);
+      const warmRequest = channel.warmRequests.get(data.req_id);
+      if (warmRequest && data.proposal?.id) {
+        channel.warm.set(warmRequest.key, { id:data.proposal.id, askPrice:data.proposal.ask_price, updatedAt:Date.now() });
+        return;
+      }
+      const active = channel.active; if (!active) return;
       if (data.error) return active.fail(new Error(data.error.message ?? 'Deriv rejected the order.'));
       if (data.proposal?.id && active.stage === 'proposal') { active.stage = 'buy'; return channel.ws.send(JSON.stringify({ buy:data.proposal.id, price:data.proposal.ask_price })); }
       if (data.buy && active.stage === 'buy') {
@@ -71,6 +77,17 @@ const openTradeChannel = async ({ key, token, accountId, accountType }) => {
   });
   return channel.ready;
 };
+const warmTradeProposals = (channel, { symbol, stake, currency }) => {
+  const config = `${symbol}:${stake}:${currency}`;
+  if (channel.warmConfig === config) return;
+  channel.warmConfig = config;
+  for (const [type, barrier] of [['DIGITOVER', '1'], ['DIGITUNDER', '8']]) {
+    const key = proposalKey({ type, symbol, stake, currency });
+    const reqId = ++channel.warmSequence;
+    channel.warmRequests.set(reqId, { key });
+    channel.ws.send(JSON.stringify({ proposal:1, amount:stake, basis:'stake', contract_type:type, currency, duration:1, duration_unit:'t', barrier, underlying_symbol:symbol, subscribe:1, req_id:reqId }));
+  }
+};
 const accountOrder = async ({ key, token, accountId, accountType, currency, type, symbol, stake }) => {
   const channel = await openTradeChannel({ key, token, accountId, accountType });
   if (channel.active) throw new Error('An order is already being processed for this account.');
@@ -80,8 +97,11 @@ const accountOrder = async ({ key, token, accountId, accountType, currency, type
   const fail = (error) => { clearTimeout(timeout); channel.active = null; rejectEntry(error); rejectSettlement(error); };
   const finish = (result) => { clearTimeout(timeout); channel.active = null; acceptSettlement(result); };
   const timeout = setTimeout(() => fail(new Error('Order result timed out.')), 15_000);
-  channel.active = { stage:'proposal', entry:acceptEntry, finish, fail, entrySent:false };
-  channel.ws.send(JSON.stringify({ proposal:1, amount:stake, basis:'stake', contract_type:type, currency, duration:1, duration_unit:'t', barrier:type === 'DIGITOVER' ? '1' : '8', underlying_symbol:symbol }));
+  const warm = channel.warm.get(proposalKey({ type, symbol, stake, currency }));
+  const useWarmProposal = warm && Date.now() - warm.updatedAt <= 5_000;
+  channel.active = { stage:useWarmProposal ? 'buy' : 'proposal', entry:acceptEntry, finish, fail, entrySent:false };
+  if (useWarmProposal) channel.ws.send(JSON.stringify({ buy:warm.id, price:warm.askPrice }));
+  else channel.ws.send(JSON.stringify({ proposal:1, amount:stake, basis:'stake', contract_type:type, currency, duration:1, duration_unit:'t', barrier:type === 'DIGITOVER' ? '1' : '8', underlying_symbol:symbol }));
   return { entry, settlement };
 };
 
@@ -118,14 +138,16 @@ const server = http.createServer(async (req, res) => {
     const session = getSession(req);
     if (!session) return json(res, 401, { error:'Connect your Deriv account first.' });
     try {
-      const { accountId, accountType } = await readJson(req);
+      const { accountId, accountType, symbol, stake } = await readJson(req);
       if (!['demo','real'].includes(accountType)) return json(res, 400, { error:'Choose a valid account type.' });
       if (accountType === 'real' && !realTradingEnabled) return json(res, 403, { error:'Real-money orders are disabled by the server setting.' });
       const response = await deriv('/trading/v1/options/accounts', session.accessToken), accounts = (await response.json())?.data ?? [];
       const selected = accounts.find((account) => account.account_id === accountId && account.account_type === accountType && account.status === 'active');
       if (!selected) return json(res, 403, { error:'The selected account is not available.' });
-      await openTradeChannel({ key:`${cookieValue(req, 'deriv_session')}:${accountId}`, token:session.accessToken, accountId, accountType });
-      return json(res, 200, { ready:true, accountType });
+      const channel = await openTradeChannel({ key:`${cookieValue(req, 'deriv_session')}:${accountId}`, token:session.accessToken, accountId, accountType });
+      const amount = Number(stake);
+      if (/^[A-Za-z0-9_]{2,30}$/.test(symbol ?? '') && Number.isFinite(amount) && amount > 0) warmTradeProposals(channel, { symbol, stake:amount, currency:selected.currency });
+      return json(res, 200, { ready:true, accountType, warmed:Boolean(channel.warmConfig) });
     } catch (error) { return json(res, 502, { error:error.message || 'Fast execution connection could not be prepared.' }); }
   }
   if ((url.pathname === '/api/order' || url.pathname === '/api/demo/order') && req.method === 'POST') {

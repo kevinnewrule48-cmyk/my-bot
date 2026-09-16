@@ -12,8 +12,10 @@ const storedOrders = () => { try { const value = JSON.parse(localStorage.getItem
 let accountOrderHistory = storedOrders();
 let lastSettledOrder = accountOrderHistory.at(-1) ?? null;
 let recentOrderPoll;
+let digitFlash = null, digitFlashTimer;
 const autoCooldownTicks = 5;
 let executionPreparing = false;
+let warmPrepareTimer;
 const scannerSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
 let lastMarketScan = [], marketScanBusy = false, scannerTimer, scannerRecommendedSymbol = null;
 let performanceStats = { grossProfit:0, grossLoss:0, net:0, recovery:0, drawdown:0, wins:0, losses:0, consecutiveWins:0, consecutiveLosses:0 };
@@ -86,6 +88,7 @@ const showOrderEntry = (type, result, source) => {
   lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), entryTick:result.entryTick, state:'entered', label, source, time:Date.now() };
   $('entryExecutionStatus').textContent = `ORDER ENTERED · ${label} · ${source} · entry number ${tickDigit(result.entryTick)} · waiting for the next tick to settle · contract ${result.contractId}`;
   $('entryExecutionStatus').className = 'entryExecutionStatus';
+  clearTimeout(digitFlashTimer); digitFlash = { entryDigit:lastSettledOrder.entryDigit }; digitFlashTimer = setTimeout(() => { digitFlash = null; update(); }, 800);
   renderLastSettledOrder(lastSettledOrder); update();
 };
 const showContractResult = (type, result, source) => {
@@ -95,6 +98,7 @@ const showContractResult = (type, result, source) => {
   $('entryExecutionStatus').textContent = `ORDER PLACED · ${outcome} · ${label} · ${source} · executed on ${result.entryTick} (digit ${tickDigit(result.entryTick)}) · settled on ${result.exitTick} (digit ${tickDigit(result.exitTick)}) · contract ${result.contractId}`;
   $('entryExecutionStatus').className = `entryExecutionStatus ${won ? 'positive' : 'negative'}`;
   lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), exitDigit:tickDigit(result.exitTick), won, entryTick:result.entryTick, exitTick:result.exitTick, profit:Number(result.profit || 0), state:'settled', label, source, time:Date.now() };
+  clearTimeout(digitFlashTimer); digitFlash = { exitDigit:lastSettledOrder.exitDigit, won }; digitFlashTimer = setTimeout(() => { digitFlash = null; update(); }, 800);
   if (!accountOrderHistory.some((order) => order.contractId && order.contractId === lastSettledOrder.contractId)) accountOrderHistory.push(lastSettledOrder);
   saveAccountOrderHistory(); renderLastSettledOrder(lastSettledOrder); updateActualPerformance();
   update();
@@ -233,10 +237,10 @@ const update = () => {
   if(latest){ $('price').textContent = latest.price; $('tickTime').textContent = new Date(latest.time * 1000).toLocaleTimeString(); }
   if(latest) $('priceDigitCursor').textContent = `Live ${$('symbol').value.trim()} price: ${latest.price} · last digit ${latest.digit}`;
   $('digits').innerHTML = c.map((value,digit) => {
-    const isEntry = lastSettledOrder?.entryDigit === String(digit);
-    const isExit = lastSettledOrder?.exitDigit === String(digit);
-    const resultClass = isExit ? (lastSettledOrder.won ? ' order-won-digit' : ' order-lost-digit') : '';
-    const marker = isEntry && isExit ? `<em>ENTRY · ${lastSettledOrder.won ? 'WIN' : 'LOSS'}</em>` : (isExit ? `<em>${lastSettledOrder.won ? 'WIN' : 'LOSS'}</em>` : (isEntry ? '<em>ENTRY</em>' : ''));
+    const isEntry = digitFlash?.entryDigit === String(digit);
+    const isExit = digitFlash?.exitDigit === String(digit);
+    const resultClass = isExit ? (digitFlash.won ? ' order-won-digit' : ' order-lost-digit') : '';
+    const marker = isExit ? `<em>${digitFlash.won ? 'WIN' : 'LOSS'}</em>` : (isEntry ? '<em>ENTRY</em>' : '');
     return `<div class="digit${latest?.digit === digit ? ' latest-digit' : ''}${isEntry ? ' order-entry-digit' : ''}${resultClass}"><b>${digit}</b><span>${displayed ? (value/displayed*100).toFixed(1) : '0.0'}%</span>${marker}</div>`;
   }).join('');
   if(n < 50) return showSignal(null);
@@ -385,12 +389,16 @@ const prepareFastExecution = async () => {
   if (!account || executionPreparing || (account.accountType === 'real' && !realTradingEnabled)) return;
   executionPreparing = true; $('accountHelp').textContent = 'Preparing fast execution connection…';
   try {
-    const response = await fetch('/api/order/prepare', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ accountId:account.accountId, accountType:account.accountType }) });
+    const response = await fetch('/api/order/prepare', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ accountId:account.accountId, accountType:account.accountType, symbol:$('symbol').value.trim(), stake:Number($('stake').value || 0) }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Connection preparation failed.');
-    $('accountHelp').textContent = `Connected ${account.accountType} account · fast execution connection ready.`;
+    $('accountHelp').textContent = result.warmed ? `Connected ${account.accountType} account · fast purchase proposals ready.` : `Connected ${account.accountType} account · fast execution connection ready.`;
   } catch { $('accountHelp').textContent = `Connected ${account.accountType} account · execution will prepare when you place an order.`; }
   finally { executionPreparing = false; }
+};
+const scheduleFastPreparation = () => {
+  clearTimeout(warmPrepareTimer);
+  warmPrepareTimer = setTimeout(prepareFastExecution, 350);
 };
 const loadRecentOrder = async () => {
   try {
@@ -494,7 +502,7 @@ updateAutoState = () => {
   else if (autoEnabled) $('autoStatus').textContent = `Auto bot waits for Suggested Entry and LIVE SUPPORT to match. It can take one follow-up order, then waits ${autoCooldownTicks} ticks.`;
   else $('autoStatus').textContent = 'Auto bot is not active.';
 };
-$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch only when a market passes the trend-strength filter.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
+$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('stake').addEventListener('change', scheduleFastPreparation); $('symbol').addEventListener('change', scheduleFastPreparation); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch only when a market passes the trend-strength filter.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
 $('manualMode').onclick = () => setBotMode('manual'); $('autoMode').onclick = () => { const account = selectedAccount(); if (account?.accountType !== 'demo') { setBotMode('auto'); return; } if (window.confirm('Activate the auto bot for qualifying Demo signals?')) { autoEnabled = true; $('autoSwitchMarket').checked = true; } setBotMode('auto'); if (autoEnabled) scanMarkets(); };
 $('resetTargetCycle').onclick = () => { targetRunBaseline = performanceStats.net; updatePerformance(); updateDemoArmState(); };
 $('deleteToday').onclick = () => {

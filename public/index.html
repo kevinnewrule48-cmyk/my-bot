@@ -10,8 +10,8 @@
   <body>
     <div class="ambient ambient-one" aria-hidden="true"></div><div class="ambient ambient-two" aria-hidden="true"></div><div class="ambient ambient-three" aria-hidden="true"></div>
     <header>
-      <div><p class="eyebrow">DEMO-FIRST · SIGNAL RESEARCH</p><h1>Over / Under Lab</h1></div>
-      <div><span id="connection" class="pill muted">NOT CONNECTED</span> <button id="connect" class="secondary">Connect demo account</button></div>
+      <div><p class="eyebrow">LIVE SIGNAL EXECUTION</p><h1>Over / Under Lab</h1></div>
+      <div><span id="connection" class="pill muted">NOT CONNECTED</span> <button id="connect" class="secondary">Connect account</button></div>
     </header>
     <main>
       <section class="warning"><strong>Important:</strong> tick patterns do not create a guaranteed edge. Research signals are not predictions. Demo is the default account. A connected real account remains disabled unless you deliberately enable its server setting and complete separate confirmations.</section>
@@ -19,11 +19,12 @@
         <label>Symbol <input id="symbol" value="R_100" maxlength="30" /></label>
         <label>Tick window <input id="window" type="number" min="50" max="1000" value="200" /></label>
         <label>Minimum confidence <input id="minimum" type="number" min="55" max="95" value="65" /><span>%</span></label>
-        <button id="start">Start live feed</button><button class="secondary" id="pricing">Refresh live pricing</button><button class="secondary" id="backtest">Backtest collected ticks</button><button class="secondary" id="stop">Stop</button>
+        <button id="start">Start live feed</button><button class="secondary" id="pricing">Refresh live pricing</button><button class="secondary" id="backtest" hidden>Backtest collected ticks</button><button class="secondary" id="stop">Stop</button>
       </section>
       <section class="entryDeck">
-        <article class="panel suggestedEntryPanel"><p>Suggested entry</p><strong id="signal">NO SIGNAL</strong><small id="signalNote">Collecting data</small><p id="entryExecutionStatus" class="entryExecutionStatus">NO DERIV ACCOUNT CONNECTED · Analysis only. No Demo order can be sent.</p></article>
+        <article class="panel suggestedEntryPanel"><p>Suggested entry</p><strong id="signal">NO SIGNAL</strong><small id="signalNote">Collecting data</small><p id="entryExecutionStatus" class="entryExecutionStatus">NO ORDER PLACED YET</p></article>
         <article class="panel entryAnalyzerPanel"><p>Entry strength analyzer</p><strong id="entryStrength">WAITING</strong><small id="entryStrengthNote">It will assess the selected entry after live data and pricing are available.</small></article>
+        <article class="panel cooldownPanel"><p>Momentum cooldown</p><strong id="cooldownMonitor">READY</strong><small id="cooldownMonitorNote">No completed Auto order yet.</small></article>
       </section>
       <section class="panel">
         <h2>Terminal-digit distribution</h2><p id="priceDigitCursor" class="priceDigitCursor">Live market price: waiting for price</p><div id="digits" class="digits"></div><p class="hint">The highlighted number is the final decimal digit of the live market price. It matches the live market feed. Percentages refresh less often so they are easier to read.</p>
@@ -46,52 +47,58 @@
         <div class="modeButtons"><button id="manualMode" class="modeButton active">Manual bot</button><button id="autoMode" class="modeButton secondary">Auto bot</button></div>
         <p id="botModeNote" class="hint">Manual mode: you decide whether to place each order.</p>
       </section>
+      <section id="accountPanel" class="panel">
+        <h2>Connected account</h2>
+        <p>Choose Demo or Real here. Demo is selected by default.</p>
+        <label>Account <select id="accountSelector" disabled><option>Connect your Deriv account first</option></select></label>
+        <p id="accountBalance" class="accountBalance">Account balance: connect your account to view it.</p>
+        <p id="accountHelp" class="hint">Select the account you want to use. Real-money ordering is disabled by default.</p>
+      </section>
       <section id="manualOrderPanel" class="panel">
         <h2>Manual order</h2>
-        <p>Choose the account you want connected. Demo is selected by default.</p>
-        <label>Connected account <select id="accountSelector" disabled><option>Connect your Deriv account first</option></select></label>
-        <p id="accountBalance" class="accountBalance">Demo balance: connect your account to view it.</p>
-        <p id="accountHelp" class="hint">Demo accounts are for practice. Real-money ordering is disabled by default.</p>
-        <label class="check"><input id="armDemo" type="checkbox" /> <span id="armText">I understand this places one order on my Deriv demo account</span></label>
+        <p>Your selected account is shown above. Choose OVER 1 or UNDER 8 for a fast manual order.</p>
         <label id="realConfirmWrap" class="check hidden"><input id="realConfirm" type="checkbox" /> I understand this would use real money</label>
-        <p id="demoOrderStatus" class="hint">Ordering is locked until you select an account and acknowledge it.</p>
+        <p id="demoOrderStatus" class="hint">Connect an account, enter a stake, then choose OVER 1 or UNDER 8.</p>
       </section>
       <section class="panel"><h2>Signal settings</h2>
           <p><b>OVER 1</b> loses on 0 or 1. <b>UNDER 8</b> loses on 8 or 9.</p>
           <p class="hint">The analyzer picks the side with the lower recent loss-digit rate. The displayed rate is descriptive of the sample, not a promise about the next tick.</p>
           <label>Contract timing <input id="duration" type="number" min="1" max="1" value="1" readonly /><span>1 tick — minimum settlement</span></label>
-          <label>Test stake (USD) <input id="stake" type="number" min="0.35" step="0.01" value="1" /></label>
-          <label>Maximum demo stake (USD) <input id="maxStake" type="number" min="0.35" step="0.01" value="500" /></label>
+          <label>Stake (USD) <input id="stake" type="number" min="0.35" step="0.01" value="1" /></label>
+          <label>Maximum stake (USD) <input id="maxStake" type="number" min="0.35" step="0.01" value="500" /></label>
           <label>Daily loss limit (USD) <input id="dailyLoss" type="number" min="0.35" step="0.01" value="500" /></label>
-          <label>Profit target for this run (USD) <input id="dailyProfitTarget" type="number" min="0" step="0.01" value="0" /><span>0 = off</span></label>
           <label>Maximum trades per day <input id="maxTrades" type="number" min="1" step="1" value="100" /></label>
-          <label>Maximum consecutive losses <input id="maxConsecutiveLosses" type="number" min="0" step="1" value="0" /><span>0 = off</span></label>
-          <label>Maximum trades per setup <input id="maxTradesPerSetup" type="number" min="1" step="1" value="1" /></label>
           <label>Signal cooldown <input id="cooldown" type="number" min="1" max="100" value="10" /><span>ticks</span></label>
-          <label class="check"><input id="paper" type="checkbox" checked /> Evaluate qualifying test signals after Demo account connection</label>
-          <p class="automation"><b>Automation:</b> disarmed by default. When this run reaches its profit target, the normal dashboard flow pauses. Use <b>Start a new profit-target run</b> to set a new target and continue; it does not erase the daily-loss figures. The maximum stake, daily loss, and daily trade limit are server-side ceilings. Real-money orders remain disabled unless deliberately enabled on the server.</p>
+          <input id="dailyProfitTarget" type="hidden" value="0" /><input id="maxConsecutiveLosses" type="hidden" value="0" /><input id="maxTradesPerSetup" type="hidden" value="0" />
+          <p class="automation"><b>Manual execution:</b> the selected account receives an order immediately after you choose OVER 1 or UNDER 8 and approve the final order confirmation. The maximum stake, daily loss, and daily trade limit remain server-side safety ceilings. Real-money orders remain disabled unless deliberately enabled on the server.</p>
       </section>
-      <section class="grid metrics report">
+      <section class="grid metrics report hidden">
         <article class="panel"><p>OVER 1 live price</p><strong id="overPrice">—</strong><small id="overBreakEven">Connect live feed to request a quote</small></article>
         <article class="panel"><p>UNDER 8 live price</p><strong id="underPrice">—</strong><small id="underBreakEven">Connect live feed to request a quote</small></article>
         <article class="panel"><p>Pricing gate</p><strong id="pricingGate">WAIT</strong><small id="pricingNote">No quotes yet</small></article>
-        <article class="panel"><p>Execution mode</p><strong id="executionMode">CONNECT DEMO</strong><small id="executionNote">Sign in to your Deriv demo account to unlock manual demo orders</small></article>
+        <article class="panel"><p>Execution mode</p><strong id="executionMode">CONNECT ACCOUNT</strong><small id="executionNote">Sign in to your Deriv account to unlock manual orders</small></article>
       </section>
-      <section class="grid metrics report">
+      <section class="grid metrics report hidden">
         <article class="panel"><p>Signals evaluated</p><strong id="evaluated">0</strong><small>After the chosen tick duration</small></article>
         <article class="panel"><p>Test win rate</p><strong id="winRate">—</strong><small id="outcomes">No settled signals</small></article>
         <article class="panel"><p>Pending signals</p><strong id="pending">0</strong><small>Waiting for later tick data</small></article>
         <article class="panel"><p>Test rule</p><strong id="rule">OVER 1 / UNDER 8</strong><small>Two fixed loss-digit pairs</small></article>
       </section>
-      <section class="panel"><h2>Research-test log — not Demo contracts</h2><p class="hint">This log checks sample signals only. It does not show money orders. Real Demo-order entry and settlement digits appear in Suggested entry above.</p><div id="log" class="log"><p class="empty">No signals yet.</p></div></section>
+      <section class="panel hidden"><h2>Research-test log — not Demo contracts</h2><p class="hint">This log checks sample signals only. It does not show money orders. Real Demo-order entry and settlement digits appear in Suggested entry above.</p><div id="log" class="log"><p class="empty">No signals yet.</p></div></section>
       <section class="grid metrics movedMetrics">
         <article class="panel"><p>Latest market price</p><strong id="price">—</strong><small id="tickTime">Waiting for data</small></article>
         <article class="panel"><p>Ticks sampled</p><strong id="sample">0</strong><small id="sampleNote">Need at least 50</small></article>
-        <article class="panel"><p>Demo risk limits</p><strong id="riskSummary">$500 / $500 / 100</strong><small>Stake · daily loss · trades/day</small></article>
+        <article class="panel"><p>Account risk limits</p><strong id="riskSummary">$500 / $500 / 100</strong><small>Stake · daily loss · trades/day</small></article>
       </section>
-      <section class="panel">
-        <h2>Global risk &amp; performance — paper-test results</h2>
-        <p class="hint">These figures are calculated from settled test signals in this browser session. They are not your Deriv account balance or confirmed demo-contract profit.</p>
+      <section class="panel orderPerformancePanel">
+        <h2>Global risk &amp; performance</h2>
+        <p class="hint">The latest accepted account order is shown here. The entry digit and settlement digit are the exact digits returned for that order.</p>
+        <div class="grid metrics performance actualOrderMetrics">
+          <article><p>Entry number</p><strong id="actualEntryTick">—</strong><small id="actualEntryDigit">Entry digit: —</small></article>
+          <article><p>Settlement number</p><strong id="actualExitTick">—</strong><small id="actualExitDigit">Settlement digit: —</small></article>
+          <article><p>Order result</p><strong id="actualOrderOutcome">NO ORDER</strong><small id="actualOrderSide">Waiting for an accepted order</small></article>
+        </div>
+        <div class="hidden">
         <div class="grid metrics performance">
           <article><p>Gross profit</p><strong id="grossProfit">$0.00</strong></article><article><p>Gross loss</p><strong id="grossLoss">$0.00</strong></article><article><p>Net profit</p><strong id="netProfit">$0.00</strong></article><article><p>Recovery needed</p><strong id="recoveryNeeded">$0.00</strong></article>
           <article><p>Daily profit</p><strong id="dailyProfit">$0.00</strong></article><article><p>Daily loss</p><strong id="dailyLossValue">$0.00</strong></article><article><p>Current-run target</p><strong id="dailyTargetValue">OFF</strong></article><article><p>Drawdown</p><strong id="drawdown">$0.00</strong></article>
@@ -99,6 +106,8 @@
         </div>
         <p id="riskGuard" class="hint">Research guard is ready.</p><div class="performanceActions"><button id="resetTargetCycle" class="secondary">Start a new profit-target run</button><button id="deleteToday" class="secondary danger">Delete today’s dashboard results</button></div>
         <p class="hint">Deleting clears this dashboard’s paper-test figures, pending test signals, and log only. It cannot delete Deriv account history or completed demo contracts.</p>
+        </div>
+        </div>
       </section>
     </main>
     <script type="module" src="/app.js"></script>

@@ -7,6 +7,8 @@ let targetRunBaseline = 0;
 let demoConnected = false;
 let availableAccounts = [], realTradingEnabled = false;
 let botMode = 'manual', autoEnabled = false, autoInFlight = false;
+let lastAutoSignalTick = -Infinity, lastAutoSide = null, autoMomentumOrders = 0;
+const autoCooldownTicks = 5;
 let executionPreparing = false;
 const scannerSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
 let lastMarketScan = [], marketScanBusy = false, scannerTimer, scannerRecommendedSymbol = null;
@@ -15,7 +17,7 @@ const money = (value) => Number(value || 0).toLocaleString('en-US', { style:'cur
 const updateRiskSummary = () => {
   $('riskSummary').textContent = `${money($('maxStake').value)} / ${money($('dailyLoss').value)} / ${Number($('maxTrades').value || 0)}`;
   const stake = Number($('stake').value || 0), max = Number($('maxStake').value || 0);
-  $('stake').setCustomValidity(stake > max ? 'Test stake cannot exceed the maximum demo stake.' : '');
+  $('stake').setCustomValidity(stake > max ? 'Stake cannot exceed the maximum stake.' : '');
   if (typeof updatePerformance === 'function') updatePerformance();
   if (typeof updateDemoArmState === 'function') updateDemoArmState();
   if (typeof updateAutoState === 'function') updateAutoState();
@@ -27,8 +29,8 @@ const counts = (history) => Array.from({length:10}, (_, digit) => history.filter
 const selectedAccount = () => availableAccounts.find((account) => account.accountId === $('accountSelector').value);
 const showSelectedBalance = () => {
   const account = selectedAccount();
-  if (!account) { $('accountBalance').textContent = 'Demo balance: connect your account to view it.'; return; }
-  const label = account.accountType === 'demo' ? 'Demo balance' : 'Real balance';
+  if (!account) { $('accountBalance').textContent = 'Account balance: connect your account to view it.'; return; }
+  const label = 'Account balance';
   const numericBalance = Number(account.balance);
   const balance = Number.isFinite(numericBalance) ? numericBalance.toLocaleString('en-US', { style:'currency', currency:account.currency || 'USD' }) : 'Unavailable from Deriv';
   $('accountBalance').textContent = `${label}: ${balance}`;
@@ -43,8 +45,34 @@ const showContractResult = (type, result, source) => {
   const label = type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
   const won = result.status === 'won' || Number(result.profit) > 0;
   const outcome = won ? 'WON' : 'LOST';
-  $('entryExecutionStatus').textContent = `DEMO ${outcome} · ${label} · ${source} · executed on ${result.entryTick} (digit ${tickDigit(result.entryTick)}) · settled on ${result.exitTick} (digit ${tickDigit(result.exitTick)}) · contract ${result.contractId}`;
+  $('entryExecutionStatus').textContent = `ORDER PLACED · ${outcome} · ${label} · ${source} · executed on ${result.entryTick} (digit ${tickDigit(result.entryTick)}) · settled on ${result.exitTick} (digit ${tickDigit(result.exitTick)}) · contract ${result.contractId}`;
   $('entryExecutionStatus').className = `entryExecutionStatus ${won ? 'positive' : 'negative'}`;
+  $('actualEntryTick').textContent = result.entryTick ?? '—';
+  $('actualEntryDigit').textContent = `Entry digit: ${tickDigit(result.entryTick)}`;
+  $('actualExitTick').textContent = result.exitTick ?? '—';
+  $('actualExitDigit').textContent = `Settlement digit: ${tickDigit(result.exitTick)}`;
+  $('actualOrderOutcome').textContent = outcome;
+  $('actualOrderOutcome').className = won ? 'positive' : 'negative';
+  $('actualOrderSide').textContent = `${label} · ${source}`;
+};
+const updateCooldownMonitor = () => {
+  const monitor = $('cooldownMonitor'), note = $('cooldownMonitorNote');
+  if (!Number.isFinite(lastAutoSignalTick)) {
+    monitor.textContent = 'READY'; monitor.className = '';
+    note.textContent = 'No completed Auto order yet.';
+    return;
+  }
+  const elapsed = Math.max(0, ticks.length - lastAutoSignalTick);
+  if (autoMomentumOrders === 1 && elapsed >= 1 && elapsed <= 2) {
+    monitor.textContent = 'FOLLOW-UP OPEN'; monitor.className = 'positive';
+    note.textContent = 'One same-side LIVE SUPPORT follow-up may be sent.';
+  } else if (elapsed < autoCooldownTicks) {
+    monitor.textContent = `COOLDOWN · ${elapsed}/${autoCooldownTicks}`; monitor.className = 'regime-consolidation';
+    note.textContent = `${autoCooldownTicks - elapsed} tick${autoCooldownTicks - elapsed === 1 ? '' : 's'} until a new momentum scan.`;
+  } else {
+    monitor.textContent = 'READY'; monitor.className = 'positive';
+    note.textContent = 'Cooldown complete. Waiting for Suggested Entry and LIVE SUPPORT.';
+  }
 };
 const updateReport = () => {
   const wins = settled.filter(x => x.won).length;
@@ -87,10 +115,7 @@ updatePerformance = () => {
   if (typeof updateDemoArmState === 'function') updateDemoArmState();
   if (typeof updateAutoState === 'function') updateAutoState();
 };
-const researchGuardPaused = () => {
-  const target = Number($('dailyProfitTarget').value || 0), lossLimit = Number($('dailyLoss').value || 0), maxLosses = Number($('maxConsecutiveLosses').value || 0);
-  return (lossLimit > 0 && performanceStats.grossLoss >= lossLimit) || (maxLosses > 0 && performanceStats.consecutiveLosses >= maxLosses) || (target > 0 && performanceStats.targetProgress >= target);
-};
+const researchGuardPaused = () => false;
 const updateEntryStrength = () => {
   const signal = calculateSignal(ticks);
   const minimum = Number($('minimum').value || 65);
@@ -112,6 +137,7 @@ const updateEntryStrength = () => {
   $('entryStrength').className = label === 'STRONG' || label === 'LIVE SUPPORT' ? 'positive' : label === 'CAUTION' ? 'regime-consolidation' : 'negative';
   const liveNote = `Live run: ${liveWins}/${liveWindow.length} recent digits match ${signal.label}.`;
   $('entryStrengthNote').textContent = `${signal.label}: ${displayedRate}% sample win rate · sample edge ${edge >= 0 ? '+' : '−'}${money(Math.abs(edge))} per quoted contract. ${label === 'LIVE SUPPORT' ? `${liveNote} The immediate price action is supporting this side right now.` : label === 'LIVE RUN — PRICE BLOCK' ? `${liveNote} The digits are currently favorable, but the live price edge is not.` : label === 'STRONG' ? 'The broader filter supports this entry.' : label === 'CAUTION' ? `${liveNote} The broader edge is limited, so waiting may be safer.` : 'The current price edge does not support this entry.'} This is an advisory, not a guarantee.`;
+  if (label === 'LIVE SUPPORT' && botMode === 'auto' && autoEnabled) maybeAutoOrder(signal);
 };
 const updatePricing = () => {
   const render = (quote, priceId, breakEvenId) => {
@@ -156,6 +182,7 @@ const calculateSignal = (history) => {
 };
 const update = () => {
   const windowSize = Number($('window').value) || 200; ticks = ticks.slice(-windowSize); distributionDigits = distributionDigits.slice(-windowSize);
+  updateCooldownMonitor();
   const c = counts(distributionDigits), n = ticks.length, displayed = distributionDigits.length, latest = ticks.at(-1);
   $('sample').textContent = n; $('sampleNote').textContent = n < 50 ? `Need ${50-n} more ticks` : `Rolling last ${n} ticks`;
   if(latest){ $('price').textContent = latest.price; $('tickTime').textContent = new Date(latest.time * 1000).toLocaleTimeString(); }
@@ -172,17 +199,6 @@ const showSignal = (signal, candidate, confidence) => {
   if(!signal){ $('signal').textContent = 'NO SIGNAL'; $('signal').className=''; $('signalNote').textContent = candidate ? `${candidate.type} score ${confidence}% is below your threshold` : 'Collecting data'; $('executeOver').classList.remove('suggested'); $('executeUnder').classList.remove('suggested'); return; }
   $('signal').textContent = signal.label; $('signal').className = 'positive'; $('signalNote').textContent = `Analysis score ${signal.confidence}% · OVER 1 sample rate ${(signal.options.over1.observed*100).toFixed(1)}% · UNDER 8 sample rate ${(signal.options.under8.observed*100).toFixed(1)}%`;
   $('executeOver').classList.toggle('suggested', signal.type === 'OVER'); $('executeUnder').classList.toggle('suggested', signal.type === 'UNDER');
-  const cooldown = Number($('cooldown').value) || 10;
-  if($('paper').checked && demoConnected && !researchGuardPaused() && ticks.length - lastSignalIndex >= cooldown){
-    lastSignalIndex = ticks.length;
-    const duration = Number($('duration').value) || 1;
-    const quote = signal.type === 'OVER' ? quotes.over : quotes.under;
-    pending.push({type: signal.type, barrier: signal.barrier, label: signal.label, confidence: signal.confidence, openedAt: ticks.length - 1, settleAt: ticks.length - 1 + duration, paperCost:Number(quote?.ask), paperPayout:Number(quote?.payout)});
-    manualOrdersInSetup = 0;
-    logger(`<span><b class="${signal.type==='OVER'?'positive':'negative'}">${signal.label}</b> · ${signal.confidence}% analysis score</span><span>Research test only · evaluate in ${duration} tick${duration === 1 ? '' : 's'}</span>`);
-    updateReport();
-    if (botMode === 'auto' && autoEnabled) maybeAutoOrder(signal);
-  }
 };
 const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
   const numeric = Number(price);
@@ -193,7 +209,7 @@ const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
     ticks.push(tick);
     if (!distributionDigits.length) distributionDigits = [tick];
     if (!distributionTimer) distributionTimer = setTimeout(() => { distributionDigits = ticks.slice(); distributionTimer = undefined; update(); }, 5000);
-    settleSignals(); update();
+    settleSignals(); update(); updateCooldownMonitor();
   }
 };
 const refreshPricing = () => {
@@ -306,8 +322,8 @@ const loadAccounts = async () => {
     if (demo) selector.value = demo.accountId;
     selector.disabled = availableAccounts.length === 0;
     showSelectedBalance();
-    if (availableAccounts.length) { $('entryExecutionStatus').textContent = 'Demo account connected. No Demo order has been placed in this browser session.'; $('entryExecutionStatus').className = 'entryExecutionStatus'; }
-    $('accountHelp').textContent = availableAccounts.length ? 'Demo is selected by default. Real accounts are connected for later but remain disabled unless you explicitly enable real trading on the server.' : 'No active Options account was returned by Deriv.';
+    if (availableAccounts.length) { $('entryExecutionStatus').textContent = 'NO ORDER PLACED YET'; $('entryExecutionStatus').className = 'entryExecutionStatus'; }
+    $('accountHelp').textContent = availableAccounts.length ? 'Select the account you want to use. Real-money ordering is disabled unless you explicitly enable it on the server.' : 'No active Options account was returned by Deriv.';
   } catch (error) { $('accountHelp').textContent = `Account connection unavailable: ${error.message}`; }
   updateDemoArmState(); prepareFastExecution();
 };
@@ -329,66 +345,65 @@ const loadAuthStatus = async () => {
     const button = $('connect');
     if (status.connected) { demoConnected = true; button.textContent = 'Deriv account connected'; button.disabled = true; loadAccounts(); return; }
     demoConnected = false; autoEnabled = false;
-    $('entryExecutionStatus').textContent = 'NO DERIV ACCOUNT CONNECTED · Analysis only. No Demo order can be sent.';
+    $('entryExecutionStatus').textContent = 'NO ORDER PLACED YET · Connect an account to execute.';
     $('entryExecutionStatus').className = 'entryExecutionStatus negative';
     updateAutoState(); updateDemoArmState();
-    if (!status.configured) { button.textContent = 'Configure demo sign-in'; button.title = 'Set DERIV_CLIENT_ID and an HTTPS DERIV_REDIRECT_URI on the server first.'; return; }
-    button.textContent = 'Connect demo account';
-  } catch { $('connect').textContent = 'Demo sign-in unavailable'; }
+    if (!status.configured) { button.textContent = 'Configure account sign-in'; button.title = 'Set DERIV_CLIENT_ID and an HTTPS DERIV_REDIRECT_URI on the server first.'; return; }
+    button.textContent = 'Connect account';
+  } catch { $('connect').textContent = 'Account sign-in unavailable'; }
 };
 $('connect').onclick=()=>{ window.location.assign('/api/auth/start'); };
 $('start').onclick=startLive; $('pricing').onclick=refreshPricing; $('backtest').onclick=backtest; $('stop').onclick=()=>{isRunning=false;clearTimeout(distributionTimer);distributionTimer=undefined;if(socket)socket.close();$('connection').textContent='STOPPED';$('connection').className='pill muted';};
 ['window','minimum','duration','cooldown'].forEach(id=>$(id).addEventListener('change',()=>{ update(); updateReport(); })); updateReport(); update();
 updateDemoArmState = () => {
   const stake = Number($('stake').value || 0), maximum = Number($('maxStake').value || 0);
-  const setupLimit = Number($('maxTradesPerSetup').value || 1);
-  const setupReached = manualOrdersInSetup >= setupLimit;
-  const paused = researchGuardPaused();
   const account = selectedAccount(), realSelected = account?.accountType === 'real';
   const realConfirmed = $('realConfirm').checked;
   $('realConfirmWrap').classList.toggle('hidden', !realSelected);
-  $('armText').textContent = realSelected ? 'I understand this places one order on my selected real account' : 'I understand this places one order on my selected demo account';
-  const accountReady = Boolean(account) && (!realSelected || (realTradingEnabled && realConfirmed));
-  const armed = $('armDemo').checked && stake > 0 && stake <= maximum && !setupReached && !paused && accountReady;
-  if (!demoConnected) { $('executionMode').textContent = 'CONNECT DEMO'; $('executionMode').className = ''; $('executionNote').textContent = 'Sign in to your Deriv demo account to unlock manual demo orders.'; }
+  const accountReady = demoConnected && Boolean(account) && stake > 0 && stake <= maximum && (!realSelected || (realTradingEnabled && realConfirmed));
+  if (!demoConnected) { $('executionMode').textContent = 'CONNECT ACCOUNT'; $('executionMode').className = ''; $('executionNote').textContent = 'Sign in to your Deriv account to unlock manual orders.'; }
   else if (!account) { $('executionMode').textContent = 'ACCOUNT LOADING'; $('executionMode').className = ''; $('executionNote').textContent = 'Retrieving your available Deriv accounts.'; }
   else if (realSelected && !realTradingEnabled) { $('executionMode').textContent = 'REAL CONNECTED'; $('executionMode').className = ''; $('executionNote').textContent = 'Your real account is visible, but real-money orders are disabled by the server setting.'; }
   else if (realSelected && !realConfirmed) { $('executionMode').textContent = 'REAL CONFIRM'; $('executionMode').className = 'negative'; $('executionNote').textContent = 'A separate real-money confirmation is required.'; }
-  else if (paused) { $('executionMode').textContent = 'PAUSED'; $('executionMode').className = 'negative'; $('executionNote').textContent = 'The current risk or profit-target guard has paused manual demo ordering.'; }
-  else if (armed) { $('executionMode').textContent = 'ARMED'; $('executionMode').className = 'positive'; $('executionNote').textContent = `One manual ${realSelected ? 'real' : 'demo'} order is ready for your final confirmation.`; }
-  else { $('executionMode').textContent = realSelected ? 'MANUAL REAL' : 'MANUAL DEMO'; $('executionMode').className = 'positive'; $('executionNote').textContent = `${realSelected ? 'Real-money' : 'Demo-only'} manual order. Tick the acknowledgement box to arm one order.`; }
-  const manualReady = armed && botMode === 'manual';
+  else if (accountReady) { $('executionMode').textContent = 'MANUAL READY'; $('executionMode').className = 'positive'; $('executionNote').textContent = 'Ready: press OVER 1 or UNDER 8 to send one order.'; }
+  else { $('executionMode').textContent = 'ENTER STAKE'; $('executionMode').className = ''; $('executionNote').textContent = `Enter a stake up to ${money(maximum)} to enable manual execution.`; }
+  const manualReady = accountReady && botMode === 'manual';
   $('executeOver').disabled = !manualReady; $('executeUnder').disabled = !manualReady;
-  $('demoOrderStatus').textContent = paused ? 'Ordering is paused by the research guard. Review the target or risk status above.' : (realSelected && !realTradingEnabled ? 'Real account is connected for later. Real-money ordering is currently disabled.' : (setupReached ? `Setup limit reached (${setupLimit} order${setupLimit === 1 ? '' : 's'}). Wait for the next qualifying setup.` : (armed ? `Armed for one ${realSelected ? 'real' : 'demo'} order of ${money(stake)}. A final confirmation will appear.` : 'Ordering is locked. Select an account and tick the acknowledgement box to unlock one manual order.')));
+  $('demoOrderStatus').textContent = !demoConnected ? 'Connect your Deriv account first.' : (realSelected && !realTradingEnabled ? 'Real account is connected for later. Real-money ordering is currently disabled.' : (accountReady ? `Ready for one order of ${money(stake)}. A final confirmation will appear after you choose a side.` : 'Select an account and enter a valid stake.'));
 };
 const executeOrder = async (type) => {
   const stake = Number($('stake').value || 0), account = selectedAccount();
-  if (!$('armDemo').checked || !account || !Number.isFinite(stake) || stake <= 0) return updateDemoArmState();
+  if (!demoConnected || !account || !Number.isFinite(stake) || stake <= 0) return updateDemoArmState();
   const title = type === 'DIGITOVER' ? 'OVER 1' : 'UNDER 8';
-  const kind = account.accountType === 'real' ? 'REAL-MONEY' : 'DEMO';
+  const kind = 'ACCOUNT';
   if (!window.confirm(`Place one ${title} ${kind} order for ${money(stake)}?`)) return;
-  const button = type === 'DIGITOVER' ? $('executeOver') : $('executeUnder'); button.disabled = true; $('demoOrderStatus').textContent = `Sending one ${kind.toLowerCase()} order…`;
+  const button = type === 'DIGITOVER' ? $('executeOver') : $('executeUnder'); button.disabled = true; $('demoOrderStatus').textContent = 'ORDER REQUEST SENT · Waiting for Deriv to accept it…';
   try {
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked }) });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'The demo order was not accepted.');
+    if (!response.ok) throw new Error(result.error || 'The order was not accepted.');
     const outcome = result.status === 'won' || Number(result.profit) > 0 ? 'won' : 'lost';
-    $('demoOrderStatus').textContent = `${kind} order ${outcome}. Entered on digit ${tickDigit(result.entryTick)} and settled on digit ${tickDigit(result.exitTick)}. Contract ${result.contractId}. ${result.remainingTrades} trades and ${money(result.remainingRisk)} of today’s ceiling remain.`;
+    $('demoOrderStatus').textContent = `ORDER PLACED · ${outcome}. Entered on digit ${tickDigit(result.entryTick)} and settled on digit ${tickDigit(result.exitTick)}. Contract ${result.contractId}.`;
     showContractResult(type, result, 'Manual bot');
-    manualOrdersInSetup++;
-    $('armDemo').checked = false;
   } catch (error) { $('demoOrderStatus').textContent = `No order placed: ${error.message}`; button.disabled = false; }
 };
 const maybeAutoOrder = async (signal) => {
-  const account = selectedAccount(), stake = Number($('stake').value || 0), setupLimit = Number($('maxTradesPerSetup').value || 1);
-  if (botMode !== 'auto' || !autoEnabled || autoInFlight || !demoConnected || account?.accountType !== 'demo' || researchGuardPaused() || manualOrdersInSetup >= setupLimit) return;
-  autoInFlight = true; $('autoStatus').textContent = `Qualifying ${signal.label} signal found. Placing one demo order…`;
+  const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = ticks.length;
+  if (botMode !== 'auto' || !autoEnabled || autoInFlight || !demoConnected || account?.accountType !== 'demo') return;
+  const ticksSinceLast = currentTick - lastAutoSignalTick;
+  const sameMomentum = lastAutoSide === signal.type && autoMomentumOrders === 1 && ticksSinceLast >= 1 && ticksSinceLast <= 2;
+  const freshMomentum = ticksSinceLast >= autoCooldownTicks;
+  if (!sameMomentum && !freshMomentum) return;
+  autoInFlight = true; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
   try {
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Auto order was not accepted.');
-    manualOrdersInSetup++; const outcome = result.status === 'won' || Number(result.profit) > 0 ? 'won' : 'lost'; $('autoStatus').textContent = `Auto Demo order ${outcome}. Entered on digit ${tickDigit(result.entryTick)} and settled on digit ${tickDigit(result.exitTick)}. ${result.remainingTrades} daily trades remain.`;
+    if (sameMomentum) autoMomentumOrders = 2; else autoMomentumOrders = 1;
+    lastAutoSignalTick = currentTick; lastAutoSide = signal.type;
+    const outcome = result.status === 'won' || Number(result.profit) > 0 ? 'won' : 'lost'; $('autoStatus').textContent = `ORDER PLACED · ${outcome}. Entered on digit ${tickDigit(result.entryTick)} and settled on digit ${tickDigit(result.exitTick)}. Next new momentum scan begins after ${autoCooldownTicks} ticks.`;
     showContractResult(signal.type, result, 'Auto bot');
+    updateCooldownMonitor();
   } catch (error) { autoEnabled = false; $('autoStatus').textContent = `Auto bot stopped: ${error.message}`; }
   finally { autoInFlight = false; updateAutoState(); }
 };
@@ -398,7 +413,7 @@ const setBotMode = (mode) => {
   $('manualOrderPanel').classList.toggle('hidden', auto);
   $('manualMode').classList.toggle('active', !auto); $('manualMode').classList.toggle('secondary', auto);
   $('autoMode').classList.toggle('active', auto); $('autoMode').classList.toggle('secondary', !auto);
-  $('botModeNote').textContent = auto ? 'Auto mode: the bot acts only on qualifying signals in the selected Demo account. Real accounts are blocked.' : 'Manual mode: you decide whether to place each order.';
+  $('botModeNote').textContent = auto ? 'Auto mode: it waits for Suggested Entry and LIVE SUPPORT to match before sending an order.' : 'Manual mode: you decide whether to place each order.';
   if (!auto) { autoEnabled = false; $('autoStatus').textContent = 'Manual execution: choose the button that matches Suggested entry.'; }
   updateAutoState(); updateDemoArmState(); syncScannerTimer();
 };
@@ -406,12 +421,12 @@ updateAutoState = () => {
   const account = selectedAccount();
   if (botMode !== 'auto') return;
   if (!demoConnected) $('autoStatus').textContent = 'Connect your Deriv account first.';
-  else if (account?.accountType !== 'demo') $('autoStatus').textContent = 'Auto mode is available only with your Demo account.';
+  else if (account?.accountType !== 'demo') $('autoStatus').textContent = 'Auto mode is available only with the selected practice account.';
   else if (researchGuardPaused()) $('autoStatus').textContent = 'Auto bot is paused by the research guard.';
-  else if (autoEnabled) $('autoStatus').textContent = 'Auto bot is active for qualifying Demo signals.';
+  else if (autoEnabled) $('autoStatus').textContent = `Auto bot waits for Suggested Entry and LIVE SUPPORT to match. It can take one follow-up order, then waits ${autoCooldownTicks} ticks.`;
   else $('autoStatus').textContent = 'Auto bot is not active.';
 };
-$('armDemo').addEventListener('change', updateDemoArmState); $('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch only when a market passes the trend-strength filter.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
+$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch only when a market passes the trend-strength filter.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
 $('manualMode').onclick = () => setBotMode('manual'); $('autoMode').onclick = () => { const account = selectedAccount(); if (account?.accountType !== 'demo') { setBotMode('auto'); return; } if (window.confirm('Activate the auto bot for qualifying Demo signals?')) { autoEnabled = true; $('autoSwitchMarket').checked = true; } setBotMode('auto'); if (autoEnabled) scanMarkets(); };
 $('resetTargetCycle').onclick = () => { targetRunBaseline = performanceStats.net; updatePerformance(); updateDemoArmState(); };
 $('deleteToday').onclick = () => {

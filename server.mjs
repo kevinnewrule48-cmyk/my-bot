@@ -154,7 +154,7 @@ const server = http.createServer(async (req, res) => {
     if (!session) return json(res, 401, { error:'Connect your Deriv demo account first.' });
     try {
       const { armed, type, symbol, stake, accountId, accountType, realConfirmed } = await readJson(req);
-      const amount = Number(stake), maxStake = 500;
+      const amount = Number(stake), maxStake = 5000;
       if (armed !== true) return json(res, 403, { error:'Demo trading is not armed.' });
       if (!['DIGITOVER', 'DIGITUNDER'].includes(type) || !/^[A-Za-z0-9_]{2,30}$/.test(symbol ?? '') || !['demo','real'].includes(accountType)) return json(res, 400, { error:'Invalid account or contract request.' });
       if (!Number.isFinite(amount) || amount <= 0 || amount > maxStake) return json(res, 400, { error:`Stake must be between $0.01 and $${maxStake}.` });

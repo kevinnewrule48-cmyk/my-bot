@@ -387,8 +387,7 @@ const executeOrder = async (type) => {
   const stake = Number($('stake').value || 0), account = selectedAccount();
   if (!demoConnected || !account || !Number.isFinite(stake) || stake <= 0) return updateDemoArmState();
   const title = type === 'DIGITOVER' ? 'OVER 1' : 'UNDER 8';
-  const kind = 'ACCOUNT';
-  if (!window.confirm(`Place one ${title} ${kind} order for ${money(stake)}?`)) return;
+  if (account.accountType === 'real' && !window.confirm(`Place one ${title} real-money order for ${money(stake)}?`)) return;
   const button = type === 'DIGITOVER' ? $('executeOver') : $('executeUnder'); button.disabled = true; $('demoOrderStatus').textContent = 'ORDER REQUEST SENT · Waiting for Deriv to accept it…';
   try {
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked }) });

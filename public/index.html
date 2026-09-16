@@ -22,7 +22,7 @@
         <button id="start">Start live feed</button><button class="secondary" id="pricing">Refresh live pricing</button><button class="secondary" id="backtest">Backtest collected ticks</button><button class="secondary" id="stop">Stop</button>
       </section>
       <section class="entryDeck">
-        <article class="panel suggestedEntryPanel"><p>Suggested entry</p><strong id="signal">NO SIGNAL</strong><small id="signalNote">Collecting data</small><p id="entryExecutionStatus" class="entryExecutionStatus">No Demo order has been placed in this browser session.</p></article>
+        <article class="panel suggestedEntryPanel"><p>Suggested entry</p><strong id="signal">NO SIGNAL</strong><small id="signalNote">Collecting data</small><p id="entryExecutionStatus" class="entryExecutionStatus">NO DERIV ACCOUNT CONNECTED · Analysis only. No Demo order can be sent.</p></article>
         <article class="panel entryAnalyzerPanel"><p>Entry strength analyzer</p><strong id="entryStrength">WAITING</strong><small id="entryStrengthNote">It will assess the selected entry after live data and pricing are available.</small></article>
       </section>
       <section class="panel">
@@ -68,7 +68,7 @@
           <label>Maximum consecutive losses <input id="maxConsecutiveLosses" type="number" min="0" step="1" value="0" /><span>0 = off</span></label>
           <label>Maximum trades per setup <input id="maxTradesPerSetup" type="number" min="1" step="1" value="1" /></label>
           <label>Signal cooldown <input id="cooldown" type="number" min="1" max="100" value="10" /><span>ticks</span></label>
-          <label class="check"><input id="paper" type="checkbox" checked /> Evaluate qualifying test signals</label>
+          <label class="check"><input id="paper" type="checkbox" checked /> Evaluate qualifying test signals after Demo account connection</label>
           <p class="automation"><b>Automation:</b> disarmed by default. When this run reaches its profit target, the normal dashboard flow pauses. Use <b>Start a new profit-target run</b> to set a new target and continue; it does not erase the daily-loss figures. The maximum stake, daily loss, and daily trade limit are server-side ceilings. Real-money orders remain disabled unless deliberately enabled on the server.</p>
       </section>
       <section class="grid metrics report">
@@ -95,7 +95,7 @@
         <div class="grid metrics performance">
           <article><p>Gross profit</p><strong id="grossProfit">$0.00</strong></article><article><p>Gross loss</p><strong id="grossLoss">$0.00</strong></article><article><p>Net profit</p><strong id="netProfit">$0.00</strong></article><article><p>Recovery needed</p><strong id="recoveryNeeded">$0.00</strong></article>
           <article><p>Daily profit</p><strong id="dailyProfit">$0.00</strong></article><article><p>Daily loss</p><strong id="dailyLossValue">$0.00</strong></article><article><p>Current-run target</p><strong id="dailyTargetValue">OFF</strong></article><article><p>Drawdown</p><strong id="drawdown">$0.00</strong></article>
-          <article><p>Total trades</p><strong id="totalTrades">0</strong></article><article><p>Winning trades</p><strong id="winningTrades">0</strong></article><article><p>Consecutive wins</p><strong id="consecutiveWins">0</strong></article><article><p>Consecutive losses</p><strong id="consecutiveLosses">0</strong></article>
+          <article><p>Total test signals</p><strong id="totalTrades">0</strong></article><article><p>Winning test signals</p><strong id="winningTrades">0</strong></article><article><p>Consecutive test wins</p><strong id="consecutiveWins">0</strong></article><article><p>Consecutive test losses</p><strong id="consecutiveLosses">0</strong></article>
         </div>
         <p id="riskGuard" class="hint">Research guard is ready.</p><div class="performanceActions"><button id="resetTargetCycle" class="secondary">Start a new profit-target run</button><button id="deleteToday" class="secondary danger">Delete today’s dashboard results</button></div>
         <p class="hint">Deleting clears this dashboard’s paper-test figures, pending test signals, and log only. It cannot delete Deriv account history or completed demo contracts.</p>

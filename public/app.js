@@ -173,7 +173,7 @@ const showSignal = (signal, candidate, confidence) => {
   $('signal').textContent = signal.label; $('signal').className = 'positive'; $('signalNote').textContent = `Analysis score ${signal.confidence}% · OVER 1 sample rate ${(signal.options.over1.observed*100).toFixed(1)}% · UNDER 8 sample rate ${(signal.options.under8.observed*100).toFixed(1)}%`;
   $('executeOver').classList.toggle('suggested', signal.type === 'OVER'); $('executeUnder').classList.toggle('suggested', signal.type === 'UNDER');
   const cooldown = Number($('cooldown').value) || 10;
-  if($('paper').checked && !researchGuardPaused() && ticks.length - lastSignalIndex >= cooldown){
+  if($('paper').checked && demoConnected && !researchGuardPaused() && ticks.length - lastSignalIndex >= cooldown){
     lastSignalIndex = ticks.length;
     const duration = Number($('duration').value) || 1;
     const quote = signal.type === 'OVER' ? quotes.over : quotes.under;
@@ -306,6 +306,7 @@ const loadAccounts = async () => {
     if (demo) selector.value = demo.accountId;
     selector.disabled = availableAccounts.length === 0;
     showSelectedBalance();
+    if (availableAccounts.length) { $('entryExecutionStatus').textContent = 'Demo account connected. No Demo order has been placed in this browser session.'; $('entryExecutionStatus').className = 'entryExecutionStatus'; }
     $('accountHelp').textContent = availableAccounts.length ? 'Demo is selected by default. Real accounts are connected for later but remain disabled unless you explicitly enable real trading on the server.' : 'No active Options account was returned by Deriv.';
   } catch (error) { $('accountHelp').textContent = `Account connection unavailable: ${error.message}`; }
   updateDemoArmState(); prepareFastExecution();
@@ -327,6 +328,10 @@ const loadAuthStatus = async () => {
     const status = await fetch('/api/auth/status', { cache:'no-store' }).then(r => r.json());
     const button = $('connect');
     if (status.connected) { demoConnected = true; button.textContent = 'Deriv account connected'; button.disabled = true; loadAccounts(); return; }
+    demoConnected = false; autoEnabled = false;
+    $('entryExecutionStatus').textContent = 'NO DERIV ACCOUNT CONNECTED · Analysis only. No Demo order can be sent.';
+    $('entryExecutionStatus').className = 'entryExecutionStatus negative';
+    updateAutoState(); updateDemoArmState();
     if (!status.configured) { button.textContent = 'Configure demo sign-in'; button.title = 'Set DERIV_CLIENT_ID and an HTTPS DERIV_REDIRECT_URI on the server first.'; return; }
     button.textContent = 'Connect demo account';
   } catch { $('connect').textContent = 'Demo sign-in unavailable'; }

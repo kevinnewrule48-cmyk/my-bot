@@ -7,6 +7,7 @@ let targetRunBaseline = 0;
 let demoConnected = false;
 let availableAccounts = [], realTradingEnabled = false;
 let botMode = 'manual', autoEnabled = false, autoInFlight = false;
+let manualOrderPending = false;
 let lastAutoSignalTick = -Infinity;
 const storedOrders = () => { try { const value = JSON.parse(localStorage.getItem('derivAccountOrders') || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } };
 let accountOrderHistory = storedOrders();
@@ -116,6 +117,7 @@ const showContractResult = (type, result, source) => {
   clearTimeout(digitFlashTimer); digitFlash = { exitDigit:lastSettledOrder.exitDigit, won }; digitFlashTimer = setTimeout(() => { digitFlash = null; update(); }, 800);
   if (!accountOrderHistory.some((order) => order.contractId && order.contractId === lastSettledOrder.contractId)) accountOrderHistory.push(lastSettledOrder);
   saveAccountOrderHistory(); renderLastSettledOrder(lastSettledOrder); updateActualPerformance();
+  manualOrderPending = false;
   if (botMode === 'manual') updateDemoArmState();
   update();
   loadAccounts({ preserveSelection:true, refreshOnly:true });
@@ -421,6 +423,13 @@ const loadRecentOrder = async () => {
     const result = await response.json();
     if (!response.ok || !result.order) return;
     const order = result.order;
+    if (order.state === 'failed') {
+      if (recentOrderPoll) { clearInterval(recentOrderPoll); recentOrderPoll = undefined; }
+      manualOrderPending = false;
+      $('demoOrderStatus').textContent = `Previous order could not settle: ${order.error || 'Deriv did not return a result.'} You can place another manual order.`;
+      updateDemoArmState();
+      return;
+    }
     if (order.state === 'settled' || order.exitTick !== undefined && order.exitTick !== null) {
       if (recentOrderPoll) { clearInterval(recentOrderPoll); recentOrderPoll = undefined; }
       if (lastSettledOrder?.contractId !== order.contractId || lastSettledOrder?.state !== 'settled') showContractResult(order.type, order, 'Account order');
@@ -460,23 +469,23 @@ updateDemoArmState = () => {
   else if (realSelected && !realConfirmed) { $('executionMode').textContent = 'REAL CONFIRM'; $('executionMode').className = 'negative'; $('executionNote').textContent = 'A separate real-money confirmation is required.'; }
   else if (accountReady) { $('executionMode').textContent = 'MANUAL READY'; $('executionMode').className = 'positive'; $('executionNote').textContent = 'Ready: press OVER 1 or UNDER 8 to send one order.'; }
   else { $('executionMode').textContent = 'ENTER STAKE'; $('executionMode').className = ''; $('executionNote').textContent = `Enter a stake up to ${money(maximum)} to enable manual execution.`; }
-  const manualReady = accountReady && botMode === 'manual';
+  const manualReady = accountReady && botMode === 'manual' && !manualOrderPending;
   $('executeOver').disabled = !manualReady; $('executeUnder').disabled = !manualReady;
-  $('demoOrderStatus').textContent = !demoConnected ? 'Connect your Deriv account first.' : (realSelected && !realTradingEnabled ? 'Real account is connected for later. Real-money ordering is currently disabled.' : (accountReady ? `Ready for one order of ${money(stake)}. A final confirmation will appear after you choose a side.` : 'Select an account and enter a valid stake.'));
+  $('demoOrderStatus').textContent = !demoConnected ? 'Connect your Deriv account first.' : (manualOrderPending ? 'Current order is waiting for its one-tick settlement. Manual buttons will return immediately after settlement.' : (realSelected && !realTradingEnabled ? 'Real account is connected for later. Real-money ordering is disabled by the server setting.' : (accountReady ? `Ready for one order of ${money(stake)}.` : 'Select an account and enter a valid stake.')));
 };
 const executeOrder = async (type) => {
   const stake = Number($('stake').value || 0), account = selectedAccount();
   if (!demoConnected || !account || !Number.isFinite(stake) || stake <= 0) return updateDemoArmState();
   const title = type === 'DIGITOVER' ? 'OVER 1' : 'UNDER 8';
   if (account.accountType === 'real' && !window.confirm(`Place one ${title} real-money order for ${money(stake)}?`)) return;
-  const button = type === 'DIGITOVER' ? $('executeOver') : $('executeUnder'); button.disabled = true; $('demoOrderStatus').textContent = 'ORDER REQUEST SENT · Waiting for Deriv to accept it…';
+  const button = type === 'DIGITOVER' ? $('executeOver') : $('executeUnder'); manualOrderPending = true; $('executeOver').disabled = true; $('executeUnder').disabled = true; $('demoOrderStatus').textContent = 'ORDER REQUEST SENT · Waiting for Deriv to accept it…';
   try {
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'The order was not accepted.');
     $('demoOrderStatus').textContent = `ORDER ENTERED on digit ${tickDigit(result.entryTick)}. Waiting for the next tick to settle. Contract ${result.contractId}.`;
     showOrderEntry(type, result, 'Manual bot'); trackRecentOrder();
-  } catch (error) { $('demoOrderStatus').textContent = `No order placed: ${error.message}`; button.disabled = false; }
+  } catch (error) { manualOrderPending = false; $('demoOrderStatus').textContent = `No order placed: ${error.message}`; updateDemoArmState(); }
 };
 const maybeAutoOrder = async (signal) => {
   const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = liveTickNumber;

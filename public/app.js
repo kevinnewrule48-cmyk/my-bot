@@ -25,7 +25,27 @@ let updatePerformance;
 let updateAutoState;
 const counts = (history) => Array.from({length:10}, (_, digit) => history.filter(x => x.digit === digit).length);
 const selectedAccount = () => availableAccounts.find((account) => account.accountId === $('accountSelector').value);
+const showSelectedBalance = () => {
+  const account = selectedAccount();
+  if (!account) { $('accountBalance').textContent = 'Demo balance: connect your account to view it.'; return; }
+  const label = account.accountType === 'demo' ? 'Demo balance' : 'Real balance';
+  const numericBalance = Number(account.balance);
+  const balance = Number.isFinite(numericBalance) ? numericBalance.toLocaleString('en-US', { style:'currency', currency:account.currency || 'USD' }) : 'Unavailable from Deriv';
+  $('accountBalance').textContent = `${label}: ${balance}`;
+  $('accountBalance').className = `accountBalance ${account.accountType === 'demo' ? 'positive' : ''}`;
+};
 const logger = (html) => { const e = document.createElement('div'); e.className = 'entry'; e.innerHTML = html; const blank = $('.log').querySelector('.empty'); if(blank) blank.remove(); $('.log').prepend(e); };
+const tickDigit = (tick) => {
+  const match = String(tick ?? '').match(/(\d)\D*$/);
+  return match ? match[1] : '—';
+};
+const showContractResult = (type, result, source) => {
+  const label = type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
+  const won = result.status === 'won' || Number(result.profit) > 0;
+  const outcome = won ? 'WON' : 'LOST';
+  $('entryExecutionStatus').textContent = `DEMO ${outcome} · ${label} · ${source} · executed on ${result.entryTick} (digit ${tickDigit(result.entryTick)}) · settled on ${result.exitTick} (digit ${tickDigit(result.exitTick)}) · contract ${result.contractId}`;
+  $('entryExecutionStatus').className = `entryExecutionStatus ${won ? 'positive' : 'negative'}`;
+};
 const updateReport = () => {
   const wins = settled.filter(x => x.won).length;
   $('evaluated').textContent = settled.length;
@@ -73,15 +93,16 @@ const researchGuardPaused = () => {
 };
 const updateEntryStrength = () => {
   const signal = calculateSignal(ticks);
-  if (!signal || !quotes.over || !quotes.under) {
+  const minimum = Number($('minimum').value || 65);
+  const suggestedEntryIsActive = Boolean(signal && signal.confidence >= minimum);
+  if (!signal || !quotes.over || !quotes.under || !suggestedEntryIsActive) {
     $('entryStrength').textContent = 'WAITING'; $('entryStrength').className = '';
-    $('entryStrengthNote').textContent = 'It will assess the selected entry after live data and pricing are available.';
+    $('entryStrengthNote').textContent = signal && !suggestedEntryIsActive ? `Suggested Entry is not active: ${signal.label} score ${signal.confidence}% is below your ${minimum}% minimum. Strength waits until Suggested Entry gives a trade.` : 'It will assess the same selected entry after live data and pricing are available.';
     return;
   }
   const quote = signal.type === 'OVER' ? quotes.over : quotes.under;
   const edge = signal.observed * quote.payout - quote.ask;
   const displayedRate = (signal.observed * 100).toFixed(1);
-  const minimum = Number($('minimum').value || 65);
   const liveWindow = ticks.slice(-8);
   const liveWins = liveWindow.filter((tick) => signal.type === 'OVER' ? tick.digit > 1 : tick.digit < 8).length;
   const liveRate = liveWindow.length ? liveWins / liveWindow.length : 0;
@@ -284,6 +305,7 @@ const loadAccounts = async () => {
     const demo = availableAccounts.find((account) => account.accountType === 'demo');
     if (demo) selector.value = demo.accountId;
     selector.disabled = availableAccounts.length === 0;
+    showSelectedBalance();
     $('accountHelp').textContent = availableAccounts.length ? 'Demo is selected by default. Real accounts are connected for later but remain disabled unless you explicitly enable real trading on the server.' : 'No active Options account was returned by Deriv.';
   } catch (error) { $('accountHelp').textContent = `Account connection unavailable: ${error.message}`; }
   updateDemoArmState(); prepareFastExecution();
@@ -345,7 +367,9 @@ const executeOrder = async (type) => {
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'The demo order was not accepted.');
-    $('demoOrderStatus').textContent = `${kind} order placed. Contract ${result.contractId}. ${result.remainingTrades} trades and ${money(result.remainingRisk)} of today’s ceiling remain.`;
+    const outcome = result.status === 'won' || Number(result.profit) > 0 ? 'won' : 'lost';
+    $('demoOrderStatus').textContent = `${kind} order ${outcome}. Entered on digit ${tickDigit(result.entryTick)} and settled on digit ${tickDigit(result.exitTick)}. Contract ${result.contractId}. ${result.remainingTrades} trades and ${money(result.remainingRisk)} of today’s ceiling remain.`;
+    showContractResult(type, result, 'Manual bot');
     manualOrdersInSetup++;
     $('armDemo').checked = false;
   } catch (error) { $('demoOrderStatus').textContent = `No order placed: ${error.message}`; button.disabled = false; }
@@ -358,7 +382,8 @@ const maybeAutoOrder = async (signal) => {
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Auto order was not accepted.');
-    manualOrdersInSetup++; $('autoStatus').textContent = `Auto order placed for ${signal.label}. ${result.remainingTrades} daily trades remain.`;
+    manualOrdersInSetup++; const outcome = result.status === 'won' || Number(result.profit) > 0 ? 'won' : 'lost'; $('autoStatus').textContent = `Auto Demo order ${outcome}. Entered on digit ${tickDigit(result.entryTick)} and settled on digit ${tickDigit(result.exitTick)}. ${result.remainingTrades} daily trades remain.`;
+    showContractResult(signal.type, result, 'Auto bot');
   } catch (error) { autoEnabled = false; $('autoStatus').textContent = `Auto bot stopped: ${error.message}`; }
   finally { autoInFlight = false; updateAutoState(); }
 };
@@ -381,7 +406,7 @@ updateAutoState = () => {
   else if (autoEnabled) $('autoStatus').textContent = 'Auto bot is active for qualifying Demo signals.';
   else $('autoStatus').textContent = 'Auto bot is not active.';
 };
-$('armDemo').addEventListener('change', updateDemoArmState); $('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch only when a market passes the trend-strength filter.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
+$('armDemo').addEventListener('change', updateDemoArmState); $('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch only when a market passes the trend-strength filter.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
 $('manualMode').onclick = () => setBotMode('manual'); $('autoMode').onclick = () => { const account = selectedAccount(); if (account?.accountType !== 'demo') { setBotMode('auto'); return; } if (window.confirm('Activate the auto bot for qualifying Demo signals?')) { autoEnabled = true; $('autoSwitchMarket').checked = true; } setBotMode('auto'); if (autoEnabled) scanMarkets(); };
 $('resetTargetCycle').onclick = () => { targetRunBaseline = performanceStats.net; updatePerformance(); updateDemoArmState(); };
 $('deleteToday').onclick = () => {

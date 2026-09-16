@@ -22,7 +22,7 @@
         <button id="start">Start live feed</button><button class="secondary" id="pricing">Refresh live pricing</button><button class="secondary" id="backtest">Backtest collected ticks</button><button class="secondary" id="stop">Stop</button>
       </section>
       <section class="entryDeck">
-        <article class="panel suggestedEntryPanel"><p>Suggested entry</p><strong id="signal">NO SIGNAL</strong><small id="signalNote">Collecting data</small></article>
+        <article class="panel suggestedEntryPanel"><p>Suggested entry</p><strong id="signal">NO SIGNAL</strong><small id="signalNote">Collecting data</small><p id="entryExecutionStatus" class="entryExecutionStatus">No Demo order has been placed in this browser session.</p></article>
         <article class="panel entryAnalyzerPanel"><p>Entry strength analyzer</p><strong id="entryStrength">WAITING</strong><small id="entryStrengthNote">It will assess the selected entry after live data and pricing are available.</small></article>
       </section>
       <section class="panel">
@@ -50,6 +50,7 @@
         <h2>Manual order</h2>
         <p>Choose the account you want connected. Demo is selected by default.</p>
         <label>Connected account <select id="accountSelector" disabled><option>Connect your Deriv account first</option></select></label>
+        <p id="accountBalance" class="accountBalance">Demo balance: connect your account to view it.</p>
         <p id="accountHelp" class="hint">Demo accounts are for practice. Real-money ordering is disabled by default.</p>
         <label class="check"><input id="armDemo" type="checkbox" /> <span id="armText">I understand this places one order on my Deriv demo account</span></label>
         <label id="realConfirmWrap" class="check hidden"><input id="realConfirm" type="checkbox" /> I understand this would use real money</label>
@@ -82,7 +83,7 @@
         <article class="panel"><p>Pending signals</p><strong id="pending">0</strong><small>Waiting for later tick data</small></article>
         <article class="panel"><p>Test rule</p><strong id="rule">OVER 1 / UNDER 8</strong><small>Two fixed loss-digit pairs</small></article>
       </section>
-      <section class="panel"><h2>Test-signal log</h2><div id="log" class="log"><p class="empty">No signals yet.</p></div></section>
+      <section class="panel"><h2>Research-test log — not Demo contracts</h2><p class="hint">This log checks sample signals only. It does not show money orders. Real Demo-order entry and settlement digits appear in Suggested entry above.</p><div id="log" class="log"><p class="empty">No signals yet.</p></div></section>
       <section class="grid metrics movedMetrics">
         <article class="panel"><p>Latest market price</p><strong id="price">—</strong><small id="tickTime">Waiting for data</small></article>
         <article class="panel"><p>Ticks sampled</p><strong id="sample">0</strong><small id="sampleNote">Need at least 50</small></article>

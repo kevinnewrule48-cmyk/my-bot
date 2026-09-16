@@ -16,7 +16,7 @@
     <main>
       <section class="warning"><strong>Important:</strong> tick patterns do not create a guaranteed edge. Research signals are not predictions. Demo is the default account. A connected real account remains disabled unless you deliberately enable its server setting and complete separate confirmations.</section>
       <section class="panel controls">
-        <label>Symbol <input id="symbol" value="R_100" maxlength="30" /></label>
+        <label>Market <select id="symbol"><option value="R_10">R10 Index</option><option value="R_25">R25 Index</option><option value="R_50">R50 Index</option><option value="R_75">R75 Index</option><option value="R_100" selected>R100 Index</option></select></label>
         <label>Tick window <input id="window" type="number" min="50" max="1000" value="200" /></label>
         <label>Minimum confidence <input id="minimum" type="number" min="55" max="95" value="65" /><span>%</span></label>
         <button id="start">Start live feed</button><button class="secondary" id="pricing">Refresh live pricing</button><button class="secondary" id="backtest" hidden>Backtest collected ticks</button><button class="secondary" id="stop">Stop</button>
@@ -39,8 +39,8 @@
         <div class="panelHeading"><div><h2>Market regime scanner</h2><p class="hint">It checks recent price movement for trend strength. It is a market filter, not a promise that the next digit trade will win.</p></div><button id="scanMarkets" class="secondary">Scan markets now</button></div>
         <div class="scannerSummary"><article><p>Current market</p><strong id="currentRegime">WAITING</strong><small id="currentRegimeNote">Start a scan to classify the selected market.</small></article><article><p>Scanner recommendation</p><strong id="scannerRecommendation">SCAN FIRST</strong><small id="scannerRecommendationNote">No market has been compared yet.</small><button id="useScannerMarket" class="secondary" disabled>Use recommended market</button></article></div>
         <div id="marketScanResults" class="marketScanResults"><p class="empty">The scanner will compare R_10, R_25, R_50, R_75, and R_100.</p></div>
-        <label class="check"><input id="autoSwitchMarket" type="checkbox" /> In Auto bot mode only, switch to the scanner’s selected trending market</label>
-        <p id="scannerStatus" class="hint">Automatic switching is off. In Manual bot mode, the scanner only shows its recommendation.</p>
+        <label class="check"><input id="autoSwitchMarket" type="checkbox" /> In Auto bot mode only, switch to the scanner’s strongest selected market</label>
+        <p id="scannerStatus" class="hint">Automatic switching is off. In Manual bot mode, choose any market yourself from the Market menu above.</p>
       </section>
       <section class="panel modePanel">
         <h2>Bot mode</h2>
@@ -58,9 +58,9 @@
           <p class="hint">The analyzer picks the side with the lower recent loss-digit rate. The displayed rate is descriptive of the sample, not a promise about the next tick.</p>
           <label>Contract timing <input id="duration" type="number" min="1" max="1" value="1" readonly /><span>1 tick — minimum settlement</span></label>
           <label>Stake (USD) <input id="stake" type="number" min="0.35" step="0.01" value="1" /></label>
-          <label>Maximum stake (USD) <input id="maxStake" type="number" min="0.35" step="0.01" value="500" /></label>
-          <label>Daily loss limit (USD) <input id="dailyLoss" type="number" min="0.35" step="0.01" value="500" /></label>
-          <label>Maximum trades per day <input id="maxTrades" type="number" min="1" step="1" value="100" /></label>
+          <label>Maximum stake (USD) <input id="maxStake" type="number" min="0.35" step="0.01" value="5000" /></label>
+          <label>Daily loss limit (USD) <input id="dailyLoss" type="number" min="0.35" step="0.01" value="5000" /></label>
+          <label>Maximum trades per day <input id="maxTrades" type="number" min="1" step="1" value="5000" /></label>
           <label>Signal cooldown <input id="cooldown" type="number" min="1" max="100" value="10" /><span>ticks</span></label>
           <input id="dailyProfitTarget" type="hidden" value="0" /><input id="maxConsecutiveLosses" type="hidden" value="0" /><input id="maxTradesPerSetup" type="hidden" value="0" />
           <p class="automation"><b>Manual execution:</b> the selected account receives an order immediately after you choose OVER 1 or UNDER 8 and approve the final order confirmation. The maximum stake, daily loss, and daily trade limit remain server-side safety ceilings. Real-money orders remain disabled unless deliberately enabled on the server.</p>
@@ -81,7 +81,7 @@
       <section class="grid metrics movedMetrics">
         <article class="panel"><p>Latest market price</p><strong id="price">—</strong><small id="tickTime">Waiting for data</small></article>
         <article class="panel"><p>Ticks sampled</p><strong id="sample">0</strong><small id="sampleNote">Need at least 50</small></article>
-        <article class="panel"><p>Account risk limits</p><strong id="riskSummary">$500 / $500 / 100</strong><small>Stake · daily loss · trades/day</small></article>
+        <article class="panel"><p>Account risk limits</p><strong id="riskSummary">$5,000 / $5,000 / 5,000</strong><small>Stake · daily loss · trades/day</small></article>
       </section>
       <section class="panel orderPerformancePanel">
         <h2>Global risk &amp; performance</h2>

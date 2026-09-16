@@ -320,18 +320,20 @@ const fetchMarketHistory = (symbol) => new Promise((resolve) => {
 const renderMarketScan = () => {
   const current = lastMarketScan.find((result) => result.symbol === $('symbol').value.trim());
   const eligible = lastMarketScan.filter((result) => result.regime === 'UPTREND' || result.regime === 'DOWNTREND').sort((a,b) => b.score - a.score);
-  const best = eligible[0];
+  const consolidating = lastMarketScan.filter((result) => result.regime === 'CONSOLIDATION').sort((a,b) => b.score - a.score);
+  const best = eligible[0] ?? consolidating[0];
+  const bestIsTrend = Boolean(eligible[0]);
   scannerRecommendedSymbol = best?.symbol ?? null;
   $('currentRegime').textContent = current?.regime ?? 'WAITING';
   $('currentRegime').className = current?.regime === 'CONSOLIDATION' ? 'regime-consolidation' : current?.regime === 'UNAVAILABLE' ? 'regime-unavailable' : current ? 'regime-trend' : '';
   $('currentRegimeNote').textContent = current ? `${current.note} · strength ${current.score}% from recent 1-minute candles` : 'Start a scan to classify the selected market.';
-  $('scannerRecommendation').textContent = best ? `${best.symbol} · ${best.regime}` : 'WAIT — CONSOLIDATION';
-  $('scannerRecommendation').className = best ? 'regime-trend' : 'regime-consolidation';
-  $('scannerRecommendationNote').textContent = best ? `Strongest scanner result: ${best.score}% trend strength. This does not predict the next digit.` : 'No compared market met the trend-strength filter.';
+  $('scannerRecommendation').textContent = best ? `${best.symbol} · ${best.regime}` : 'WAIT — UNAVAILABLE';
+  $('scannerRecommendation').className = best ? (bestIsTrend ? 'regime-trend' : 'regime-consolidation') : 'regime-unavailable';
+  $('scannerRecommendationNote').textContent = best ? (bestIsTrend ? `Strongest scanner result: ${best.score}% trend strength. This does not predict the next digit.` : `Every available market is consolidating. ${best.symbol} has the highest relative movement score at ${best.score}%, so it is the selected fallback—not a trend signal.`) : 'No market data was available for comparison.';
   $('useScannerMarket').disabled = !best;
   $('useScannerMarket').textContent = best ? `Use ${best.symbol}` : 'Use recommended market';
   $('marketScanResults').innerHTML = lastMarketScan.map((result) => `<article><p>${result.symbol}</p><strong class="${result.regime === 'CONSOLIDATION' ? 'regime-consolidation' : result.regime === 'UNAVAILABLE' ? 'regime-unavailable' : 'regime-trend'}">${result.regime}</strong><small>Strength ${result.score}% · ${result.note}</small></article>`).join('');
-  return best;
+  return { best, bestIsTrend };
 };
 const useScannerMarket = (symbol) => {
   if (!symbol || $('symbol').value.trim() === symbol) return;
@@ -344,16 +346,17 @@ const scanMarkets = async () => {
   const currentSymbol = $('symbol').value.trim();
   const symbols = [...new Set([currentSymbol, ...scannerSymbols].filter(Boolean))];
   lastMarketScan = await Promise.all(symbols.map(fetchMarketHistory));
-  const best = renderMarketScan();
+  const recommendation = renderMarketScan();
+  const best = recommendation.best;
   const canSwitch = botMode === 'auto' && autoEnabled && $('autoSwitchMarket').checked && best;
   if (canSwitch && best.symbol !== currentSymbol) {
-    $('scannerStatus').textContent = `Auto bot switched from ${currentSymbol} to ${best.symbol} after the scanner found the strongest trend.`;
+    $('scannerStatus').textContent = `Auto bot switched from ${currentSymbol} to ${best.symbol} after the scanner selected the strongest ${recommendation.bestIsTrend ? 'trend' : 'consolidation fallback'}.`;
     useScannerMarket(best.symbol);
   } else if (botMode === 'auto' && $('autoSwitchMarket').checked && !best) {
-    $('scannerStatus').textContent = 'Auto switching did not run: every scanned market is in consolidation or unavailable.';
+    $('scannerStatus').textContent = 'Auto switching did not run because no market data was available.';
   } else if (best) {
     $('scannerStatus').textContent = `Recommendation: ${best.symbol} (${best.regime}, ${best.score}% strength). Manual mode leaves the choice with you.`;
-  } else $('scannerStatus').textContent = 'No trending market found. Wait rather than treating consolidation as a trade signal.';
+  } else $('scannerStatus').textContent = 'No market data was available for a recommendation.';
   marketScanBusy = false; $('scanMarkets').disabled = false;
 };
 const syncScannerTimer = () => {
@@ -523,7 +526,7 @@ updateAutoState = () => {
   else if (autoEnabled) $('autoStatus').textContent = 'Auto bot waits for Suggested Entry and LIVE SUPPORT to match, then pauses for the selected cooldown after every accepted order.';
   else $('autoStatus').textContent = 'Auto bot is not active.';
 };
-$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('stake').addEventListener('change', scheduleFastPreparation); $('symbol').addEventListener('change', scheduleFastPreparation); $('autoCooldownTicks').addEventListener('change', updateCooldownMonitor); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch only when a market passes the trend-strength filter.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
+$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('stake').addEventListener('change', scheduleFastPreparation); $('symbol').addEventListener('change', () => { const selected = $('symbol').value.trim(); scheduleFastPreparation(); if (isRunning) { $('scannerStatus').textContent = `Changed to ${selected}. Loading its live feed now.`; startLive(); } }); $('autoCooldownTicks').addEventListener('change', updateCooldownMonitor); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch to the scanner’s strongest selection, including the strongest consolidation fallback when no trend exists.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
 $('manualMode').onclick = () => setBotMode('manual'); $('autoMode').onclick = () => { const account = selectedAccount(); if (account?.accountType !== 'demo') { setBotMode('auto'); return; } if (window.confirm('Activate the auto bot for qualifying Demo signals?')) { autoEnabled = true; $('autoSwitchMarket').checked = true; } setBotMode('auto'); if (autoEnabled) scanMarkets(); };
 $('resetTargetCycle').onclick = () => { targetRunBaseline = performanceStats.net; updatePerformance(); updateDemoArmState(); };
 $('deleteToday').onclick = () => {

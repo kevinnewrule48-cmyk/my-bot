@@ -8,7 +8,9 @@ let demoConnected = false;
 let availableAccounts = [], realTradingEnabled = false;
 let botMode = 'manual', autoEnabled = false, autoInFlight = false;
 let lastAutoSignalTick = -Infinity, lastAutoSide = null, autoMomentumOrders = 0;
-let lastSettledOrder = null;
+const storedOrders = () => { try { const value = JSON.parse(localStorage.getItem('derivAccountOrders') || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } };
+let accountOrderHistory = storedOrders();
+let lastSettledOrder = accountOrderHistory.at(-1) ?? null;
 const autoCooldownTicks = 5;
 let executionPreparing = false;
 const scannerSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
@@ -42,20 +44,49 @@ const tickDigit = (tick) => {
   const match = String(tick ?? '').match(/(\d)\D*$/);
   return match ? match[1] : '—';
 };
+const saveAccountOrderHistory = () => localStorage.setItem('derivAccountOrders', JSON.stringify(accountOrderHistory.slice(-250)));
+const updateActualPerformance = () => {
+  let grossProfit = 0, grossLoss = 0, net = 0, peak = 0, drawdown = 0, wins = 0, losses = 0, currentWins = 0, currentLosses = 0;
+  for (const order of accountOrderHistory) {
+    const profit = Number(order.profit || 0), won = order.won === true;
+    if (won) { wins++; currentWins++; currentLosses = 0; } else { losses++; currentLosses++; currentWins = 0; }
+    if (profit > 0) grossProfit += profit;
+    if (profit < 0) grossLoss += Math.abs(profit);
+    net += profit; peak = Math.max(peak, net); drawdown = Math.max(drawdown, peak - net);
+  }
+  const set = (id, value, className = '') => { const node = $(id); if (!node) return; node.textContent = value; node.className = className; };
+  set('actualGrossProfit', money(grossProfit), grossProfit > 0 ? 'positive' : '');
+  set('actualGrossLoss', money(grossLoss), grossLoss > 0 ? 'negative' : '');
+  set('actualNetProfit', money(net), net > 0 ? 'positive' : net < 0 ? 'negative' : '');
+  set('actualRecovery', money(Math.max(0, peak - net)), peak > net ? 'negative' : '');
+  set('actualTotalOrders', accountOrderHistory.length);
+  set('actualWinningOrders', wins, wins ? 'positive' : '');
+  set('actualLosingOrders', losses, losses ? 'negative' : '');
+  set('actualWinRate', accountOrderHistory.length ? `${(wins / accountOrderHistory.length * 100).toFixed(1)}%` : '—', wins / Math.max(1, accountOrderHistory.length) >= .5 ? 'positive' : 'negative');
+  set('actualConsecutiveWins', currentWins, currentWins ? 'positive' : '');
+  set('actualConsecutiveLosses', currentLosses, currentLosses ? 'negative' : '');
+  set('actualDrawdown', money(drawdown), drawdown ? 'negative' : '');
+  set('actualHistoryNote', accountOrderHistory.length ? `${accountOrderHistory.length} RECORDED` : 'THIS BROWSER');
+};
+const renderLastSettledOrder = (order) => {
+  if (!order) return;
+  const won = order.won === true;
+  $('actualEntryTick').textContent = order.entryTick ?? '—';
+  $('actualEntryDigit').textContent = `Entry digit: ${order.entryDigit ?? '—'}`;
+  $('actualExitTick').textContent = order.exitTick ?? '—';
+  $('actualExitDigit').textContent = `Settlement digit: ${order.exitDigit ?? '—'}`;
+  $('actualOrderOutcome').textContent = won ? 'WON' : 'LOST';
+  $('actualOrderOutcome').className = won ? 'positive' : 'negative';
+  $('actualOrderSide').textContent = `${order.label ?? 'ORDER'} · ${order.source ?? 'Account order'}`;
+};
 const showContractResult = (type, result, source) => {
   const label = type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
   const won = result.status === 'won' || Number(result.profit) > 0;
   const outcome = won ? 'WON' : 'LOST';
   $('entryExecutionStatus').textContent = `ORDER PLACED · ${outcome} · ${label} · ${source} · executed on ${result.entryTick} (digit ${tickDigit(result.entryTick)}) · settled on ${result.exitTick} (digit ${tickDigit(result.exitTick)}) · contract ${result.contractId}`;
   $('entryExecutionStatus').className = `entryExecutionStatus ${won ? 'positive' : 'negative'}`;
-  $('actualEntryTick').textContent = result.entryTick ?? '—';
-  $('actualEntryDigit').textContent = `Entry digit: ${tickDigit(result.entryTick)}`;
-  $('actualExitTick').textContent = result.exitTick ?? '—';
-  $('actualExitDigit').textContent = `Settlement digit: ${tickDigit(result.exitTick)}`;
-  $('actualOrderOutcome').textContent = outcome;
-  $('actualOrderOutcome').className = won ? 'positive' : 'negative';
-  $('actualOrderSide').textContent = `${label} · ${source}`;
-  lastSettledOrder = { entryDigit:tickDigit(result.entryTick), exitDigit:tickDigit(result.exitTick), won };
+  lastSettledOrder = { entryDigit:tickDigit(result.entryTick), exitDigit:tickDigit(result.exitTick), won, entryTick:result.entryTick, exitTick:result.exitTick, profit:Number(result.profit || 0), label, source, time:Date.now() };
+  accountOrderHistory.push(lastSettledOrder); saveAccountOrderHistory(); renderLastSettledOrder(lastSettledOrder); updateActualPerformance();
   update();
   loadAccounts({ preserveSelection:true, refreshOnly:true });
 };
@@ -448,5 +479,12 @@ $('deleteToday').onclick = () => {
   $('log').innerHTML = '<p class="empty">Today’s dashboard results were deleted. New test signals will appear here.</p>';
   updateReport(); updateDemoArmState();
 };
+$('clearActualPerformance').onclick = () => {
+  if (!window.confirm('Clear the displayed order-performance figures from this browser? Your Deriv account, completed orders, and balance will not be changed.')) return;
+  accountOrderHistory = []; lastSettledOrder = null; localStorage.removeItem('derivAccountOrders'); updateActualPerformance(); update();
+  $('actualEntryTick').textContent = '—'; $('actualEntryDigit').textContent = 'Entry digit: —'; $('actualExitTick').textContent = '—'; $('actualExitDigit').textContent = 'Settlement digit: —'; $('actualOrderOutcome').textContent = 'NO ORDER'; $('actualOrderOutcome').className = ''; $('actualOrderSide').textContent = 'Waiting for an accepted order';
+};
 ['stake','maxStake','dailyLoss','dailyProfitTarget','maxTrades','maxConsecutiveLosses','maxTradesPerSetup'].forEach(id=>$(id).addEventListener('input', updateRiskSummary)); updateRiskSummary();
+updateActualPerformance();
+renderLastSettledOrder(lastSettledOrder);
 loadAuthStatus();

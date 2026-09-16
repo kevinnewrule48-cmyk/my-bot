@@ -8,11 +8,60 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 const oauthStates = new Map();
 const sessions = new Map();
+const dailyDemoRisk = new Map();
+const tradeChannels = new Map();
 const clientId = process.env.DERIV_CLIENT_ID;
 const redirectUri = process.env.DERIV_REDIRECT_URI;
+const realTradingEnabled = process.env.ENABLE_REAL_TRADING === 'true';
 const oauthReady = Boolean(clientId && redirectUri && redirectUri.startsWith('https://'));
 const base64url = (value) => Buffer.from(value).toString('base64url');
 const cookieValue = (req, name) => (req.headers.cookie ?? '').split(';').map(x => x.trim()).find(x => x.startsWith(`${name}=`))?.slice(name.length + 1);
+const readJson = async (req) => {
+  let raw = '';
+  for await (const chunk of req) { raw += chunk; if (raw.length > 16_384) throw new Error('Request too large'); }
+  return JSON.parse(raw || '{}');
+};
+const json = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); };
+const getSession = (req) => {
+  const session = sessions.get(cookieValue(req, 'deriv_session'));
+  return session && session.expiresAt > Date.now() ? session : null;
+};
+const deriv = async (path, token, options = {}) => fetch(`https://api.derivws.com${path}`, { ...options, headers: { ...(options.headers ?? {}), authorization: `Bearer ${token}` } });
+const openTradeChannel = async ({ key, token, accountId, accountType }) => {
+  const existing = tradeChannels.get(key);
+  if (existing?.ws?.readyState === WebSocket.OPEN) return existing;
+  if (existing?.ready) return existing.ready;
+  const otp = await deriv(`/trading/v1/options/accounts/${encodeURIComponent(accountId)}/otp`, token, { method:'POST' });
+  if (!otp.ok) throw new Error('Deriv could not prepare the trading connection.');
+  const otpBody = await otp.json(), url = otpBody?.data?.url;
+  if (!url || !new RegExp(`/ws/${accountType}\\?otp=`).test(url)) throw new Error(`Deriv did not return a valid ${accountType} trading session.`);
+  const channel = { ws:new WebSocket(url), active:null, ready:null };
+  tradeChannels.set(key, channel);
+  channel.ready = new Promise((resolve, reject) => {
+    const failReady = (message) => { tradeChannels.delete(key); reject(new Error(message)); };
+    channel.ws.addEventListener('open', () => resolve(channel), { once:true });
+    channel.ws.addEventListener('error', () => { if (channel.active) channel.active.fail(new Error('Trading connection failed.')); else failReady('Trading connection failed.'); });
+    channel.ws.addEventListener('close', () => { tradeChannels.delete(key); if (channel.active) channel.active.fail(new Error('Trading connection closed.')); });
+    channel.ws.addEventListener('message', (event) => {
+      const active = channel.active; if (!active) return;
+      const data = JSON.parse(event.data);
+      if (data.error) return active.fail(new Error(data.error.message ?? 'Deriv rejected the order.'));
+      if (data.proposal?.id && active.stage === 'proposal') { active.stage = 'buy'; return channel.ws.send(JSON.stringify({ buy:data.proposal.id, price:data.proposal.ask_price })); }
+      if (data.buy && active.stage === 'buy') return active.finish({ contractId:data.buy.contract_id, buyPrice:data.buy.buy_price, transactionId:data.buy.transaction_id });
+    });
+  });
+  return channel.ready;
+};
+const accountOrder = async ({ key, token, accountId, accountType, currency, type, symbol, stake }) => {
+  const channel = await openTradeChannel({ key, token, accountId, accountType });
+  if (channel.active) throw new Error('An order is already being processed for this account.');
+  return new Promise((resolve, reject) => {
+    const finish = (value) => { clearTimeout(timeout); channel.active = null; value instanceof Error ? reject(value) : resolve(value); };
+    const timeout = setTimeout(() => finish(new Error('Order timed out.')), 12_000);
+    channel.active = { stage:'proposal', finish:(result) => finish(result), fail:(error) => finish(error) };
+    channel.ws.send(JSON.stringify({ proposal:1, amount:stake, basis:'stake', contract_type:type, currency, duration:1, duration_unit:'t', barrier:type === 'DIGITOVER' ? '1' : '8', underlying_symbol:symbol }));
+  });
+};
 
 async function exchangeCode(code, verifier) {
   const form = new URLSearchParams({ grant_type: 'authorization_code', client_id: clientId, code, code_verifier: verifier, redirect_uri: redirectUri });
@@ -24,9 +73,57 @@ async function exchangeCode(code, verifier) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (url.pathname === '/api/auth/status') {
-    const session = sessions.get(cookieValue(req, 'deriv_session'));
+    const session = getSession(req);
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     return res.end(JSON.stringify({ configured: oauthReady, connected: Boolean(session), mode: session ? 'demo connection pending account selection' : 'not connected' }));
+  }
+  if (url.pathname === '/api/accounts' && req.method === 'GET') {
+    const session = getSession(req);
+    if (!session) return json(res, 401, { error:'Connect your Deriv account first.' });
+    try {
+      const response = await deriv('/trading/v1/options/accounts', session.accessToken);
+      if (!response.ok) throw new Error('Deriv could not retrieve your accounts.');
+      const accounts = ((await response.json())?.data ?? []).filter((account) => account.status === 'active' && ['demo','real'].includes(account.account_type)).map((account) => ({ accountId:account.account_id, accountType:account.account_type, currency:account.currency }));
+      return json(res, 200, { accounts, realTradingEnabled });
+    } catch (error) { return json(res, 502, { error:error.message || 'Accounts could not be retrieved.' }); }
+  }
+  if (url.pathname === '/api/order/prepare' && req.method === 'POST') {
+    const session = getSession(req);
+    if (!session) return json(res, 401, { error:'Connect your Deriv account first.' });
+    try {
+      const { accountId, accountType } = await readJson(req);
+      if (!['demo','real'].includes(accountType)) return json(res, 400, { error:'Choose a valid account type.' });
+      if (accountType === 'real' && !realTradingEnabled) return json(res, 403, { error:'Real-money orders are disabled by the server setting.' });
+      const response = await deriv('/trading/v1/options/accounts', session.accessToken), accounts = (await response.json())?.data ?? [];
+      const selected = accounts.find((account) => account.account_id === accountId && account.account_type === accountType && account.status === 'active');
+      if (!selected) return json(res, 403, { error:'The selected account is not available.' });
+      await openTradeChannel({ key:`${cookieValue(req, 'deriv_session')}:${accountId}`, token:session.accessToken, accountId, accountType });
+      return json(res, 200, { ready:true, accountType });
+    } catch (error) { return json(res, 502, { error:error.message || 'Fast execution connection could not be prepared.' }); }
+  }
+  if ((url.pathname === '/api/order' || url.pathname === '/api/demo/order') && req.method === 'POST') {
+    const session = getSession(req);
+    if (!session) return json(res, 401, { error:'Connect your Deriv demo account first.' });
+    try {
+      const { armed, type, symbol, stake, accountId, accountType, realConfirmed } = await readJson(req);
+      const amount = Number(stake), maxStake = 500, dailyLimit = 500, tradeLimit = 100;
+      if (armed !== true) return json(res, 403, { error:'Demo trading is not armed.' });
+      if (!['DIGITOVER', 'DIGITUNDER'].includes(type) || !/^[A-Za-z0-9_]{2,30}$/.test(symbol ?? '') || !['demo','real'].includes(accountType)) return json(res, 400, { error:'Invalid account or contract request.' });
+      if (!Number.isFinite(amount) || amount <= 0 || amount > maxStake) return json(res, 400, { error:`Stake must be between $0.01 and $${maxStake}.` });
+      const accountResponse = await deriv('/trading/v1/options/accounts', session.accessToken);
+      const accounts = (await accountResponse.json())?.data ?? [];
+      const selectedAccount = accounts.find((account) => account.account_id === accountId && account.account_type === accountType && account.status === 'active');
+      if (!selectedAccount) return json(res, 403, { error:'The selected Deriv account is not available.' });
+      if (accountType === 'real' && !realTradingEnabled) return json(res, 403, { error:'Your real account is connected, but real-money orders are disabled by the server setting.' });
+      if (accountType === 'real' && realConfirmed !== true) return json(res, 403, { error:'A separate real-money confirmation is required.' });
+      const day = new Date().toISOString().slice(0, 10), key = `${cookieValue(req, 'deriv_session')}:${day}`;
+      const budget = dailyDemoRisk.get(key) ?? { trades:0, exposure:0 };
+      if (budget.trades >= tradeLimit) return json(res, 403, { error:`Daily trade limit (${tradeLimit}) reached.` });
+      if (budget.exposure + amount > dailyLimit) return json(res, 403, { error:`Daily demo risk ceiling ($${dailyLimit}) would be exceeded.` });
+      const result = await accountOrder({ key:`${cookieValue(req, 'deriv_session')}:${accountId}`, token:session.accessToken, accountId:selectedAccount.account_id, accountType, currency:selectedAccount.currency, type, symbol, stake:amount });
+      dailyDemoRisk.set(key, { trades:budget.trades + 1, exposure:budget.exposure + amount });
+      return json(res, 200, { ok:true, account:`${accountType === 'real' ? 'Real' : 'Demo'} ${selectedAccount.account_id}`, currency:selectedAccount.currency, ...result, remainingTrades:tradeLimit-budget.trades-1, remainingRisk:dailyLimit-budget.exposure-amount });
+    } catch (error) { return json(res, 502, { error:error.message || 'Demo order could not be completed.' }); }
   }
   if (url.pathname === '/api/auth/start') {
     if (!oauthReady) { res.writeHead(409, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'OAuth is not configured. Set DERIV_CLIENT_ID and an HTTPS DERIV_REDIRECT_URI first.' })); }

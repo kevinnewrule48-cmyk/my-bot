@@ -11,7 +11,7 @@
     <div class="ambient ambient-one" aria-hidden="true"></div><div class="ambient ambient-two" aria-hidden="true"></div><div class="ambient ambient-three" aria-hidden="true"></div>
     <header>
       <div><p class="eyebrow">LIVE SIGNAL EXECUTION</p><h1>Over / Under Lab</h1></div>
-      <div><span id="connection" class="pill muted">NOT CONNECTED</span> <button id="connect" class="secondary">Connect account</button></div>
+      <div class="headerActions"><div><span id="connection" class="pill muted">NOT CONNECTED</span> <button id="connect" class="secondary">Connect account</button></div><section id="accountPanel" class="headerAccount"><label>Trading account <select id="accountSelector" disabled><option>Connect your Deriv account first</option></select></label><p id="accountBalance" class="accountBalance">Account balance: connect your account to view it.</p><p id="accountHelp" class="hint">Connect your Deriv account to choose an account.</p></section></div>
     </header>
     <main>
       <section class="warning"><strong>Important:</strong> tick patterns do not create a guaranteed edge. Research signals are not predictions. Demo is the default account. A connected real account remains disabled unless you deliberately enable its server setting and complete separate confirmations.</section>
@@ -46,13 +46,6 @@
         <h2>Bot mode</h2>
         <div class="modeButtons"><button id="manualMode" class="modeButton active">Manual bot</button><button id="autoMode" class="modeButton secondary">Auto bot</button></div>
         <p id="botModeNote" class="hint">Manual mode: you decide whether to place each order.</p>
-      </section>
-      <section id="accountPanel" class="panel">
-        <h2>Connected account</h2>
-        <p>Choose Demo or Real here. Demo is selected by default.</p>
-        <label>Account <select id="accountSelector" disabled><option>Connect your Deriv account first</option></select></label>
-        <p id="accountBalance" class="accountBalance">Account balance: connect your account to view it.</p>
-        <p id="accountHelp" class="hint">Select the account you want to use. Real-money ordering is disabled by default.</p>
       </section>
       <section id="manualOrderPanel" class="panel">
         <h2>Manual order</h2>

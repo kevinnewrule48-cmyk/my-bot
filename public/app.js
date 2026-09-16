@@ -8,6 +8,7 @@ let demoConnected = false;
 let availableAccounts = [], realTradingEnabled = false;
 let botMode = 'manual', autoEnabled = false, autoInFlight = false;
 let lastAutoSignalTick = -Infinity, lastAutoSide = null, autoMomentumOrders = 0;
+let lastSettledOrder = null;
 const autoCooldownTicks = 5;
 let executionPreparing = false;
 const scannerSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
@@ -54,6 +55,9 @@ const showContractResult = (type, result, source) => {
   $('actualOrderOutcome').textContent = outcome;
   $('actualOrderOutcome').className = won ? 'positive' : 'negative';
   $('actualOrderSide').textContent = `${label} · ${source}`;
+  lastSettledOrder = { entryDigit:tickDigit(result.entryTick), exitDigit:tickDigit(result.exitTick), won };
+  update();
+  loadAccounts({ preserveSelection:true, refreshOnly:true });
 };
 const updateCooldownMonitor = () => {
   const monitor = $('cooldownMonitor'), note = $('cooldownMonitorNote');
@@ -187,7 +191,13 @@ const update = () => {
   $('sample').textContent = n; $('sampleNote').textContent = n < 50 ? `Need ${50-n} more ticks` : `Rolling last ${n} ticks`;
   if(latest){ $('price').textContent = latest.price; $('tickTime').textContent = new Date(latest.time * 1000).toLocaleTimeString(); }
   if(latest) $('priceDigitCursor').textContent = `Live ${$('symbol').value.trim()} price: ${latest.price} · last digit ${latest.digit}`;
-  $('digits').innerHTML = c.map((value,digit) => `<div class="digit${latest?.digit === digit ? ' latest-digit' : ''}"><b>${digit}</b><span>${displayed ? (value/displayed*100).toFixed(1) : '0.0'}%</span></div>`).join('');
+  $('digits').innerHTML = c.map((value,digit) => {
+    const isEntry = lastSettledOrder?.entryDigit === String(digit);
+    const isExit = lastSettledOrder?.exitDigit === String(digit);
+    const resultClass = isExit ? (lastSettledOrder.won ? ' order-won-digit' : ' order-lost-digit') : '';
+    const marker = isExit ? `<em>${lastSettledOrder.won ? 'WIN' : 'LOSS'}</em>` : (isEntry ? '<em>ENTRY</em>' : '');
+    return `<div class="digit${latest?.digit === digit ? ' latest-digit' : ''}${isEntry ? ' order-entry-digit' : ''}${resultClass}"><b>${digit}</b><span>${displayed ? (value/displayed*100).toFixed(1) : '0.0'}%</span>${marker}</div>`;
+  }).join('');
   if(n < 50) return showSignal(null);
   const candidate = calculateSignal(ticks);
   const confidence = candidate.confidence;
@@ -307,23 +317,25 @@ const backtest = () => {
   const wins = results.filter(Boolean).length, rate = results.length ? (wins / results.length * 100).toFixed(1) : '—';
   logger(`<span><b>BACKTEST COMPLETE</b> · ${ticks.length} collected ticks · ${results.length} eligible signals</span><span><b class="${Number(rate) >= 50 ? 'positive' : 'negative'}">${rate}% win rate</b></span>`);
 };
-const loadAccounts = async () => {
+const loadAccounts = async ({ preserveSelection = false, refreshOnly = false } = {}) => {
   try {
     const response = await fetch('/api/accounts', { cache:'no-store' }), result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Accounts are unavailable.');
     availableAccounts = result.accounts ?? []; realTradingEnabled = result.realTradingEnabled === true;
-    const selector = $('accountSelector'); selector.innerHTML = '';
+    const selector = $('accountSelector'), selectedBeforeRefresh = selector.value; selector.innerHTML = '';
     for (const account of availableAccounts) {
       const option = document.createElement('option'); option.value = account.accountId;
       option.textContent = `${account.accountType === 'demo' ? 'Demo' : 'Real'} account · ${account.currency}`;
       selector.append(option);
     }
+    const priorAccount = availableAccounts.find((account) => account.accountId === selectedBeforeRefresh);
     const demo = availableAccounts.find((account) => account.accountType === 'demo');
-    if (demo) selector.value = demo.accountId;
+    if (preserveSelection && priorAccount) selector.value = priorAccount.accountId;
+    else if (demo) selector.value = demo.accountId;
     selector.disabled = availableAccounts.length === 0;
     showSelectedBalance();
     if (availableAccounts.length) { $('entryExecutionStatus').textContent = 'NO ORDER PLACED YET'; $('entryExecutionStatus').className = 'entryExecutionStatus'; }
-    $('accountHelp').textContent = availableAccounts.length ? 'Select the account you want to use. Real-money ordering is disabled unless you explicitly enable it on the server.' : 'No active Options account was returned by Deriv.';
+    $('accountHelp').textContent = availableAccounts.length ? (refreshOnly ? 'Account balance refreshed from Deriv after the completed order.' : 'Select the account you want to use. Real-money ordering is disabled unless you explicitly enable it on the server.') : 'No active Options account was returned by Deriv.';
   } catch (error) { $('accountHelp').textContent = `Account connection unavailable: ${error.message}`; }
   updateDemoArmState(); prepareFastExecution();
 };

@@ -158,9 +158,9 @@ const showSignal = (signal, candidate, confidence) => {
     const quote = signal.type === 'OVER' ? quotes.over : quotes.under;
     pending.push({type: signal.type, barrier: signal.barrier, label: signal.label, confidence: signal.confidence, openedAt: ticks.length - 1, settleAt: ticks.length - 1 + duration, paperCost:Number(quote?.ask), paperPayout:Number(quote?.payout)});
     manualOrdersInSetup = 0;
-    logger(`<span><b class="${signal.type==='OVER'?'positive':'negative'}">${signal.label}</b> · ${signal.confidence}% analysis score</span><span>Pending · evaluate in ${duration} tick${duration === 1 ? '' : 's'}</span>`);
+    logger(`<span><b class="${signal.type==='OVER'?'positive':'negative'}">${signal.label}</b> · ${signal.confidence}% analysis score</span><span>Research test only · evaluate in ${duration} tick${duration === 1 ? '' : 's'}</span>`);
     updateReport();
-    maybeAutoOrder(signal);
+    if (botMode === 'auto' && autoEnabled) maybeAutoOrder(signal);
   }
 };
 const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
@@ -252,6 +252,7 @@ const syncScannerTimer = () => {
   if (botMode === 'auto' && autoEnabled) scannerTimer = setInterval(scanMarkets, 30000);
 };
 const startLive = () => {
+  if (botMode === 'manual') { autoEnabled = false; syncScannerTimer(); }
   const symbol=$('symbol').value.trim(); isRunning=false; if(socket) socket.close();
   try { socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public'); socket.onopen=()=>{isRunning=true; socket.send(JSON.stringify({ticks:symbol,subscribe:1})); refreshPricing(); $('connection').textContent=`LIVE · ${symbol}`; $('connection').className='pill positive';}; socket.onmessage=e=>{const data=JSON.parse(e.data); if(data.error){logger(`<span class="negative">Feed error: ${data.error.message}</span>`); return;} if(data.tick)addTick(data.tick.quote,data.tick.epoch,data.tick.pip_size); if(data.proposal){const kind=data.echo_req?.contract_type === 'DIGITOVER' ? 'over' : 'under'; quotes[kind]={ask:Number(data.proposal.ask_price), payout:Number(data.proposal.payout)}; updatePricing();}}; socket.onerror=()=>{isRunning=false;$('connection').textContent='LIVE FEED ERROR';$('connection').className='pill negative';logger('<span class="negative">Could not connect to the live Deriv feed. No simulated prices will be shown.</span>');}; socket.onclose=()=>{if(isRunning){$('connection').textContent='DISCONNECTED';$('connection').className='pill negative';}};
   } catch { $('connection').textContent='LIVE FEED ERROR'; $('connection').className='pill negative'; }
@@ -351,7 +352,7 @@ const executeOrder = async (type) => {
 };
 const maybeAutoOrder = async (signal) => {
   const account = selectedAccount(), stake = Number($('stake').value || 0), setupLimit = Number($('maxTradesPerSetup').value || 1);
-  if (!autoEnabled || autoInFlight || !demoConnected || account?.accountType !== 'demo' || researchGuardPaused() || manualOrdersInSetup >= setupLimit) return;
+  if (botMode !== 'auto' || !autoEnabled || autoInFlight || !demoConnected || account?.accountType !== 'demo' || researchGuardPaused() || manualOrdersInSetup >= setupLimit) return;
   autoInFlight = true; $('autoStatus').textContent = `Qualifying ${signal.label} signal found. Placing one demo order…`;
   try {
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false }) });

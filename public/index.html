@@ -24,7 +24,7 @@
       <section class="entryDeck">
         <article class="panel suggestedEntryPanel"><p>Suggested entry</p><strong id="signal">NO SIGNAL</strong><small id="signalNote">Collecting data</small><p id="entryExecutionStatus" class="entryExecutionStatus">NO ORDER PLACED YET</p></article>
         <article class="panel entryAnalyzerPanel"><p>Entry strength analyzer</p><strong id="entryStrength">WAITING</strong><small id="entryStrengthNote">It will assess the selected entry after live data and pricing are available.</small></article>
-        <article class="panel cooldownPanel"><p>Momentum cooldown</p><strong id="cooldownMonitor">READY</strong><small id="cooldownMonitorNote">No completed Auto order yet.</small></article>
+        <article class="panel cooldownPanel"><p>Momentum cooldown</p><strong id="cooldownMonitor">READY</strong><small id="cooldownMonitorNote">No completed Auto order yet.</small><label class="cooldownSetting">Cooldown ticks <select id="autoCooldownTicks"><option value="2">2 ticks</option><option value="3">3 ticks</option><option value="5" selected>5 ticks</option><option value="10">10 ticks</option></select></label></article>
       </section>
       <section class="panel">
         <h2>Terminal-digit distribution</h2><p id="priceDigitCursor" class="priceDigitCursor">Live market price: waiting for price</p><div id="digits" class="digits"></div><p class="hint">The highlighted number is the final decimal digit of the live market price. It matches the live market feed. Percentages refresh less often so they are easier to read.</p>

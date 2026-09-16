@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-let ticks = [], distributionDigits = [], socket, distributionTimer, isRunning = false, lastSignalIndex = -Infinity;
+let ticks = [], distributionDigits = [], socket, distributionTimer, isRunning = false, lastSignalIndex = -Infinity, liveTickNumber = 0;
 const pending = [], settled = [];
 const quotes = { over: null, under: null };
 let manualOrdersInSetup = 0;
@@ -7,13 +7,13 @@ let targetRunBaseline = 0;
 let demoConnected = false;
 let availableAccounts = [], realTradingEnabled = false;
 let botMode = 'manual', autoEnabled = false, autoInFlight = false;
-let lastAutoSignalTick = -Infinity, lastAutoSide = null, autoMomentumOrders = 0;
+let lastAutoSignalTick = -Infinity;
 const storedOrders = () => { try { const value = JSON.parse(localStorage.getItem('derivAccountOrders') || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } };
 let accountOrderHistory = storedOrders();
 let lastSettledOrder = accountOrderHistory.at(-1) ?? null;
 let recentOrderPoll;
 let digitFlash = null, digitFlashTimer;
-const autoCooldownTicks = 5;
+const selectedAutoCooldown = () => Number($('autoCooldownTicks')?.value || 5);
 let executionPreparing = false;
 let warmPrepareTimer;
 const scannerSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
@@ -116,6 +116,7 @@ const showContractResult = (type, result, source) => {
   clearTimeout(digitFlashTimer); digitFlash = { exitDigit:lastSettledOrder.exitDigit, won }; digitFlashTimer = setTimeout(() => { digitFlash = null; update(); }, 800);
   if (!accountOrderHistory.some((order) => order.contractId && order.contractId === lastSettledOrder.contractId)) accountOrderHistory.push(lastSettledOrder);
   saveAccountOrderHistory(); renderLastSettledOrder(lastSettledOrder); updateActualPerformance();
+  if (botMode === 'manual') updateDemoArmState();
   update();
   loadAccounts({ preserveSelection:true, refreshOnly:true });
 };
@@ -123,20 +124,18 @@ const updateCooldownMonitor = () => {
   const monitor = $('cooldownMonitor'), note = $('cooldownMonitorNote');
   if (!Number.isFinite(lastAutoSignalTick)) {
     monitor.textContent = 'READY'; monitor.className = '';
-    note.textContent = 'No completed Auto order yet.';
+    note.textContent = `Waiting for the next qualifying Auto signal. Cooldown is set to ${selectedAutoCooldown()} ticks.`;
     return;
   }
-  const elapsed = Math.max(0, ticks.length - lastAutoSignalTick);
-  if (autoMomentumOrders === 1 && elapsed >= 1 && elapsed <= 2) {
-    monitor.textContent = 'FOLLOW-UP OPEN'; monitor.className = 'positive';
-    note.textContent = 'One same-side LIVE SUPPORT follow-up may be sent.';
-  } else if (elapsed < autoCooldownTicks) {
-    monitor.textContent = `COOLDOWN · ${elapsed}/${autoCooldownTicks}`; monitor.className = 'regime-consolidation';
-    note.textContent = `${autoCooldownTicks - elapsed} tick${autoCooldownTicks - elapsed === 1 ? '' : 's'} until a new momentum scan.`;
-  } else {
+  const cooldown = selectedAutoCooldown(), elapsed = Math.max(0, liveTickNumber - lastAutoSignalTick);
+  if (elapsed >= cooldown) {
+    lastAutoSignalTick = -Infinity;
     monitor.textContent = 'READY'; monitor.className = 'positive';
-    note.textContent = 'Cooldown complete. Waiting for Suggested Entry and LIVE SUPPORT.';
+    note.textContent = `Cooldown complete after ${cooldown} ticks. Waiting for the next qualifying Auto signal.`;
+    return;
   }
+  monitor.textContent = `COOLDOWN · ${elapsed}/${cooldown}`; monitor.className = 'regime-consolidation';
+  note.textContent = `${cooldown - elapsed} tick${cooldown - elapsed === 1 ? '' : 's'} remaining. New Auto orders are paused until the countdown finishes.`;
 };
 const updateReport = () => {
   const wins = settled.filter(x => x.won).length;
@@ -271,6 +270,7 @@ const showSignal = (signal, candidate, confidence) => {
   $('executeOver').classList.toggle('suggested', signal.type === 'OVER'); $('executeUnder').classList.toggle('suggested', signal.type === 'UNDER');
 };
 const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
+  liveTickNumber++;
   const numeric = Number(price);
   const raw = Number.isFinite(numeric) && Number.isInteger(Number(pipSize)) ? numeric.toFixed(Number(pipSize)) : String(price);
   const digit = Number(raw.at(-1));
@@ -479,20 +479,17 @@ const executeOrder = async (type) => {
   } catch (error) { $('demoOrderStatus').textContent = `No order placed: ${error.message}`; button.disabled = false; }
 };
 const maybeAutoOrder = async (signal) => {
-  const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = ticks.length;
+  const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = liveTickNumber;
   if (botMode !== 'auto' || !autoEnabled || autoInFlight || !demoConnected || account?.accountType !== 'demo') return;
   const ticksSinceLast = currentTick - lastAutoSignalTick;
-  const sameMomentum = lastAutoSide === signal.type && autoMomentumOrders === 1 && ticksSinceLast >= 1 && ticksSinceLast <= 2;
-  const freshMomentum = ticksSinceLast >= autoCooldownTicks;
-  if (!sameMomentum && !freshMomentum) return;
+  if (ticksSinceLast < selectedAutoCooldown()) return;
   autoInFlight = true; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
   try {
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Auto order was not accepted.');
-    if (sameMomentum) autoMomentumOrders = 2; else autoMomentumOrders = 1;
-    lastAutoSignalTick = currentTick; lastAutoSide = signal.type;
-    $('autoStatus').textContent = `ORDER ENTERED on digit ${tickDigit(result.entryTick)}. Waiting for the next tick to settle. Next momentum scan begins after ${autoCooldownTicks} ticks.`;
+    lastAutoSignalTick = liveTickNumber;
+    $('autoStatus').textContent = `ORDER ENTERED on digit ${tickDigit(result.entryTick)}. Waiting for the next tick to settle. Auto bot will pause for ${selectedAutoCooldown()} ticks after this order.`;
     showOrderEntry(signal.type, result, 'Auto bot'); trackRecentOrder();
     updateCooldownMonitor();
   } catch (error) { autoEnabled = false; $('autoStatus').textContent = `Auto bot stopped: ${error.message}`; }
@@ -514,10 +511,10 @@ updateAutoState = () => {
   if (!demoConnected) $('autoStatus').textContent = 'Connect your Deriv account first.';
   else if (account?.accountType !== 'demo') $('autoStatus').textContent = 'Auto mode is available only with the selected practice account.';
   else if (researchGuardPaused()) $('autoStatus').textContent = 'Auto bot is paused by the research guard.';
-  else if (autoEnabled) $('autoStatus').textContent = `Auto bot waits for Suggested Entry and LIVE SUPPORT to match. It can take one follow-up order, then waits ${autoCooldownTicks} ticks.`;
+  else if (autoEnabled) $('autoStatus').textContent = 'Auto bot waits for Suggested Entry and LIVE SUPPORT to match, then pauses for the selected cooldown after every accepted order.';
   else $('autoStatus').textContent = 'Auto bot is not active.';
 };
-$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('stake').addEventListener('change', scheduleFastPreparation); $('symbol').addEventListener('change', scheduleFastPreparation); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch only when a market passes the trend-strength filter.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
+$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('stake').addEventListener('change', scheduleFastPreparation); $('symbol').addEventListener('change', scheduleFastPreparation); $('autoCooldownTicks').addEventListener('change', updateCooldownMonitor); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch only when a market passes the trend-strength filter.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
 $('manualMode').onclick = () => setBotMode('manual'); $('autoMode').onclick = () => { const account = selectedAccount(); if (account?.accountType !== 'demo') { setBotMode('auto'); return; } if (window.confirm('Activate the auto bot for qualifying Demo signals?')) { autoEnabled = true; $('autoSwitchMarket').checked = true; } setBotMode('auto'); if (autoEnabled) scanMarkets(); };
 $('resetTargetCycle').onclick = () => { targetRunBaseline = performanceStats.net; updatePerformance(); updateDemoArmState(); };
 $('deleteToday').onclick = () => {

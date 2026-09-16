@@ -8,6 +8,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 const oauthStates = new Map();
 const sessions = new Map();
+const recentOrders = new Map();
 const dailyDemoRisk = new Map();
 const tradeChannels = new Map();
 const clientId = process.env.DERIV_CLIENT_ID;
@@ -96,6 +97,11 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { accounts, realTradingEnabled });
     } catch (error) { return json(res, 502, { error:error.message || 'Accounts could not be retrieved.' }); }
   }
+  if (url.pathname === '/api/orders/recent' && req.method === 'GET') {
+    const session = getSession(req);
+    if (!session) return json(res, 401, { error:'Connect your Deriv account first.' });
+    return json(res, 200, { order:recentOrders.get(cookieValue(req, 'deriv_session')) ?? null });
+  }
   if (url.pathname === '/api/order/prepare' && req.method === 'POST') {
     const session = getSession(req);
     if (!session) return json(res, 401, { error:'Connect your Deriv account first.' });
@@ -129,9 +135,12 @@ const server = http.createServer(async (req, res) => {
       const budget = dailyDemoRisk.get(key) ?? { trades:0, exposure:0 };
       if (budget.trades >= tradeLimit) return json(res, 403, { error:`Daily trade limit (${tradeLimit}) reached.` });
       if (budget.exposure + amount > dailyLimit) return json(res, 403, { error:`Daily demo risk ceiling ($${dailyLimit}) would be exceeded.` });
-      const result = await accountOrder({ key:`${cookieValue(req, 'deriv_session')}:${accountId}`, token:session.accessToken, accountId:selectedAccount.account_id, accountType, currency:selectedAccount.currency, type, symbol, stake:amount });
+      const sessionKey = cookieValue(req, 'deriv_session');
+      const result = await accountOrder({ key:`${sessionKey}:${accountId}`, token:session.accessToken, accountId:selectedAccount.account_id, accountType, currency:selectedAccount.currency, type, symbol, stake:amount });
       dailyDemoRisk.set(key, { trades:budget.trades + 1, exposure:budget.exposure + amount });
-      return json(res, 200, { ok:true, account:`${accountType === 'real' ? 'Real' : 'Demo'} ${selectedAccount.account_id}`, currency:selectedAccount.currency, ...result, remainingTrades:tradeLimit-budget.trades-1, remainingRisk:dailyLimit-budget.exposure-amount });
+      const receipt = { type, symbol, accountType, accountId:selectedAccount.account_id, currency:selectedAccount.currency, ...result, completedAt:Date.now() };
+      recentOrders.set(sessionKey, receipt);
+      return json(res, 200, { ok:true, account:`${accountType === 'real' ? 'Real' : 'Demo'} ${selectedAccount.account_id}`, currency:selectedAccount.currency, ...receipt, remainingTrades:tradeLimit-budget.trades-1, remainingRisk:dailyLimit-budget.exposure-amount });
     } catch (error) { return json(res, 502, { error:error.message || 'Demo order could not be completed.' }); }
   }
   if (url.pathname === '/api/auth/start') {

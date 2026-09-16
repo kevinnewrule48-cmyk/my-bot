@@ -71,10 +71,10 @@ const updateActualPerformance = () => {
 const renderLastSettledOrder = (order) => {
   if (!order) return;
   const won = order.won === true;
-  $('actualEntryTick').textContent = order.entryTick ?? '—';
-  $('actualEntryDigit').textContent = `Entry digit: ${order.entryDigit ?? '—'}`;
-  $('actualExitTick').textContent = order.exitTick ?? '—';
-  $('actualExitDigit').textContent = `Settlement digit: ${order.exitDigit ?? '—'}`;
+  $('actualEntryTick').textContent = order.entryDigit ?? tickDigit(order.entryTick);
+  $('actualEntryDigit').textContent = `Entry price: ${order.entryTick ?? '—'}`;
+  $('actualExitTick').textContent = order.exitDigit ?? tickDigit(order.exitTick);
+  $('actualExitDigit').textContent = `Settlement price: ${order.exitTick ?? '—'}`;
   $('actualOrderOutcome').textContent = won ? 'WON' : 'LOST';
   $('actualOrderOutcome').className = won ? 'positive' : 'negative';
   $('actualOrderSide').textContent = `${order.label ?? 'ORDER'} · ${order.source ?? 'Account order'}`;
@@ -85,8 +85,9 @@ const showContractResult = (type, result, source) => {
   const outcome = won ? 'WON' : 'LOST';
   $('entryExecutionStatus').textContent = `ORDER PLACED · ${outcome} · ${label} · ${source} · executed on ${result.entryTick} (digit ${tickDigit(result.entryTick)}) · settled on ${result.exitTick} (digit ${tickDigit(result.exitTick)}) · contract ${result.contractId}`;
   $('entryExecutionStatus').className = `entryExecutionStatus ${won ? 'positive' : 'negative'}`;
-  lastSettledOrder = { entryDigit:tickDigit(result.entryTick), exitDigit:tickDigit(result.exitTick), won, entryTick:result.entryTick, exitTick:result.exitTick, profit:Number(result.profit || 0), label, source, time:Date.now() };
-  accountOrderHistory.push(lastSettledOrder); saveAccountOrderHistory(); renderLastSettledOrder(lastSettledOrder); updateActualPerformance();
+  lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), exitDigit:tickDigit(result.exitTick), won, entryTick:result.entryTick, exitTick:result.exitTick, profit:Number(result.profit || 0), label, source, time:Date.now() };
+  if (!accountOrderHistory.some((order) => order.contractId && order.contractId === lastSettledOrder.contractId)) accountOrderHistory.push(lastSettledOrder);
+  saveAccountOrderHistory(); renderLastSettledOrder(lastSettledOrder); updateActualPerformance();
   update();
   loadAccounts({ preserveSelection:true, refreshOnly:true });
 };
@@ -382,11 +383,20 @@ const prepareFastExecution = async () => {
   } catch { $('accountHelp').textContent = `Connected ${account.accountType} account · execution will prepare when you place an order.`; }
   finally { executionPreparing = false; }
 };
+const loadRecentOrder = async () => {
+  try {
+    const response = await fetch('/api/orders/recent', { cache:'no-store' });
+    const result = await response.json();
+    if (!response.ok || !result.order) return;
+    const order = result.order;
+    showContractResult(order.type, order, 'Account order');
+  } catch { /* The live order receipt will still appear after the next completed order. */ }
+};
 const loadAuthStatus = async () => {
   try {
     const status = await fetch('/api/auth/status', { cache:'no-store' }).then(r => r.json());
     const button = $('connect');
-    if (status.connected) { demoConnected = true; button.textContent = 'Deriv account connected'; button.disabled = true; loadAccounts(); return; }
+    if (status.connected) { demoConnected = true; button.textContent = 'Deriv account connected'; button.disabled = true; loadAccounts().then(loadRecentOrder); return; }
     demoConnected = false; autoEnabled = false;
     $('entryExecutionStatus').textContent = 'NO ORDER PLACED YET · Connect an account to execute.';
     $('entryExecutionStatus').className = 'entryExecutionStatus negative';
@@ -482,7 +492,7 @@ $('deleteToday').onclick = () => {
 $('clearActualPerformance').onclick = () => {
   if (!window.confirm('Clear the displayed order-performance figures from this browser? Your Deriv account, completed orders, and balance will not be changed.')) return;
   accountOrderHistory = []; lastSettledOrder = null; localStorage.removeItem('derivAccountOrders'); updateActualPerformance(); update();
-  $('actualEntryTick').textContent = '—'; $('actualEntryDigit').textContent = 'Entry digit: —'; $('actualExitTick').textContent = '—'; $('actualExitDigit').textContent = 'Settlement digit: —'; $('actualOrderOutcome').textContent = 'NO ORDER'; $('actualOrderOutcome').className = ''; $('actualOrderSide').textContent = 'Waiting for an accepted order';
+  $('actualEntryTick').textContent = '—'; $('actualEntryDigit').textContent = 'Entry price: —'; $('actualExitTick').textContent = '—'; $('actualExitDigit').textContent = 'Settlement price: —'; $('actualOrderOutcome').textContent = 'NO ORDER'; $('actualOrderOutcome').className = ''; $('actualOrderSide').textContent = 'Waiting for an accepted order';
 };
 ['stake','maxStake','dailyLoss','dailyProfitTarget','maxTrades','maxConsecutiveLosses','maxTradesPerSetup'].forEach(id=>$(id).addEventListener('input', updateRiskSummary)); updateRiskSummary();
 updateActualPerformance();

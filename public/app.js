@@ -48,6 +48,20 @@ const tickDigit = (tick) => {
   return match ? match[1] : '—';
 };
 const saveAccountOrderHistory = () => localStorage.setItem('derivAccountOrders', JSON.stringify(accountOrderHistory.slice(-250)));
+const renderContractPayoutHistory = () => {
+  const list = $('contractPayoutList'), count = $('contractPayoutCount');
+  if (!list || !count) return;
+  const completed = accountOrderHistory.filter((order) => order.state === 'settled' || order.exitTick !== undefined && order.exitTick !== null).slice().reverse();
+  count.textContent = `${completed.length} CONTRACT${completed.length === 1 ? '' : 'S'}`;
+  if (!completed.length) { list.innerHTML = '<p class="empty">No completed contracts yet.</p>'; return; }
+  list.innerHTML = completed.map((order) => {
+    const won = order.won === true;
+    const stake = Number(order.buyPrice ?? order.stake ?? 0);
+    const payout = Number(order.payout ?? 0);
+    const profit = Number(order.profit ?? 0);
+    return `<article class="contractPayoutRow ${won ? 'contractWon' : 'contractLost'}"><div><b>${order.label ?? 'CONTRACT'} · ${won ? 'WON' : 'LOST'}</b><small>Entry ${order.entryDigit ?? '—'} → settlement ${order.exitDigit ?? '—'} · ${order.source ?? 'Account order'}</small></div><div><span>Contract amount</span><strong>${money(stake)}</strong></div><div><span>Deriv payout</span><strong>${money(payout)}</strong></div><div><span>Profit / loss</span><strong class="${profit >= 0 ? 'positive' : 'negative'}">${profit >= 0 ? '+' : ''}${money(profit)}</strong></div></article>`;
+  }).join('');
+};
 const updateActualPerformance = () => {
   let grossProfit = 0, grossLoss = 0, net = 0, peak = 0, drawdown = 0, wins = 0, losses = 0, currentWins = 0, currentLosses = 0;
   for (const order of accountOrderHistory) {
@@ -70,6 +84,7 @@ const updateActualPerformance = () => {
   set('actualConsecutiveLosses', currentLosses, currentLosses ? 'negative' : '');
   set('actualDrawdown', money(drawdown), drawdown ? 'negative' : '');
   set('actualHistoryNote', accountOrderHistory.length ? `${accountOrderHistory.length} RECORDED` : 'THIS BROWSER');
+  renderContractPayoutHistory();
 };
 const renderLastSettledOrder = (order) => {
   if (!order) return;
@@ -97,7 +112,7 @@ const showContractResult = (type, result, source) => {
   const outcome = won ? 'WON' : 'LOST';
   $('entryExecutionStatus').textContent = `ORDER PLACED · ${outcome} · ${label} · ${source} · executed on ${result.entryTick} (digit ${tickDigit(result.entryTick)}) · settled on ${result.exitTick} (digit ${tickDigit(result.exitTick)}) · contract ${result.contractId}`;
   $('entryExecutionStatus').className = `entryExecutionStatus ${won ? 'positive' : 'negative'}`;
-  lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), exitDigit:tickDigit(result.exitTick), won, entryTick:result.entryTick, exitTick:result.exitTick, profit:Number(result.profit || 0), state:'settled', label, source, time:Date.now() };
+  lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), exitDigit:tickDigit(result.exitTick), won, entryTick:result.entryTick, exitTick:result.exitTick, buyPrice:Number(result.buyPrice || 0), payout:Number(result.payout || 0), profit:Number(result.profit || 0), state:'settled', label, source, time:Date.now() };
   clearTimeout(digitFlashTimer); digitFlash = { exitDigit:lastSettledOrder.exitDigit, won }; digitFlashTimer = setTimeout(() => { digitFlash = null; update(); }, 800);
   if (!accountOrderHistory.some((order) => order.contractId && order.contractId === lastSettledOrder.contractId)) accountOrderHistory.push(lastSettledOrder);
   saveAccountOrderHistory(); renderLastSettledOrder(lastSettledOrder); updateActualPerformance();

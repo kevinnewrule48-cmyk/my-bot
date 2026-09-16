@@ -96,6 +96,10 @@
           <article><p>Completed orders</p><strong id="actualTotalOrders">0</strong></article><article><p>Winning orders</p><strong id="actualWinningOrders">0</strong></article><article><p>Losing orders</p><strong id="actualLosingOrders">0</strong></article><article><p>Win rate</p><strong id="actualWinRate">—</strong></article>
           <article><p>Consecutive wins</p><strong id="actualConsecutiveWins">0</strong></article><article><p>Consecutive losses</p><strong id="actualConsecutiveLosses">0</strong></article><article><p>Drawdown</p><strong id="actualDrawdown">$0.00</strong></article><article><p>Order history</p><strong id="actualHistoryNote">THIS BROWSER</strong></article>
         </div>
+        <section class="contractPayoutPanel" aria-labelledby="contractPayoutHeading">
+          <div class="panelHeading"><div><h2 id="contractPayoutHeading">Contract amount &amp; payout history</h2><p class="hint">Every completed contract is listed here, newest first. “Payout” is the total amount returned by Deriv; “profit/loss” is what was gained or lost after the stake.</p></div><strong id="contractPayoutCount">0 CONTRACTS</strong></div>
+          <div id="contractPayoutList" class="contractPayoutList"><p class="empty">No completed contracts yet.</p></div>
+        </section>
         <div class="performanceActions"><button id="clearActualPerformance" class="secondary danger">Clear displayed performance</button></div>
         <p class="hint">These figures use completed orders sent by this bot in this browser. Clearing them only clears this display; it never changes Deriv account history or balance.</p>
         <div class="hidden">

@@ -10,6 +10,7 @@ let botMode = 'manual', autoEnabled = false, autoInFlight = false;
 let manualOrderPending = false;
 let lastAutoSignalTick = -Infinity;
 let autoMomentumTrades = 0, autoAwaitingReset = false;
+let autoLastError = '';
 const autoContractIds = new Set();
 const storedOrders = () => { try { const value = JSON.parse(localStorage.getItem('derivAccountOrders') || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } };
 let accountOrderHistory = storedOrders();
@@ -549,9 +550,15 @@ const executeOrder = async (type) => {
 const maybeAutoOrder = async (signal) => {
   const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = liveTickNumber;
   if (botMode !== 'auto' || !autoEnabled || autoAwaitingReset || autoInFlight || !demoConnected || account?.accountType !== 'demo') return;
+  const maximum = Number($('maxStake').value || 5000);
+  if (!Number.isFinite(stake) || stake <= 0 || stake > maximum) {
+    autoLastError = `Enter a stake between $0.01 and ${money(maximum)} before Auto Bot can send an order.`;
+    updateAutoState();
+    return;
+  }
   const ticksSinceLast = currentTick - lastAutoSignalTick;
   if (ticksSinceLast < selectedAutoCooldown()) return;
-  autoInFlight = true; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
+  autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
   try {
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false }) });
     const result = await response.json();
@@ -562,7 +569,12 @@ const maybeAutoOrder = async (signal) => {
     $('autoStatus').textContent = `ORDER ENTERED on digit ${tickDigit(result.entryTick)}. Waiting for the next tick to settle. Auto bot will pause for ${selectedAutoCooldown()} ticks after this order.`;
     showOrderEntry(signal.type, result, 'Auto bot'); trackRecentOrder();
     updateCooldownMonitor();
-  } catch (error) { autoEnabled = false; $('autoStatus').textContent = `Auto bot stopped: ${error.message}`; }
+  } catch (error) {
+    // A rejected request must not silently turn the bot off. Keep it armed and
+    // show the exact reason so the next LIVE SUPPORT signal can retry.
+    autoLastError = error.message || 'Deriv did not accept the Auto Bot order.';
+    $('autoStatus').textContent = `Auto Bot is still ON. Order was not accepted: ${autoLastError}. It will retry on the next LIVE SUPPORT signal.`;
+  }
   finally { autoInFlight = false; updateAutoState(); }
 };
 const setBotMode = (mode) => {
@@ -582,11 +594,13 @@ updateAutoState = () => {
   else if (account?.accountType !== 'demo') $('autoStatus').textContent = 'Auto mode is available only with the selected practice account.';
   else if (researchGuardPaused()) $('autoStatus').textContent = 'Auto bot is paused by the research guard.';
   else if (autoAwaitingReset) $('autoStatus').textContent = `Momentum run complete. Waiting for confidence to reset to ${autoResetThreshold()}% or lower before Auto Bot rearms.`;
+  else if (autoInFlight) $('autoStatus').textContent = 'LIVE SUPPORT confirmed. Sending Auto Bot order…';
+  else if (autoLastError) $('autoStatus').textContent = `Auto Bot is still ON. Last order was not accepted: ${autoLastError}. It will retry on the next LIVE SUPPORT signal.`;
   else if (autoEnabled) $('autoStatus').textContent = `Auto Bot trades at or above your ${Number($('minimum').value || 65)}% minimum when LIVE SUPPORT appears, then pauses for the selected cooldown.`;
   else $('autoStatus').textContent = 'Auto bot is not active.';
   updateAutoIndicator();
 };
-$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('stake').addEventListener('change', scheduleFastPreparation); $('symbol').addEventListener('change', () => { const selected = $('symbol').value.trim(); scheduleFastPreparation(); if (isRunning) { $('scannerStatus').textContent = `Changed to ${selected}. Loading its live feed now.`; startLive(); } }); $('autoCooldownTicks').addEventListener('change', updateCooldownMonitor); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('startAuto').onclick = () => { autoEnabled = true; autoAwaitingReset = false; autoMomentumTrades = 0; lastAutoSignalTick = -Infinity; $('autoSwitchMarket').checked = true; setBotMode('auto'); $('autoStatus').textContent = 'Auto Bot started. Waiting for LIVE SUPPORT at or above your minimum confidence.'; updateCooldownMonitor(); scanMarkets(); }; $('stopAuto').onclick = () => { autoEnabled = false; autoAwaitingReset = false; autoMomentumTrades = 0; lastAutoSignalTick = -Infinity; $('autoStatus').textContent = 'Auto Bot stopped. No new Auto orders will be sent.'; updateCooldownMonitor(); updateAutoState(); }; $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch to the scanner’s strongest selection, including the strongest consolidation fallback when no trend exists.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
+$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('stake').addEventListener('change', () => { autoLastError = ''; scheduleFastPreparation(); }); $('symbol').addEventListener('change', () => { const selected = $('symbol').value.trim(); scheduleFastPreparation(); if (isRunning) { $('scannerStatus').textContent = `Changed to ${selected}. Loading its live feed now.`; startLive(); } }); $('autoCooldownTicks').addEventListener('change', updateCooldownMonitor); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('startAuto').onclick = () => { autoEnabled = true; autoAwaitingReset = false; autoMomentumTrades = 0; autoLastError = ''; lastAutoSignalTick = -Infinity; $('autoSwitchMarket').checked = true; setBotMode('auto'); $('autoStatus').textContent = 'Auto Bot started. Waiting for LIVE SUPPORT at or above your minimum confidence.'; updateCooldownMonitor(); scanMarkets(); }; $('stopAuto').onclick = () => { autoEnabled = false; autoAwaitingReset = false; autoMomentumTrades = 0; autoLastError = ''; lastAutoSignalTick = -Infinity; $('autoStatus').textContent = 'Auto Bot stopped. No new Auto orders will be sent.'; updateCooldownMonitor(); updateAutoState(); }; $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch to the scanner’s strongest selection, including the strongest consolidation fallback when no trend exists.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
 $('manualMode').onclick = () => setBotMode('manual'); $('autoMode').onclick = () => { setBotMode('auto'); $('autoStatus').textContent = 'Auto mode selected. The market scanner is running; press Start Auto Bot when you are ready to allow automatic orders.'; scanMarkets(); };
 $('resetTargetCycle').onclick = () => { targetRunBaseline = performanceStats.net; updatePerformance(); updateDemoArmState(); };
 $('deleteToday').onclick = () => {

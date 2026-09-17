@@ -126,6 +126,25 @@ const showContractResult = (type, result, source) => {
   loadAccounts({ preserveSelection:true, refreshOnly:true });
 };
 const autoResetThreshold = () => Math.max(0, Number($('minimum').value || 65) - 4);
+const updateAutoIndicator = () => {
+  const indicator = $('autoBotIndicator');
+  if (!indicator) return;
+  if (botMode !== 'auto' || !autoEnabled) {
+    indicator.textContent = 'AUTO BOT OFF'; indicator.className = 'autoBotIndicator'; return;
+  }
+  if (autoAwaitingReset) {
+    indicator.textContent = `AUTO BOT PAUSED · RESET AT ${autoResetThreshold()}%`;
+    indicator.className = 'autoBotIndicator negative'; return;
+  }
+  if (Number.isFinite(lastAutoSignalTick)) {
+    const total = selectedAutoCooldown(), elapsed = Math.max(0, liveTickNumber - lastAutoSignalTick);
+    if (elapsed < total) {
+      indicator.textContent = `AUTO BOT ON · COOLDOWN ${elapsed}/${total}`;
+      indicator.className = 'autoBotIndicator regime-consolidation'; return;
+    }
+  }
+  indicator.textContent = 'AUTO BOT ON · READY'; indicator.className = 'autoBotIndicator positive';
+};
 const handleAutoSettlement = (result, won) => {
   autoContractIds.delete(result.contractId);
   // The first winning order may keep the same momentum alive. A second winning
@@ -144,17 +163,18 @@ const updateCooldownMonitor = () => {
   if (!Number.isFinite(lastAutoSignalTick)) {
     monitor.textContent = 'READY'; monitor.className = '';
     note.textContent = `Waiting for the next qualifying Auto signal. Cooldown is set to ${selectedAutoCooldown()} ticks.`;
-    return;
+    updateAutoIndicator(); return;
   }
   const cooldown = selectedAutoCooldown(), elapsed = Math.max(0, liveTickNumber - lastAutoSignalTick);
   if (elapsed >= cooldown) {
     lastAutoSignalTick = -Infinity;
     monitor.textContent = 'READY'; monitor.className = 'positive';
     note.textContent = `Cooldown complete after ${cooldown} ticks. Waiting for the next qualifying Auto signal.`;
-    return;
+    updateAutoIndicator(); return;
   }
   monitor.textContent = `COOLDOWN · ${elapsed}/${cooldown}`; monitor.className = 'regime-consolidation';
   note.textContent = `${cooldown - elapsed} tick${cooldown - elapsed === 1 ? '' : 's'} remaining. New Auto orders are paused until the countdown finishes.`;
+  updateAutoIndicator();
 };
 const updateReport = () => {
   const wins = settled.filter(x => x.won).length;
@@ -201,6 +221,14 @@ const researchGuardPaused = () => false;
 const updateEntryStrength = () => {
   const signal = calculateSignal(ticks);
   const minimum = Number($('minimum').value || 65);
+  // Rearm before the normal signal gate. Otherwise a score below the minimum
+  // returns early and an Auto Bot paused for a fresh momentum reset never wakes.
+  if (autoAwaitingReset && (!signal || signal.confidence <= autoResetThreshold())) {
+    autoAwaitingReset = false;
+    autoMomentumTrades = 0;
+    $('autoStatus').textContent = `Confidence reset to ${signal?.confidence ?? 0}%. Auto Bot is rearmed and waiting for the next LIVE SUPPORT entry.`;
+    updateAutoIndicator();
+  }
   const suggestedEntryIsActive = Boolean(signal && signal.confidence >= minimum);
   if (!signal || !quotes.over || !quotes.under || !suggestedEntryIsActive) {
     $('entryStrength').textContent = 'WAITING'; $('entryStrength').className = '';
@@ -216,11 +244,6 @@ const updateEntryStrength = () => {
   // A qualifying confidence is the primary entry gate. The short live run is
   // shown as context, not as a second hidden threshold that delays an entry.
   const liveSupport = signal.confidence >= minimum;
-  if (autoAwaitingReset && signal.confidence <= autoResetThreshold()) {
-    autoAwaitingReset = false;
-    autoMomentumTrades = 0;
-    $('autoStatus').textContent = `Confidence reset to ${signal.confidence}%. Auto Bot is rearmed and waiting for the next LIVE SUPPORT entry.`;
-  }
   const label = liveSupport ? 'LIVE SUPPORT' : (edge <= 0 ? 'WEAK — BLOCK' : (signal.confidence >= minimum + 10 && edge >= 0.03 ? 'STRONG' : 'CAUTION'));
   $('entryStrength').textContent = label;
   $('entryStrength').className = label === 'STRONG' || label === 'LIVE SUPPORT' ? 'positive' : label === 'CAUTION' ? 'regime-consolidation' : 'negative';
@@ -550,20 +573,21 @@ const setBotMode = (mode) => {
   $('autoMode').classList.toggle('active', auto); $('autoMode').classList.toggle('secondary', !auto);
   $('botModeNote').textContent = auto ? 'Auto mode: it waits for Suggested Entry and LIVE SUPPORT to match before sending an order.' : 'Manual mode: you decide whether to place each order.';
   if (!auto) { autoEnabled = false; autoAwaitingReset = false; autoMomentumTrades = 0; $('autoStatus').textContent = 'Manual execution: choose the button that matches Suggested entry.'; }
-  updateAutoState(); updateDemoArmState(); syncScannerTimer();
+  updateAutoState(); updateDemoArmState(); updateAutoIndicator(); syncScannerTimer();
 };
 updateAutoState = () => {
   const account = selectedAccount();
-  if (botMode !== 'auto') return;
+  if (botMode !== 'auto') { updateAutoIndicator(); return; }
   if (!demoConnected) $('autoStatus').textContent = 'Connect your Deriv account first.';
   else if (account?.accountType !== 'demo') $('autoStatus').textContent = 'Auto mode is available only with the selected practice account.';
   else if (researchGuardPaused()) $('autoStatus').textContent = 'Auto bot is paused by the research guard.';
   else if (autoAwaitingReset) $('autoStatus').textContent = `Momentum run complete. Waiting for confidence to reset to ${autoResetThreshold()}% or lower before Auto Bot rearms.`;
   else if (autoEnabled) $('autoStatus').textContent = `Auto Bot trades at or above your ${Number($('minimum').value || 65)}% minimum when LIVE SUPPORT appears, then pauses for the selected cooldown.`;
   else $('autoStatus').textContent = 'Auto bot is not active.';
+  updateAutoIndicator();
 };
-$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('stake').addEventListener('change', scheduleFastPreparation); $('symbol').addEventListener('change', () => { const selected = $('symbol').value.trim(); scheduleFastPreparation(); if (isRunning) { $('scannerStatus').textContent = `Changed to ${selected}. Loading its live feed now.`; startLive(); } }); $('autoCooldownTicks').addEventListener('change', updateCooldownMonitor); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('stopAuto').onclick = () => { autoEnabled = false; autoAwaitingReset = false; autoMomentumTrades = 0; lastAutoSignalTick = -Infinity; $('autoStatus').textContent = 'Auto Bot stopped. No new Auto orders will be sent.'; updateCooldownMonitor(); updateAutoState(); }; $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch to the scanner’s strongest selection, including the strongest consolidation fallback when no trend exists.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
-$('manualMode').onclick = () => setBotMode('manual'); $('autoMode').onclick = () => { autoEnabled = true; autoAwaitingReset = false; autoMomentumTrades = 0; $('autoSwitchMarket').checked = true; setBotMode('auto'); scanMarkets(); };
+$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('stake').addEventListener('change', scheduleFastPreparation); $('symbol').addEventListener('change', () => { const selected = $('symbol').value.trim(); scheduleFastPreparation(); if (isRunning) { $('scannerStatus').textContent = `Changed to ${selected}. Loading its live feed now.`; startLive(); } }); $('autoCooldownTicks').addEventListener('change', updateCooldownMonitor); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('startAuto').onclick = () => { autoEnabled = true; autoAwaitingReset = false; autoMomentumTrades = 0; lastAutoSignalTick = -Infinity; $('autoSwitchMarket').checked = true; setBotMode('auto'); $('autoStatus').textContent = 'Auto Bot started. Waiting for LIVE SUPPORT at or above your minimum confidence.'; updateCooldownMonitor(); scanMarkets(); }; $('stopAuto').onclick = () => { autoEnabled = false; autoAwaitingReset = false; autoMomentumTrades = 0; lastAutoSignalTick = -Infinity; $('autoStatus').textContent = 'Auto Bot stopped. No new Auto orders will be sent.'; updateCooldownMonitor(); updateAutoState(); }; $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch to the scanner’s strongest selection, including the strongest consolidation fallback when no trend exists.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
+$('manualMode').onclick = () => setBotMode('manual'); $('autoMode').onclick = () => { $('startAuto').click(); };
 $('resetTargetCycle').onclick = () => { targetRunBaseline = performanceStats.net; updatePerformance(); updateDemoArmState(); };
 $('deleteToday').onclick = () => {
   const approved = window.confirm('Delete today’s dashboard paper-test results, pending test signals, and log? This cannot delete Deriv account history or completed demo contracts.');

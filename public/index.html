@@ -22,7 +22,7 @@
         <button id="start">Start live feed</button><button class="secondary" id="pricing">Refresh live pricing</button><button class="secondary" id="backtest" hidden>Backtest collected ticks</button><button class="secondary" id="stop">Stop</button>
       </section>
       <section class="entryDeck">
-        <article class="panel suggestedEntryPanel"><p>Suggested entry</p><strong id="signal">NO SIGNAL</strong><small id="signalNote">Collecting data</small><p id="entryExecutionStatus" class="entryExecutionStatus">NO ORDER PLACED YET</p></article>
+        <article class="panel suggestedEntryPanel"><p>Suggested entry</p><strong id="signal">NO SIGNAL</strong><small id="signalNote">Collecting data</small><p id="autoBotIndicator" class="autoBotIndicator">AUTO BOT OFF</p><p id="entryExecutionStatus" class="entryExecutionStatus">NO ORDER PLACED YET</p></article>
         <article class="panel entryAnalyzerPanel"><p>Entry strength analyzer</p><strong id="entryStrength">WAITING</strong><small id="entryStrengthNote">It will assess the selected entry after live data and pricing are available.</small></article>
         <article class="panel cooldownPanel"><p>Momentum cooldown</p><strong id="cooldownMonitor">READY</strong><small id="cooldownMonitorNote">No completed Auto order yet.</small><label class="cooldownSetting">Cooldown ticks <select id="autoCooldownTicks"><option value="2">2 ticks</option><option value="3">3 ticks</option><option value="5" selected>5 ticks</option><option value="10">10 ticks</option></select></label></article>
       </section>
@@ -32,7 +32,7 @@
       <section id="autoOrderPanel" class="panel">
         <h2>Quick execution</h2>
         <p>In Manual mode, select the same side that appears under Suggested entry. The order request is sent immediately; the contract settles on the next single market tick.</p>
-        <button id="stopAuto" class="danger" type="button">Stop Auto Bot</button>
+        <div class="autoControls"><button id="startAuto" type="button">Start Auto Bot</button><button id="stopAuto" class="secondary danger" type="button">Stop Auto Bot</button></div>
         <div class="executionButtons"><button id="executeOver" disabled>Execute OVER 1</button><button id="executeUnder" disabled>Execute UNDER 8</button></div>
         <p id="autoStatus" class="hint">Manual execution is ready after account acknowledgement.</p>
       </section>

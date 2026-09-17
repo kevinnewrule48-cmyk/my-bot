@@ -22,6 +22,9 @@ let executionPreparing = false;
 let warmPrepareTimer;
 const scannerSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
 let lastMarketScan = [], marketScanBusy = false, scannerTimer, scannerRecommendedSymbol = null;
+// Each market keeps its own rolling tick memory. Switching markets restores
+// the sample already collected for that market instead of starting at zero.
+const marketTickMemory = new Map();
 let performanceStats = { grossProfit:0, grossLoss:0, net:0, recovery:0, drawdown:0, wins:0, losses:0, consecutiveWins:0, consecutiveLosses:0 };
 const money = (value) => Number(value || 0).toLocaleString('en-US', { style:'currency', currency:'USD' });
 const updateRiskSummary = () => {
@@ -36,6 +39,19 @@ let updateDemoArmState;
 let updatePerformance;
 let updateAutoState;
 const counts = (history) => Array.from({length:10}, (_, digit) => history.filter(x => x.digit === digit).length);
+const cloneTicks = (history = []) => history.map((tick) => ({ ...tick }));
+const saveMarketTicks = (symbol, history = ticks) => {
+  if (!symbol || !history.length) return;
+  const size = Number($('window')?.value || 200);
+  marketTickMemory.set(symbol, cloneTicks(history.slice(-size)));
+};
+const restoreMarketTicks = (symbol) => {
+  const saved = marketTickMemory.get(symbol);
+  if (!saved?.length) return false;
+  ticks = cloneTicks(saved);
+  distributionDigits = cloneTicks(saved);
+  return true;
+};
 const selectedAccount = () => availableAccounts.find((account) => account.accountId === $('accountSelector').value);
 const showSelectedBalance = () => {
   const account = selectedAccount();
@@ -329,7 +345,7 @@ const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
     ticks.push(tick);
     if (!distributionDigits.length) distributionDigits = [tick];
     if (!distributionTimer) distributionTimer = setTimeout(() => { distributionDigits = ticks.slice(); distributionTimer = undefined; update(); }, 5000);
-    settleSignals(); update(); updateCooldownMonitor();
+    settleSignals(); update(); saveMarketTicks($('symbol').value.trim()); updateCooldownMonitor();
   }
 };
 const refreshPricing = () => {
@@ -356,6 +372,12 @@ const classifyMarket = (symbol, rawPrices) => {
   const windowNote = bestWindow === recent ? 'recent 20-minute movement' : 'recent 50-minute movement';
   return { symbol, regime: trending ? direction : 'CONSOLIDATION', score, note: trending ? `${direction === 'UPTREND' ? 'Up' : 'Down'} movement is consistent in the ${windowNote}` : 'Price movement is choppy / sideways across both scan windows' };
 };
+const scannerSampleSize = () => Math.max(50, Math.min(500, Number($('window').value || 50)));
+const historyToTicks = (prices = [], times = []) => prices.map((price, index) => {
+  const raw = String(price);
+  const digit = Number(raw.at(-1));
+  return Number.isInteger(digit) ? { price:raw, time:Number(times[index]) || Math.floor(Date.now() / 1000), digit } : null;
+}).filter(Boolean);
 const fetchMarketHistory = (symbol) => new Promise((resolve) => {
   let done = false;
   const finish = (value) => { if (done) return; done = true; clearTimeout(timeout); try { ws.close(); } catch {} resolve(value); };
@@ -363,12 +385,19 @@ const fetchMarketHistory = (symbol) => new Promise((resolve) => {
   const timeout = setTimeout(() => finish(classifyMarket(symbol, [])), 8000);
   try {
     ws = new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
-    ws.onopen = () => ws.send(JSON.stringify({ ticks_history:symbol, count:50, end:'latest', style:'candles', granularity:60 }));
+    ws.onopen = () => ws.send(JSON.stringify({ ticks_history:symbol, count:scannerSampleSize(), end:'latest', style:'ticks' }));
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.error) return finish({ symbol, regime:'UNAVAILABLE', score:0, note:data.error.message || 'Market unavailable' });
-      if (data.candles) finish(classifyMarket(symbol, data.candles.map((candle) => candle.close)));
-      else if (data.history?.prices) finish(classifyMarket(symbol, data.history.prices));
+      if (data.candles) {
+        const prices = data.candles.map((candle) => candle.close);
+        saveMarketTicks(symbol, historyToTicks(prices, data.candles.map((candle) => candle.epoch)));
+        finish(classifyMarket(symbol, prices));
+      } else if (data.history?.prices) {
+        const prices = data.history.prices;
+        saveMarketTicks(symbol, historyToTicks(prices, data.history.times));
+        finish(classifyMarket(symbol, prices));
+      }
     };
     ws.onerror = () => finish({ symbol, regime:'UNAVAILABLE', score:0, note:'Could not read this market' });
   } catch { finish({ symbol, regime:'UNAVAILABLE', score:0, note:'Could not open market scan' }); }
@@ -393,7 +422,14 @@ const renderMarketScan = () => {
 };
 const useScannerMarket = (symbol) => {
   if (!symbol || $('symbol').value.trim() === symbol) return;
-  $('symbol').value = symbol; ticks = []; distributionDigits = []; quotes.over = null; quotes.under = null;
+  const previous = $('symbol').value.trim();
+  saveMarketTicks(previous);
+  $('symbol').value = symbol;
+  const restored = restoreMarketTicks(symbol);
+  if (!restored) { ticks = []; distributionDigits = []; }
+  quotes.over = null; quotes.under = null;
+  $('scannerStatus').textContent = restored ? `Switched to ${symbol} with its saved ${ticks.length}-tick scanner memory.` : `Switched to ${symbol}. Waiting for its scanner memory to load.`;
+  update();
   startLive();
 };
 const scanMarkets = async () => {

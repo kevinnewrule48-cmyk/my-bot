@@ -149,7 +149,7 @@ const updateAutoIndicator = () => {
   if (botMode !== 'auto' || !autoEnabled) {
     indicator.textContent = 'AUTO BOT OFF'; indicator.className = 'autoBotIndicator'; return;
   }
-  if (autoAwaitingReset) {
+  if (autoAwaitingReset && liveTickNumber - lastAutoSignalTick >= selectedAutoCooldown()) {
     indicator.textContent = `AUTO BOT PAUSED · RESET AT ${autoResetThreshold()}%`;
     indicator.className = 'autoBotIndicator negative'; return;
   }
@@ -164,29 +164,24 @@ const updateAutoIndicator = () => {
 };
 const handleAutoSettlement = (result, won) => {
   autoContractIds.delete(result.contractId);
-  // The first winning order may keep the same momentum alive. A second winning
-  // Auto order ends that run and waits for confidence to cool off before rearming.
-  if (won && autoMomentumTrades >= 2) {
-    autoAwaitingReset = true;
-    lastAutoSignalTick = -Infinity;
-    $('autoStatus').textContent = `Momentum run complete after a winning follow-up order. Auto Bot is paused until confidence falls to ${autoResetThreshold()}% or lower, then it will rearm for a fresh move.`;
-  } else if (won) {
-    $('autoStatus').textContent = `First momentum order won. After the ${selectedAutoCooldown()}-tick cooldown, Auto Bot may take one follow-up order if LIVE SUPPORT remains active.`;
-  }
+  // One completed order ends this momentum, regardless of its outcome.
+  autoAwaitingReset = true;
+  lastAutoSignalTick = liveTickNumber;
+  updateCooldownMonitor();
   updateAutoState();
 };
 const updateCooldownMonitor = () => {
   const monitor = $('cooldownMonitor'), note = $('cooldownMonitorNote');
   if (!Number.isFinite(lastAutoSignalTick)) {
-    monitor.textContent = 'READY'; monitor.className = '';
-    note.textContent = `Waiting for the next qualifying Auto signal. Cooldown is set to ${selectedAutoCooldown()} ticks.`;
+    monitor.textContent = autoAwaitingReset ? 'RESET MODE' : 'READY'; monitor.className = '';
+    note.textContent = autoAwaitingReset ? `Waiting for confidence to reach ${autoResetThreshold()}% or lower.` : `Waiting for the next qualifying Auto signal. Cooldown is set to ${selectedAutoCooldown()} ticks.`;
     updateAutoIndicator(); return;
   }
   const cooldown = selectedAutoCooldown(), elapsed = Math.max(0, liveTickNumber - lastAutoSignalTick);
   if (elapsed >= cooldown) {
     lastAutoSignalTick = -Infinity;
-    monitor.textContent = 'READY'; monitor.className = 'positive';
-    note.textContent = `Cooldown complete after ${cooldown} ticks. Waiting for the next qualifying Auto signal.`;
+    monitor.textContent = autoAwaitingReset ? 'RESET MODE' : 'READY'; monitor.className = 'positive';
+    note.textContent = autoAwaitingReset ? `Cooldown complete. Waiting for confidence to reach ${autoResetThreshold()}% or lower.` : `Cooldown complete after ${cooldown} ticks. Waiting for the next qualifying Auto signal.`;
     updateAutoIndicator(); return;
   }
   monitor.textContent = `COOLDOWN · ${elapsed}/${cooldown}`; monitor.className = 'regime-consolidation';
@@ -272,9 +267,10 @@ const updateEntryStrength = () => {
   }
   // Rearm before the normal signal gate. Otherwise a score below the minimum
   // returns early and an Auto Bot paused for a fresh momentum reset never wakes.
-  if (autoAwaitingReset && (!signal || signal.confidence <= autoResetThreshold())) {
+  if (autoAwaitingReset && autoContractIds.size === 0 && liveTickNumber - lastAutoSignalTick >= selectedAutoCooldown() && signal && signal.confidence <= autoResetThreshold()) {
     autoAwaitingReset = false;
     autoMomentumTrades = 0;
+    updateCooldownMonitor();
     $('autoStatus').textContent = `Confidence reset to ${signal?.confidence ?? 0}%. Auto Bot is rearmed and waiting for the next LIVE SUPPORT entry.`;
     updateAutoIndicator();
   }
@@ -624,7 +620,7 @@ const maybeAutoOrder = async (signal) => {
   if (digitStability(ticks).unstable) return;
   if (!qualifiesForLiveSupport(signal, Number($('minimum').value || 65))) return;
   const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = liveTickNumber;
-  if (botMode !== 'auto' || !autoEnabled || autoAwaitingReset || autoInFlight || !demoConnected || account?.accountType !== 'demo') return;
+  if (botMode !== 'auto' || !autoEnabled || autoAwaitingReset || autoInFlight || autoContractIds.size > 0 || !demoConnected || account?.accountType !== 'demo') return;
   const maximum = Number($('maxStake').value || 5000);
   if (!Number.isFinite(stake) || stake <= 0 || stake > maximum) {
     autoLastError = `Enter a stake between $0.01 and ${money(maximum)} before Auto Bot can send an order.`;
@@ -641,6 +637,7 @@ const maybeAutoOrder = async (signal) => {
     lastAutoSignalTick = liveTickNumber;
     autoMomentumTrades += 1;
     autoContractIds.add(result.contractId);
+    autoAwaitingReset = true;
     $('autoStatus').textContent = `ORDER ENTERED on digit ${tickDigit(result.entryTick)}. Waiting for the next tick to settle. Auto bot will pause for ${selectedAutoCooldown()} ticks after this order.`;
     showOrderEntry(signal.type, result, 'Auto bot'); trackRecentOrder();
     updateCooldownMonitor();

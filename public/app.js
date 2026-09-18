@@ -235,6 +235,16 @@ updatePerformance = () => {
   if (typeof updateAutoState === 'function') updateAutoState();
 };
 const researchGuardPaused = () => false;
+const updateSideScores = (signal) => {
+  for (const [id, key, type] of [['over', 'over1', 'OVER'], ['under', 'under8', 'UNDER']]) {
+    const side = signal?.options[key];
+    const state = !side ? 'WAITING' : !signal.type ? 'EQUAL' : signal.type === type ? 'STRONGER' : 'WEAKER';
+    const rate = side ? side.observed * 100 : 0;
+    $(`${id}ScoreBar`).value = rate;
+    $(`${id}ScoreText`).textContent = `${side ? rate.toFixed(1) + '%' : '—'} · ${state}`;
+    $(`${id}ScoreRow`).className = `sideScore score-${state.toLowerCase()}`;
+  }
+};
 const updateEntryStrength = () => {
   const signal = calculateSignal(ticks);
   const minimum = Number($('minimum').value || 65);
@@ -246,10 +256,10 @@ const updateEntryStrength = () => {
     $('autoStatus').textContent = `Confidence reset to ${signal?.confidence ?? 0}%. Auto Bot is rearmed and waiting for the next LIVE SUPPORT entry.`;
     updateAutoIndicator();
   }
-  const suggestedEntryIsActive = Boolean(signal && signal.confidence >= minimum);
+  const suggestedEntryIsActive = Boolean(signal?.type && signal.confidence >= minimum);
   if (!signal || !quotes.over || !quotes.under || !suggestedEntryIsActive) {
     $('entryStrength').textContent = 'WAITING'; $('entryStrength').className = '';
-    $('entryStrengthNote').textContent = signal && !suggestedEntryIsActive ? `Suggested Entry is not active: ${signal.label} score ${signal.confidence}% is below your ${minimum}% minimum. Strength waits until Suggested Entry gives a trade.` : 'It will assess the same selected entry after live data and pricing are available.';
+    $('entryStrengthNote').textContent = signal && !signal.type ? 'OVER 1 and UNDER 8 have equal sample strength. Waiting for a stronger side.' : signal && !suggestedEntryIsActive ? `Suggested Entry is not active: ${signal.label} score ${signal.confidence}% is below your ${minimum}% minimum. Strength waits until Suggested Entry gives a trade.` : 'It will assess the same selected entry after live data and pricing are available.';
     return;
   }
   const quote = signal.type === 'OVER' ? quotes.over : quotes.under;
@@ -277,7 +287,7 @@ const updatePricing = () => {
   };
   render(quotes.over, 'overPrice', 'overBreakEven'); render(quotes.under, 'underPrice', 'underBreakEven');
   const signal = calculateSignal(ticks);
-  if (!signal || !quotes.over || !quotes.under) { $('pricingGate').textContent = 'WAIT'; $('pricingGate').className = ''; $('pricingNote').textContent = 'Need live quotes and at least 50 ticks'; updateEntryStrength(); return; }
+  if (!signal?.type || !quotes.over || !quotes.under) { $('pricingGate').textContent = 'WAIT'; $('pricingGate').className = ''; $('pricingNote').textContent = signal && !signal.type ? 'Both sides have equal sample strength.' : 'Need live quotes and at least 50 ticks'; updateEntryStrength(); return; }
   const quote = signal.type === 'OVER' ? quotes.over : quotes.under;
   const expected = signal.observed * quote.payout - quote.ask;
   $('pricingGate').textContent = expected > 0 ? 'PASS' : 'BLOCK'; $('pricingGate').className = expected > 0 ? 'positive' : 'negative';
@@ -305,12 +315,16 @@ const calculateSignal = (history) => {
   const c = Array.from({length:10}, (_, digit) => history.filter(x => x.digit === digit).length);
   const over1 = { type:'OVER', barrier:1, label:'OVER 1', observed:c.slice(2).reduce((a,b)=>a+b,0)/n, risk:(c[0]+c[1])/n };
   const under8 = { type:'UNDER', barrier:8, label:'UNDER 8', observed:c.slice(0,8).reduce((a,b)=>a+b,0)/n, risk:(c[8]+c[9])/n };
-  const candidate = over1.risk <= under8.risk ? over1 : under8;
+  // Equal loss counts give neither side an advantage; never default to OVER.
+  const candidate = over1.risk === under8.risk
+    ? { type:null, barrier:null, label:'NO STRONGER SIDE', observed:null, risk:null }
+    : over1.risk < under8.risk ? over1 : under8;
   const strength = Math.min(1, n / 200);
   return {...candidate, confidence: Math.round(Math.max(0, Math.min(95, 50 + Math.abs(over1.risk-under8.risk) * 300 * strength))), options:{over1, under8}};
 };
 const update = () => {
   const windowSize = Number($('window').value) || 200; ticks = ticks.slice(-windowSize); distributionDigits = distributionDigits.slice(-windowSize);
+  updateSideScores(calculateSignal(ticks));
   updateCooldownMonitor();
   const c = counts(distributionDigits), n = ticks.length, displayed = distributionDigits.length, latest = ticks.at(-1);
   $('sample').textContent = n; $('sampleNote').textContent = n < 50 ? `Need ${50-n} more ticks` : `Rolling last ${n} ticks`;
@@ -327,11 +341,11 @@ const update = () => {
   const candidate = calculateSignal(ticks);
   const confidence = candidate.confidence;
   const threshold = Number($('minimum').value);
-  showSignal(confidence >= threshold ? {...candidate, confidence} : null, candidate, confidence);
+  showSignal(candidate.type && confidence >= threshold ? {...candidate, confidence} : null, candidate, confidence);
   updatePricing();
 };
 const showSignal = (signal, candidate, confidence) => {
-  if(!signal){ $('signal').textContent = 'NO SIGNAL'; $('signal').className=''; $('signalNote').textContent = candidate ? `${candidate.type} score ${confidence}% is below your threshold` : 'Collecting data'; $('executeOver').classList.remove('suggested'); $('executeUnder').classList.remove('suggested'); return; }
+  if(!signal){ $('signal').textContent = 'NO SIGNAL'; $('signal').className=''; $('signalNote').textContent = candidate ? `${candidate.type ? `${candidate.label} score ${confidence}% is below your threshold` : 'No stronger side'} · OVER 1 ${(candidate.options.over1.observed*100).toFixed(1)}% · UNDER 8 ${(candidate.options.under8.observed*100).toFixed(1)}% sample rates` : 'Collecting data'; $('executeOver').classList.remove('suggested'); $('executeUnder').classList.remove('suggested'); return; }
   $('signal').textContent = signal.label; $('signal').className = 'positive'; $('signalNote').textContent = `Analysis score ${signal.confidence}% · OVER 1 sample rate ${(signal.options.over1.observed*100).toFixed(1)}% · UNDER 8 sample rate ${(signal.options.under8.observed*100).toFixed(1)}%`;
   $('executeOver').classList.toggle('suggested', signal.type === 'OVER'); $('executeUnder').classList.toggle('suggested', signal.type === 'UNDER');
 };
@@ -467,7 +481,7 @@ const backtest = () => {
   let last = -Infinity; const results = [];
   for (let entry = 50; entry + duration < ticks.length; entry++) {
     const signal = calculateSignal(ticks.slice(Math.max(0, entry-windowSize), entry));
-    if (!signal || signal.confidence < threshold || entry-last < cooldown) continue;
+    if (!signal?.type || signal.confidence < threshold || entry-last < cooldown) continue;
     const exit = ticks[entry + duration].digit;
     results.push(signal.type === 'OVER' ? exit > signal.barrier : exit < signal.barrier); last = entry;
   }
@@ -584,6 +598,7 @@ const executeOrder = async (type) => {
   } catch (error) { manualOrderPending = false; $('demoOrderStatus').textContent = `No order placed: ${error.message}`; updateDemoArmState(); }
 };
 const maybeAutoOrder = async (signal) => {
+  if (!signal || !['OVER', 'UNDER'].includes(signal.type)) return;
   const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = liveTickNumber;
   if (botMode !== 'auto' || !autoEnabled || autoAwaitingReset || autoInFlight || !demoConnected || account?.accountType !== 'demo') return;
   const maximum = Number($('maxStake').value || 5000);

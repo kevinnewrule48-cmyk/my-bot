@@ -235,6 +235,21 @@ updatePerformance = () => {
   if (typeof updateAutoState === 'function') updateAutoState();
 };
 const researchGuardPaused = () => false;
+// User-defined digit-jump filter: five quiet transitions clear a large jump.
+const digitStability = (history) => {
+  const recent = history.slice(-6);
+  for (let i = recent.length - 1; i > 0; i--) {
+    if (Math.abs(recent[i].digit - recent[i - 1].digit) >= 7) {
+      return { unstable:true, from:recent[i - 1].digit, to:recent[i].digit,
+        remaining:5 - (recent.length - 1 - i) };
+    }
+  }
+  return { unstable:false, remaining:0 };
+};
+const qualifiesForLiveSupport = (signal, minimum) => Boolean(
+  signal && ['OVER', 'UNDER'].includes(signal.type) &&
+  signal.confidence >= minimum && signal.observed >= 0.90
+);
 const updateSideScores = (signal) => {
   for (const [id, key, type] of [['over', 'over1', 'OVER'], ['under', 'under8', 'UNDER']]) {
     const side = signal?.options[key];
@@ -248,6 +263,13 @@ const updateSideScores = (signal) => {
 const updateEntryStrength = () => {
   const signal = calculateSignal(ticks);
   const minimum = Number($('minimum').value || 65);
+  const stability = digitStability(ticks);
+  if (stability.unstable) {
+    $('entryStrength').textContent = 'UNSTABLE';
+    $('entryStrength').className = 'negative';
+    $('entryStrengthNote').textContent = `Digit jump ${stability.from} → ${stability.to}. Entries blocked: ${stability.remaining} ticks without a jump of 7+ required.`;
+    return;
+  }
   // Rearm before the normal signal gate. Otherwise a score below the minimum
   // returns early and an Auto Bot paused for a fresh momentum reset never wakes.
   if (autoAwaitingReset && (!signal || signal.confidence <= autoResetThreshold())) {
@@ -265,17 +287,11 @@ const updateEntryStrength = () => {
   const quote = signal.type === 'OVER' ? quotes.over : quotes.under;
   const edge = signal.observed * quote.payout - quote.ask;
   const displayedRate = (signal.observed * 100).toFixed(1);
-  const liveWindow = ticks.slice(-8);
-  const liveWins = liveWindow.filter((tick) => signal.type === 'OVER' ? tick.digit > 1 : tick.digit < 8).length;
-  const liveRate = liveWindow.length ? liveWins / liveWindow.length : 0;
-  // A qualifying confidence is the primary entry gate. The short live run is
-  // shown as context, not as a second hidden threshold that delays an entry.
-  const liveSupport = signal.confidence >= minimum;
-  const label = liveSupport ? 'LIVE SUPPORT' : (edge <= 0 ? 'WEAK — BLOCK' : (signal.confidence >= minimum + 10 && edge >= 0.03 ? 'STRONG' : 'CAUTION'));
+  const liveSupport = qualifiesForLiveSupport(signal, minimum);
+  const label = liveSupport ? 'LIVE SUPPORT' : 'WAITING';
   $('entryStrength').textContent = label;
   $('entryStrength').className = label === 'STRONG' || label === 'LIVE SUPPORT' ? 'positive' : label === 'CAUTION' ? 'regime-consolidation' : 'negative';
-  const liveNote = `Live run: ${liveWins}/${liveWindow.length} recent digits match ${signal.label}.`;
-  $('entryStrengthNote').textContent = `${signal.label}: ${displayedRate}% sample win rate · sample edge ${edge >= 0 ? '+' : '−'}${money(Math.abs(edge))} per quoted contract. ${label === 'LIVE SUPPORT' ? `${liveNote} The immediate price action is supporting this side right now.` : label === 'LIVE RUN — PRICE BLOCK' ? `${liveNote} The digits are currently favorable, but the live price edge is not.` : label === 'STRONG' ? 'The broader filter supports this entry.' : label === 'CAUTION' ? `${liveNote} The broader edge is limited, so waiting may be safer.` : 'The current price edge does not support this entry.'} This is an advisory, not a guarantee.`;
+  $('entryStrengthNote').textContent = `${signal.label}: ${displayedRate}% sample match rate. ${liveSupport ? `Both entry conditions met: confidence at least ${minimum}% and sample match rate at least 90%.` : 'Waiting for the stronger side to reach 90% sample matches; automatic entry is blocked.'}`;
   if (label === 'LIVE SUPPORT' && botMode === 'auto' && autoEnabled && !autoAwaitingReset) maybeAutoOrder(signal);
 };
 const updatePricing = () => {
@@ -325,6 +341,7 @@ const calculateSignal = (history) => {
 const update = () => {
   const windowSize = Number($('window').value) || 200; ticks = ticks.slice(-windowSize); distributionDigits = distributionDigits.slice(-windowSize);
   updateSideScores(calculateSignal(ticks));
+  if (typeof updateDemoArmState === 'function') updateDemoArmState();
   updateCooldownMonitor();
   const c = counts(distributionDigits), n = ticks.length, displayed = distributionDigits.length, latest = ticks.at(-1);
   $('sample').textContent = n; $('sampleNote').textContent = n < 50 ? `Need ${50-n} more ticks` : `Rolling last ${n} ticks`;
@@ -337,7 +354,7 @@ const update = () => {
     const marker = isExit ? `<em>${digitFlash.won ? 'WIN' : 'LOSS'}</em>` : (isEntry ? '<em>ENTRY</em>' : '');
     return `<div class="digit${latest?.digit === digit ? ' latest-digit' : ''}${isEntry ? ' order-entry-digit' : ''}${resultClass}"><b>${digit}</b><span>${displayed ? (value/displayed*100).toFixed(1) : '0.0'}%</span>${marker}</div>`;
   }).join('');
-  if(n < 50) return showSignal(null);
+  if(n < 50) { showSignal(null); updateEntryStrength(); return; }
   const candidate = calculateSignal(ticks);
   const confidence = candidate.confidence;
   const threshold = Number($('minimum').value);
@@ -579,11 +596,17 @@ updateDemoArmState = () => {
   else if (realSelected && !realConfirmed) { $('executionMode').textContent = 'REAL CONFIRM'; $('executionMode').className = 'negative'; $('executionNote').textContent = 'A separate real-money confirmation is required.'; }
   else if (accountReady) { $('executionMode').textContent = 'MANUAL READY'; $('executionMode').className = 'positive'; $('executionNote').textContent = 'Ready: press OVER 1 or UNDER 8 to send one order.'; }
   else { $('executionMode').textContent = 'ENTER STAKE'; $('executionMode').className = ''; $('executionNote').textContent = `Enter a stake up to ${money(maximum)} to enable manual execution.`; }
-  const manualReady = accountReady && botMode === 'manual' && !manualOrderPending;
+  const unstable = digitStability(ticks).unstable;
+  const manualReady = accountReady && botMode === 'manual' && !manualOrderPending && !unstable;
   $('executeOver').disabled = !manualReady; $('executeUnder').disabled = !manualReady;
   $('demoOrderStatus').textContent = !demoConnected ? 'Connect your Deriv account first.' : (manualOrderPending ? 'Current order is waiting for its one-tick settlement. Manual buttons will return immediately after settlement.' : (realSelected && !realTradingEnabled ? 'Real account is connected for later. Real-money ordering is disabled by the server setting.' : (accountReady ? `Ready for one order of ${money(stake)}.` : 'Select an account and enter a valid stake.')));
 };
 const executeOrder = async (type) => {
+  if (digitStability(ticks).unstable) {
+    $('autoStatus').textContent = 'UNSTABLE digit movement. New entries are blocked until five ticks pass without a large jump.';
+    updateDemoArmState();
+    return;
+  }
   const stake = Number($('stake').value || 0), account = selectedAccount();
   if (!demoConnected || !account || !Number.isFinite(stake) || stake <= 0) return updateDemoArmState();
   const title = type === 'DIGITOVER' ? 'OVER 1' : 'UNDER 8';
@@ -598,7 +621,8 @@ const executeOrder = async (type) => {
   } catch (error) { manualOrderPending = false; $('demoOrderStatus').textContent = `No order placed: ${error.message}`; updateDemoArmState(); }
 };
 const maybeAutoOrder = async (signal) => {
-  if (!signal || !['OVER', 'UNDER'].includes(signal.type)) return;
+  if (digitStability(ticks).unstable) return;
+  if (!qualifiesForLiveSupport(signal, Number($('minimum').value || 65))) return;
   const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = liveTickNumber;
   if (botMode !== 'auto' || !autoEnabled || autoAwaitingReset || autoInFlight || !demoConnected || account?.accountType !== 'demo') return;
   const maximum = Number($('maxStake').value || 5000);

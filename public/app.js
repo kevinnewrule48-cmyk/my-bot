@@ -2,6 +2,14 @@ const $ = (id) => document.getElementById(id);
 let ticks = [], distributionDigits = [], socket, distributionTimer, isRunning = false, lastSignalIndex = -Infinity, liveTickNumber = 0;
 const pending = [], settled = [];
 const quotes = { over: null, under: null };
+let strengthSample = null;
+const strengthContext = () => `${$('symbol').value.trim()}:${Number($('window').value) || 200}`;
+const sampleRateChanges = (previous, current) => Object.fromEntries(
+  ['over1', 'under8'].map(key => [key, previous && current
+    ? Math.round((current.options[key].observed - previous.options[key].observed) * 100 * 1e9) / 1e9 : null])
+);
+const selectedRateChange = (signal) => strengthSample?.context === strengthContext()
+  ? strengthSample.changes[signal?.type === 'OVER' ? 'over1' : 'under8'] ?? null : null;
 let manualOrdersInSetup = 0;
 let targetRunBaseline = 0;
 let demoConnected = false;
@@ -243,7 +251,8 @@ const digitStability = (history) => {
 };
 const qualifiesForLiveSupport = (signal, minimum) => Boolean(
   signal && ['OVER', 'UNDER'].includes(signal.type) &&
-  signal.confidence >= minimum && signal.observed >= 0.90
+  signal.confidence >= minimum && signal.observed >= 0.90 &&
+  selectedRateChange(signal) !== null && selectedRateChange(signal) >= 0
 );
 const updateSideScores = (signal) => {
   for (const [id, key, type] of [['over', 'over1', 'OVER'], ['under', 'under8', 'UNDER']]) {
@@ -280,14 +289,14 @@ const updateEntryStrength = () => {
     $('entryStrengthNote').textContent = signal && !signal.type ? 'OVER 1 and UNDER 8 have equal sample strength. Waiting for a stronger side.' : signal && !suggestedEntryIsActive ? `Suggested Entry is not active: ${signal.label} score ${signal.confidence}% is below your ${minimum}% minimum. Strength waits until Suggested Entry gives a trade.` : 'It will assess the same selected entry after live data and pricing are available.';
     return;
   }
-  const quote = signal.type === 'OVER' ? quotes.over : quotes.under;
-  const edge = signal.observed * quote.payout - quote.ask;
+  const change = selectedRateChange(signal);
+  const changeText = change === null ? 'Waiting for two live samples' : `${change > 0 ? '+' : ''}${change.toFixed(2)} percentage points this tick`;
   const displayedRate = (signal.observed * 100).toFixed(1);
   const liveSupport = qualifiesForLiveSupport(signal, minimum);
-  const label = liveSupport ? 'LIVE SUPPORT' : 'WAITING';
+  const label = change !== null && change < 0 ? 'DETERIORATING' : liveSupport ? 'LIVE SUPPORT' : 'WAITING';
   $('entryStrength').textContent = label;
   $('entryStrength').className = label === 'STRONG' || label === 'LIVE SUPPORT' ? 'positive' : label === 'CAUTION' ? 'regime-consolidation' : 'negative';
-  $('entryStrengthNote').textContent = `${signal.label}: ${displayedRate}% sample match rate. ${liveSupport ? `Both entry conditions met: confidence at least ${minimum}% and sample match rate at least 90%.` : 'Waiting for the stronger side to reach 90% sample matches; automatic entry is blocked.'}`;
+  $('entryStrengthNote').textContent = `${signal.label}: ${changeText} · ${displayedRate}% sample matches. ${label === 'DETERIORATING' ? 'Falling support: automatic entry blocked.' : liveSupport ? 'Not falling; confidence and 90% sample gates met.' : 'Waiting for live change, minimum confidence and 90% sample matches.'}`;
   if (label === 'LIVE SUPPORT' && botMode === 'auto' && autoEnabled && !autoAwaitingReset) maybeAutoOrder(signal);
 };
 const updatePricing = () => {
@@ -370,6 +379,12 @@ const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
   if(Number.isInteger(digit)){
     const tick = {price:raw,time:epoch,digit};
     ticks.push(tick);
+    // Advance only on price ticks, never on quote responses or UI redraws.
+    // Compare each side with itself, even when the suggested side changes.
+    const context = strengthContext();
+    const current = calculateSignal(ticks.slice(-(Number($('window').value) || 200)));
+    const previous = strengthSample?.context === context ? strengthSample.signal : null;
+    strengthSample = { context, signal:current, changes:sampleRateChanges(previous, current) };
     if (!distributionDigits.length) distributionDigits = [tick];
     if (!distributionTimer) distributionTimer = setTimeout(() => { distributionDigits = ticks.slice(); distributionTimer = undefined; update(); }, 5000);
     settleSignals(); update(); saveMarketTicks($('symbol').value.trim()); updateCooldownMonitor();
@@ -483,6 +498,7 @@ const syncScannerTimer = () => {
   if (botMode === 'auto' && autoEnabled) scannerTimer = setInterval(scanMarkets, 30000);
 };
 const startLive = () => {
+  strengthSample = null;
   if (botMode === 'manual') { autoEnabled = false; syncScannerTimer(); }
   const symbol=$('symbol').value.trim(); isRunning=false; if(socket) socket.close();
   try { socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public'); socket.onopen=()=>{isRunning=true; socket.send(JSON.stringify({ticks:symbol,subscribe:1})); refreshPricing(); $('connection').textContent=`LIVE · ${symbol}`; $('connection').className='pill positive';}; socket.onmessage=e=>{const data=JSON.parse(e.data); if(data.error){logger(`<span class="negative">Feed error: ${data.error.message}</span>`); return;} if(data.tick)addTick(data.tick.quote,data.tick.epoch,data.tick.pip_size); if(data.proposal){const kind=data.echo_req?.contract_type === 'DIGITOVER' ? 'over' : 'under'; quotes[kind]={ask:Number(data.proposal.ask_price), payout:Number(data.proposal.payout)}; updatePricing();}}; socket.onerror=()=>{isRunning=false;$('connection').textContent='LIVE FEED ERROR';$('connection').className='pill negative';logger('<span class="negative">Could not connect to the live Deriv feed. No simulated prices will be shown.</span>');}; socket.onclose=()=>{if(isRunning){$('connection').textContent='DISCONNECTED';$('connection').className='pill negative';}};

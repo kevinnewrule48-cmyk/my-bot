@@ -2,10 +2,15 @@ import {TickEngine,WINDOWS} from './engine.js';
 import {DerivFeed} from './client.js';
 import {SignalEngine} from './strategy.js';
 import {replay} from './replay.js';
-import {requestProposal,evaluatePayout} from './payout.js';
+import {requestProposal} from './payout.js';
 import {Recorder} from './recorder.js';
+import {setupExecution} from './execution.js';
+import {independentSessionReport} from './validation.js';
+import {financialChecks} from './financial-checks.js';
 const $=id=>document.getElementById(id), percent=n=>n===null?'—':`${(n*100).toFixed(1)}%`;
 let engine=null;
+let execution=null,currentSignal=null;
+let calibrationEvidence=null;
 let signalEngine=new SignalEngine();
 const recorder=new Recorder();let payout=null,quoteGeneration=0,recordingTick=0;
 const parameters=()=>({symbol:$('market').value,type:$('side').value,barrier:Number($('barrier').value),stake:Number($('quoteStake').value)});
@@ -19,8 +24,10 @@ $('market').value='R_100';
 const color=deviation=>deviation===null?'#183329':`hsl(${deviation>=0?38:190} 45% ${15+Math.min(20,Math.abs(deviation)*180)}%)`;
 function render() {
   const a=engine.analyze();
-  const signal=signalEngine.update(engine,$('side').value,Number($('barrier').value));
-  if(payout){const ev=evaluatePayout(payout,parameters(),signal.modelProbability,Number($('margin').value)/100);$('payout').textContent=`${payout.type} ${payout.barrier} · Stake $${payout.ask.toFixed(2)} · Total payout $${payout.payout.toFixed(2)} · Profit if won $${payout.profit.toFixed(2)} · Break-even ${percent(payout.breakEven)} · Uncalibrated estimate ${percent(signal.modelProbability)} · Research EV ${ev.estimatedEV===null?'unavailable':'$'+ev.estimatedEV.toFixed(4)} · ${ev.fresh?'FRESH':'STALE'} · ${ev.reason}`;}
+  const rawSignal=signalEngine.update(engine,$('side').value,Number($('barrier').value));
+  const signal=financialChecks({signal:rawSignal,parameters:parameters(),evidence:calibrationEvidence,quote:payout,margin:Number($('margin').value)/100});
+  currentSignal={signal,sequence:engine.sequence};
+  if(payout){const ev=signal.pricing;$('payout').textContent=`${payout.type} ${payout.barrier} · Stake $${payout.ask.toFixed(2)} · Total payout $${payout.payout.toFixed(2)} · Profit if won $${payout.profit.toFixed(2)} · Break-even ${percent(payout.breakEven)} · Imported-session calibrated estimate ${percent(signal.calibratedProbability)} · Diagnostic EV ${ev.estimatedEV===null?'unavailable':'$'+ev.estimatedEV.toFixed(4)} · ${ev.fresh?'FRESH':'STALE'} · ${signal.reason}`;}
   $('decision').textContent=signal.decision;
   $('reason').textContent=signal.reason;
   $('checks').innerHTML=signal.checks.map(c=>`<div class="check"><b>${c.name}</b><progress max="100" value="${Math.min(100,c.value??0)}"></progress><span>${c.value===null?'Unavailable':c.value.toFixed(1)} · ${c.pass?'PASS':'FAIL'}</span></div>`).join('');
@@ -35,6 +42,7 @@ function render() {
   $('matrix').innerHTML='<thead><tr><th>From / to</th>'+Array.from({length:10},(_,d)=>`<th>${d}</th>`).join('')+'</tr></thead><tbody>'+a.matrix.map(r=>`<tr class="${r.sample<30?'muted':''}"><th>${r.previous}<small> n=${r.sample}${r.sample<30?' collecting':''}</small></th>${r.counts.map((count,d)=>`<td style="background:${color(r.probabilities[d]-.1)}">${count}<small>${percent(r.probabilities[d])}</small></td>`).join('')}</tr>`).join('')+'</tbody>';
   $('candidates').innerHTML=a.candidates.map(c=>`<tr><th>${c.type} ${c.barrier}</th><td>${percent(c.baseline)}</td><td>${percent(c.empirical)}</td><td>${percent(c.smoothed)}</td><td>${percent(c.conditional)}</td><td>${c.transitionSample}</td></tr>`).join('');
   $('export').disabled=!a.sample;
+  execution?.onSignal();
 }
 const feed=new DerivFeed(tick=>{const accepted=engine?.add(tick);if(accepted){recordingTick++;recorder.tick(accepted).catch(error=>{feed.stop();$('recordStatus').textContent=`Recording failed: ${error.message}. Feed stopped; export earlier saved data.`;});$('recordStatus').textContent=`Recording ${recordingTick} / 10,000 ticks in this browser. Export before clearing browser data.`;render();if(recordingTick>=10000){feed.stop();$('recordStatus').textContent='Session complete: 10,000 ticks recorded. Export or start another session.';}}},status=>{$('status').textContent=status;});
 $('start').onclick=()=>{invalidateQuote();feed.start($('market').value,async precision=>{engine=new TickEngine($('market').value,precision);resetScoring();recordingTick=0;await recorder.start(engine.symbol,precision);await loadSessions();render();});};
@@ -46,7 +54,7 @@ function barriers(){
   $('barrier').value=over?'1':'8';invalidateQuote();resetScoring();if(engine)render();
 }
 $('side').onchange=barriers;$('barrier').onchange=()=>{invalidateQuote();resetScoring();render();};barriers();
-$('quoteStake').oninput=invalidateQuote;$('margin').onchange=()=>{if(engine)render();};
+$('quoteStake').oninput=()=>{invalidateQuote();if(engine)render();};$('margin').onchange=()=>{if(engine)render();};
 $('getQuote').onclick=async()=>{
   const generation=++quoteGeneration,requested=parameters();payout=null;$('payout').textContent='Requesting read-only Deriv proposal…';
   try{const quote=await requestProposal(requested);if(generation!==quoteGeneration)return;payout=quote;
@@ -54,16 +62,28 @@ $('getQuote').onclick=async()=>{
     render();
   }catch(error){if(generation===quoteGeneration)$('payout').textContent=`Quote unavailable: ${error.message}`;}
 };
-const freshnessTimer=setInterval(()=>{if(payout&&Date.now()-payout.receivedAt>10000){payout=null;$('payout').textContent='STALE — request a fresh quote. No trading is enabled.';}},1000);
+const freshnessTimer=setInterval(()=>{if(payout&&Date.now()-payout.receivedAt>10000){payout=null;$('payout').textContent='STALE — request a fresh quote. Automatic payout check cannot pass.';render();}},1000);
 $('recording').onchange=async()=>{
+  calibrationEvidence=null;
+  const selected=parameters();
   try {
-    const file=$('recording').files[0];if(!file)return;if(file.size>4000000)throw Error('Recording is too large (maximum 4 MB).');
+    const files=[...$('recording').files];if(!files.length)return;if(files.length>10||files.some(f=>f.size>4000000))throw Error('Select at most 10 recordings, each no larger than 4 MB.');
     $('replayResult').textContent='Replaying in chronological order…';
-    const report=replay(JSON.parse(await file.text()),$('side').value,Number($('barrier').value));
+    const recordings=await Promise.all(files.map(async f=>JSON.parse(await f.text())));
+    const reports=recordings.map(r=>replay(r,selected.type,selected.barrier));
+    if(reports.length>1){
+      const v=independentSessionReport(reports.map((r,i)=>({symbol:r.symbol,start:recordings[i].ticks[0].timestamp,end:recordings[i].ticks.at(-1).timestamp,forecasts:r.forecasts})), selected.type==='OVER'?(9-selected.barrier)/10:selected.barrier/10);
+      calibrationEvidence={symbol:reports[0].symbol,type:reports[0].type,barrier:reports[0].barrier,report:v};
+      $('replayResult').textContent=`Independent-session check · ${v.trainingSessions} earlier training sessions · ${v.training} training forecasts · ${v.evaluation} later evaluation forecasts · ${v.covered} covered.`;
+      $('calibration').textContent=`Calibrated Brier: ${v.calibratedBrier?.toFixed(4)??'unavailable'} · Baseline: ${v.baselineBrier?.toFixed(4)??'unavailable'}\n${!v.sufficient?'INSUFFICIENT DATA':v.beatsBaseline?'Lower error than baseline in this evaluation':'Did not improve on baseline'}\n${v.note}`;
+      return;
+    }
+    const report=reports[0];
     $('replayResult').textContent=`${report.symbol} · ${report.type} ${report.barrier} · ${report.count} shadow forecasts · ${report.wins} wins / ${report.losses} losses · Brier score ${report.brier?.toFixed(4)??'unavailable'} (lower is better). ${report.note}`;
     $('calibration').textContent=report.calibration.map(b=>`Bucket ${b.predictionBucket}%: n=${b.count}, mean estimate ${(b.meanPrediction*100).toFixed(1)}%, observed ${(b.observed*100).toFixed(1)}%, descriptive 95% interval ${(b.interval[0]*100).toFixed(1)}–${(b.interval[1]*100).toFixed(1)}%`).join('\n');
     const v=report.validation;$('calibration').textContent+=`\n\nHeld-out validation: ${v.training} training / ${v.evaluation} evaluation forecasts; ${v.covered} covered by trained buckets.\nRaw Brier: ${v.rawBrier?.toFixed(4)??'unavailable'} · Calibrated Brier: ${v.calibratedBrier?.toFixed(4)??'unavailable'} · Baseline Brier: ${v.baselineBrier?.toFixed(4)??'unavailable'}\n${v.sufficient?'Minimum evaluation sample reached—not execution approval.':'INSUFFICIENT evaluation sample.'} ${v.note}`;
   }catch(error){$('replayResult').textContent=`Replay rejected: ${error.message}`;$('calibration').textContent='';}
+  finally{render();}
 };
 $('export').onclick=()=>{
   if(!engine?.history.length)return;
@@ -75,3 +95,4 @@ window.addEventListener('pagehide',()=>clearInterval(freshnessTimer));
 $('exportSession').onclick=async()=>{try{const recording=await recorder.export($('sessions').value);const url=URL.createObjectURL(new Blob([JSON.stringify(recording)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`part-two-session-${recording.session.id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){$('recordStatus').textContent=`Export failed: ${error.message}`;}};
 engine=new TickEngine('R_100',2);render();
 loadSessions();
+execution=setupExecution({parameters,readSignal:()=>currentSignal});

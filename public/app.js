@@ -26,9 +26,10 @@ let lastSettledOrder = accountOrderHistory.at(-1) ?? null;
 let recentOrderPoll;
 let digitFlash = null, digitFlashTimer;
 const selectedAutoCooldown = () => Number($('autoCooldownTicks')?.value || 5);
+const momentumResetEnabled = () => $('momentumResetEnabled')?.checked !== false;
 let executionPreparing = false;
 let warmPrepareTimer;
-const scannerSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+const scannerSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
 let lastMarketScan = [], marketScanBusy = false, scannerTimer, scannerRecommendedSymbol = null;
 // Each market keeps its own rolling tick memory. Switching markets restores
 // the sample already collected for that market instead of starting at zero.
@@ -173,7 +174,7 @@ const updateAutoIndicator = () => {
 const handleAutoSettlement = (result, won) => {
   autoContractIds.delete(result.contractId);
   // One completed order ends this momentum, regardless of its outcome.
-  autoAwaitingReset = true;
+  autoAwaitingReset = momentumResetEnabled();
   lastAutoSignalTick = liveTickNumber;
   updateCooldownMonitor();
   updateAutoState();
@@ -249,10 +250,19 @@ const digitStability = (history) => {
   }
   return { unstable:false, remaining:0 };
 };
+const digitPercentageGate = (type, history = ticks) => {
+  if (!['OVER', 'UNDER'].includes(type)) return {allowed:false, note:'Choose OVER 1 or UNDER 8.'};
+  if (history.length < 50) return {allowed:false, note:'Collect at least 50 ticks for the digit percentage check.'};
+  const c = counts(history), n = history.length;
+  const low = type === 'OVER' ? [0,1] : [8,9];
+  const high = type === 'OVER' ? [8,9] : [0,1];
+  const allowed = low.every(d => c[d]*100 <= n*8) && high.every(d => c[d]*100 >= n*10);
+  return {allowed, note:`${type === 'OVER' ? 'OVER 1' : 'UNDER 8'} needs ${low.join(' and ')} each ≤8%; ${high.join(' and ')} each ≥10%. Current: ${[0,1,8,9].map(d => `${d}: ${(c[d]/n*100).toFixed(2)}%`).join(', ')}`};
+};
 const qualifiesForLiveSupport = (signal, minimum) => Boolean(
   signal && ['OVER', 'UNDER'].includes(signal.type) &&
   signal.confidence >= minimum && signal.observed >= 0.90 &&
-  selectedRateChange(signal) !== null && selectedRateChange(signal) >= 0
+  selectedRateChange(signal) !== null && selectedRateChange(signal) >= 0 && digitPercentageGate(signal.type).allowed
 );
 const updateSideScores = (signal) => {
   for (const [id, key, type] of [['over', 'over1', 'OVER'], ['under', 'under8', 'UNDER']]) {
@@ -292,11 +302,13 @@ const updateEntryStrength = () => {
   const change = selectedRateChange(signal);
   const changeText = change === null ? 'Waiting for two live samples' : `${change > 0 ? '+' : ''}${change.toFixed(2)} percentage points this tick`;
   const displayedRate = (signal.observed * 100).toFixed(1);
+  const digitGate = digitPercentageGate(signal.type);
   const liveSupport = qualifiesForLiveSupport(signal, minimum);
-  const label = change !== null && change < 0 ? 'DETERIORATING' : liveSupport ? 'LIVE SUPPORT' : 'WAITING';
+  const label = !digitGate.allowed ? 'DIGIT FILTER' : change !== null && change < 0 ? 'DETERIORATING' : liveSupport ? 'LIVE SUPPORT' : 'WAITING';
   $('entryStrength').textContent = label;
   $('entryStrength').className = label === 'STRONG' || label === 'LIVE SUPPORT' ? 'positive' : label === 'CAUTION' ? 'regime-consolidation' : 'negative';
   $('entryStrengthNote').textContent = `${signal.label}: ${changeText} · ${displayedRate}% sample matches. ${label === 'DETERIORATING' ? 'Falling support: automatic entry blocked.' : liveSupport ? 'Not falling; confidence and 90% sample gates met.' : 'Waiting for live change, minimum confidence and 90% sample matches.'}`;
+  if (!digitGate.allowed) $('entryStrengthNote').textContent = digitGate.note;
   if (label === 'LIVE SUPPORT' && botMode === 'auto' && autoEnabled && !autoAwaitingReset) maybeAutoOrder(signal);
 };
 const updatePricing = () => {
@@ -348,7 +360,7 @@ const update = () => {
   updateSideScores(calculateSignal(ticks));
   if (typeof updateDemoArmState === 'function') updateDemoArmState();
   updateCooldownMonitor();
-  const c = counts(distributionDigits), n = ticks.length, displayed = distributionDigits.length, latest = ticks.at(-1);
+  const c = counts(ticks), n = ticks.length, displayed = ticks.length, latest = ticks.at(-1);
   $('sample').textContent = n; $('sampleNote').textContent = n < 50 ? `Need ${50-n} more ticks` : `Rolling last ${n} ticks`;
   if(latest){ $('price').textContent = latest.price; $('tickTime').textContent = new Date(latest.time * 1000).toLocaleTimeString(); }
   if(latest) $('priceDigitCursor').textContent = `Live ${$('symbol').value.trim()} price: ${latest.price} · last digit ${latest.digit}`;
@@ -614,6 +626,8 @@ updateDemoArmState = () => {
   $('demoOrderStatus').textContent = !demoConnected ? 'Connect your Deriv account first.' : (manualOrderPending ? 'Current order is waiting for its one-tick settlement. Manual buttons will return immediately after settlement.' : (realSelected && !realTradingEnabled ? 'Real account is connected for later. Real-money ordering is disabled by the server setting.' : (accountReady ? `Ready for one order of ${money(stake)}.` : 'Select an account and enter a valid stake.')));
 };
 const executeOrder = async (type) => {
+  const digitGate = digitPercentageGate(type === 'DIGITOVER' ? 'OVER' : 'UNDER');
+  if (!digitGate.allowed) { $('demoOrderStatus').textContent = `NO ORDER · ${digitGate.note}`; return; }
   if (digitStability(ticks).unstable) {
     $('autoStatus').textContent = 'UNSTABLE digit movement. New entries are blocked until five ticks pass without a large jump.';
     updateDemoArmState();
@@ -653,7 +667,7 @@ const maybeAutoOrder = async (signal) => {
     lastAutoSignalTick = liveTickNumber;
     autoMomentumTrades += 1;
     autoContractIds.add(result.contractId);
-    autoAwaitingReset = true;
+    autoAwaitingReset = momentumResetEnabled();
     $('autoStatus').textContent = `ORDER ENTERED on digit ${tickDigit(result.entryTick)}. Waiting for the next tick to settle. Auto bot will pause for ${selectedAutoCooldown()} ticks after this order.`;
     showOrderEntry(signal.type, result, 'Auto bot'); trackRecentOrder();
     updateCooldownMonitor();
@@ -704,6 +718,11 @@ $('clearActualPerformance').onclick = () => {
   accountOrderHistory = []; lastSettledOrder = null; localStorage.removeItem('derivAccountOrders'); updateActualPerformance(); update();
   $('actualEntryTick').textContent = '—'; $('actualEntryDigit').textContent = 'Entry price: —'; $('actualExitTick').textContent = '—'; $('actualExitDigit').textContent = 'Settlement price: —'; $('actualOrderOutcome').textContent = 'NO ORDER'; $('actualOrderOutcome').className = ''; $('actualOrderSide').textContent = 'Waiting for an accepted order';
 };
+$('momentumResetEnabled').addEventListener('change', () => {
+  if (!momentumResetEnabled()) autoAwaitingReset = false;
+  else if (autoMomentumTrades > 0) autoAwaitingReset = true;
+  updateCooldownMonitor(); updateAutoState();
+});
 ['stake','maxStake','dailyLoss','dailyProfitTarget','maxTrades','maxConsecutiveLosses','maxTradesPerSetup'].forEach(id=>$(id).addEventListener('input', updateRiskSummary)); updateRiskSummary();
 updateActualPerformance();
 renderLastSettledOrder(lastSettledOrder);

@@ -16,7 +16,7 @@
     <main>
       <section class="warning"><strong>Important:</strong> tick patterns do not create a guaranteed edge. Research signals are not predictions. Demo is the default account. A connected real account remains disabled unless you deliberately enable its server setting and complete separate confirmations.</section>
       <section class="panel controls">
-        <label>Market <select id="symbol"><option value="R_10">R10 Index</option><option value="R_25">R25 Index</option><option value="R_50">R50 Index</option><option value="R_75">R75 Index</option><option value="R_100" selected>R100 Index</option></select></label>
+        <label>Market <select id="symbol"><option value="R_10">R10 Index</option><option value="R_25">R25 Index</option><option value="R_50">R50 Index</option><option value="R_75">R75 Index</option><option value="R_100" selected>R100 Index</option><option value="1HZ10V">R10 (1s) Index</option><option value="1HZ25V">R25 (1s) Index</option><option value="1HZ50V">R50 (1s) Index</option><option value="1HZ75V">R75 (1s) Index</option><option value="1HZ100V">R100 (1s) Index</option></select></label>
         <label>Tick window <input id="window" type="number" min="50" max="1000" value="200" /></label>
         <label>Minimum confidence <input id="minimum" type="number" min="55" max="95" value="65" /><span>%</span></label>
         <button id="start">Start live feed</button><button class="secondary" id="pricing">Refresh live pricing</button><button class="secondary" id="backtest" hidden>Backtest collected ticks</button><button class="secondary" id="stop">Stop</button>
@@ -30,10 +30,10 @@
             <span class="scoreCaption">Sample match rates · stronger / weaker relative to each other</span>
           </div>
         </article>
-        <article class="panel cooldownPanel"><p>Momentum cooldown</p><strong id="cooldownMonitor">READY</strong><small id="cooldownMonitorNote">No completed Auto order yet.</small><label class="cooldownSetting">Cooldown ticks <select id="autoCooldownTicks"><option value="2">2 ticks</option><option value="3">3 ticks</option><option value="5" selected>5 ticks</option><option value="10">10 ticks</option></select></label></article>
+        <article class="panel cooldownPanel"><p>Momentum cooldown</p><strong id="cooldownMonitor">READY</strong><small id="cooldownMonitorNote">No completed Auto order yet.</small><label class="cooldownSetting">Cooldown ticks <select id="autoCooldownTicks"><option value="2">2 ticks</option><option value="3">3 ticks</option><option value="5" selected>5 ticks</option><option value="10">10 ticks</option><option value="15">15 ticks</option><option value="20">20 ticks</option><option value="25">25 ticks</option><option value="30">30 ticks</option></select></label><label class="resetSetting"><input id="momentumResetEnabled" type="checkbox" role="switch" checked /> Wait for momentum reset</label></article>
       </section>
       <section class="panel">
-        <h2>Terminal-digit distribution</h2><p id="priceDigitCursor" class="priceDigitCursor">Live market price: waiting for price</p><div id="digits" class="digits"></div><p class="hint">The highlighted number is the final decimal digit of the live market price. It matches the live market feed. Percentages refresh less often so they are easier to read.</p>
+        <h2>Terminal-digit distribution</h2><p id="priceDigitCursor" class="priceDigitCursor">Live market price: waiting for price</p><div id="digits" class="digits"></div><p class="hint">The highlighted number is the final decimal digit of the live market price. Percentages use the same live tick sample as the entry filters.</p>
       </section>
       <section id="autoOrderPanel" class="panel">
         <h2>Quick execution</h2>

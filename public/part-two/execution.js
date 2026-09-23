@@ -1,13 +1,18 @@
 import {AutoController} from './auto-controller.js';
+import {mountEntryPanels} from './entry-panels.js';
 export function setupExecution({parameters,readSignal}) {
   const $=id=>document.getElementById(id);
   const auto=new AutoController();
+  const updateEntryPanels=mountEntryPanels();
   let accounts=[],orders=[],busy=false,uncertain=false,lastTick=-1,lastCompleted=null,autoValidated=false,polling=false;
   const account=()=>accounts.find(a=>a.accountId===$('tradeAccount').value);
   const selectedOrders=()=>orders.filter(o=>o.accountId===account()?.accountId);
   const stop=message=>{auto.stop();$('executionStatus').textContent=message??'Auto stopped. An already accepted contract will still settle.';render();};
   const pending=()=>selectedOrders().some(o=>['pending','entered','unknown'].includes(o.state));
   function render(){
+    updateEntryPanels(readSignal()?.signal);
+    $('cooldownState').textContent=auto.inFlight?'ORDER PENDING':auto.remaining?`${auto.remaining} TICKS REMAINING`:auto.armed?'READY — NO COOLDOWN':'AUTO OFF';
+    $('cooldownDetail').textContent=$('tradeMode').value==='manual'?'Manual mode — cooldown does not block your orders.':`Configured cooldown: ${$('tradeCooldown').value} ticks. Starts after an Auto settlement.`;
     const selected=account(),mode=$('tradeMode').value;
     $('tradeBalance').textContent=selected?`${selected.accountType.toUpperCase()} · ${selected.balance??'Balance unavailable'} ${selected.currency}`:'Not connected';
     $('manualTrade').disabled=mode!=='manual'||selected?.accountType!=='demo'||busy||uncertain||pending();
@@ -59,13 +64,16 @@ export function setupExecution({parameters,readSignal}) {
   $('refreshTrading').onclick=async()=>{await refreshAccounts();await refreshOrders();};
   $('tradeAccount').onchange=()=>{stop('Account changed. Auto is off.');$('orderHistory').replaceChildren();refreshOrders();};
   $('tradeMode').onchange=()=>stop('Mode selected. Auto requires an explicit Start.');
+  $('tradeCooldown').onchange=render;
   $('manualTrade').onclick=()=>submit('manual');
   $('startTrading').onclick=()=>{if(!autoValidated)return;auto.start();$('executionStatus').textContent='Auto armed; waiting for calibrated confidence, payout validation and every other required check. No order has been sent.';render();};
   $('stopTrading').onclick=()=>stop();
   for(const id of ['market','side','barrier','quoteStake'])$(id).addEventListener('change',()=>stop('Contract settings changed. Auto is off.'));
   $('stop').addEventListener('click',()=>stop('Feed stopped. Auto is off.'));
   const timer=setInterval(refreshOrders,2000);
-  window.addEventListener('pagehide',()=>{clearInterval(timer);auto.stop();});
+  const feedObserver=new MutationObserver(render);
+  feedObserver.observe($('status'),{childList:true,characterData:true,subtree:true});
+  window.addEventListener('pagehide',()=>{clearInterval(timer);feedObserver.disconnect();auto.stop();});
   refreshAccounts();refreshOrders();render();
   return {onSignal(){const s=readSignal();auto.tick(s?.sequence);render();if(auto.armed){$('executionStatus').textContent=auto.remaining?auto.label:s?.signal?.reason||'Waiting for a live signal.';submit('auto');}},stop};
 }

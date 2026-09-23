@@ -26,7 +26,7 @@ function render() {
   const a=engine.analyze();
   const rawSignal=signalEngine.update(engine,$('side').value,Number($('barrier').value));
   const signal=financialChecks({signal:rawSignal,parameters:parameters(),evidence:calibrationEvidence,quote:payout,margin:Number($('margin').value)/100});
-  currentSignal={signal,sequence:engine.sequence};
+  currentSignal={signal,sequence:engine.sequence,market:a};
   if(payout){const ev=signal.pricing;$('payout').textContent=`${payout.type} ${payout.barrier} · Stake $${payout.ask.toFixed(2)} · Total payout $${payout.payout.toFixed(2)} · Profit if won $${payout.profit.toFixed(2)} · Break-even ${percent(payout.breakEven)} · Imported-session calibrated estimate ${percent(signal.calibratedProbability)} · Diagnostic EV ${ev.estimatedEV===null?'unavailable':'$'+ev.estimatedEV.toFixed(4)} · ${ev.fresh?'FRESH':'STALE'} · ${signal.reason}`;}
   $('decision').textContent=signal.decision;
   $('reason').textContent=signal.reason;

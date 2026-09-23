@@ -10,7 +10,8 @@ export function setupExecution({parameters,readSignal}) {
   const stop=message=>{auto.stop();$('executionStatus').textContent=message??'Auto stopped. An already accepted contract will still settle.';render();};
   const pending=()=>selectedOrders().some(o=>['pending','entered','unknown'].includes(o.state));
   function render(){
-    updateEntryPanels(readSignal()?.signal);
+    const snapshot=readSignal();
+    updateEntryPanels(snapshot?.signal,snapshot?.market);
     $('cooldownState').textContent=auto.inFlight?'ORDER PENDING':auto.remaining?`${auto.remaining} TICKS REMAINING`:auto.armed?'READY — NO COOLDOWN':'AUTO OFF';
     $('cooldownDetail').textContent=$('tradeMode').value==='manual'?'Manual mode — cooldown does not block your orders.':`Configured cooldown: ${$('tradeCooldown').value} ticks. Starts after an Auto settlement.`;
     const selected=account(),mode=$('tradeMode').value;

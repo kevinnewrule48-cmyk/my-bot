@@ -14,7 +14,21 @@ export function mountEntryPanels(){
   const host=document.createElement('div');host.className='entry-panels';host.setAttribute('aria-label','Entry guidance');
   host.innerHTML=`<article class="entry-card" id="suggestionCard"><h3>Suggested Entry</h3><strong id="suggestedSetup">WAIT — NO LIVE SIGNAL</strong><p id="setupReason"></p><small>Selected side and barrier, not an automatic best-contract ranking. OVER/UNDER is a last-digit contract, not an overbought/oversold indication.</small></article><article class="entry-card"><h3>Entry Strength Analyzer</h3><strong id="setupStrength">Not available</strong><progress id="setupMeter" max="100" value="0" aria-label="Research strength score"></progress><p id="setupScore"></p><p id="setupConfidence"></p><small id="setupMomentum"></small></article><article class="entry-card"><h3>Momentum Cooldown</h3><strong id="cooldownState">AUTO OFF</strong><p id="cooldownDetail">Auto cooldown does not restrict manual orders.</p><small>Counts new live ticks after an Auto settlement. No automatic orders are enabled in this release.</small></article>`;
   document.getElementById('manualTrade').parentElement.before(host);
-  return signal=>{
+  const distribution=document.createElement('div');distribution.className='terminal-panel';
+  distribution.innerHTML=`<div class="terminal-heading"><h3>Terminal Digit Distribution</h3><div><small id="terminalFeedState">Waiting for live feed</small><strong id="terminalPrice">—</strong></div></div><div class="terminal-digits">${Array.from({length:10},(_,d)=>`<div class="terminal-digit" id="terminalDigit${d}"><b>${d}</b><span id="terminalRate${d}">—</span></div>`).join('')}</div><p id="terminalSample" class="hint">Waiting for price ticks.</p>`;
+  host.after(distribution);
+  return (signal,market)=>{
+    const live=document.getElementById('status').textContent==='LIVE';
+    document.getElementById('terminalPrice').textContent=market?.last?.quote??'—';
+    document.getElementById('terminalFeedState').textContent=market?.last?`${market.last.symbol} · ${live?'LIVE PRICE':'LAST PRICE · FEED STOPPED'}`:'Waiting for live feed';
+    document.getElementById('terminalSample').textContent=`Last ${Math.min(market?.sample??0,50)} price ticks · Percentages are observed frequencies, not win probabilities.`;
+    for(let d=0;d<10;d++){
+      const cell=document.getElementById(`terminalDigit${d}`),active=live&&market?.last?.digit===d;
+      cell.classList.toggle('active',active);
+      cell.setAttribute('aria-label',`Digit ${d}${active?', current price last digit':''}`);
+      const frequency=market?.digits?.[d]?.frequency;
+      document.getElementById(`terminalRate${d}`).textContent=Number.isFinite(frequency)?`${(frequency*100).toFixed(1)}%`:'—';
+    }
     const view=entryView(signal,document.getElementById('status').textContent==='LIVE');
     const set=(id,text)=>{document.getElementById(id).textContent=text;};
     document.getElementById('suggestionCard').dataset.tone=view.tone;

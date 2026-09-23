@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import {createPartTwoOrders} from './part-two-orders.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
@@ -111,8 +112,10 @@ async function exchangeCode(code, verifier) {
   return response.json();
 }
 
+const partTwoOrders = createPartTwoOrders({file:process.env.PART_TWO_LEDGER_PATH||path.join(root,'work','part-two-orders.json'),deriv,getSession,cookieValue,json,readJson});
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  if(await partTwoOrders(req,res,url))return;
   if (url.pathname === '/api/auth/status') {
     const session = getSession(req);
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
@@ -183,7 +186,7 @@ const server = http.createServer(async (req, res) => {
     const state = base64url(crypto.randomBytes(32));
     const verifier = base64url(crypto.randomBytes(48));
     const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
-    oauthStates.set(state, { verifier, expires: Date.now() + 10 * 60 * 1000 });
+    oauthStates.set(state, { verifier, expires: Date.now() + 10 * 60 * 1000, returnTo:url.searchParams.get('returnTo')==='part-two'?'/part-two/index.html':'/' });
     const authorize = new URL('https://auth.deriv.com/oauth2/auth');
     authorize.search = new URLSearchParams({ response_type: 'code', client_id: clientId, redirect_uri: redirectUri, scope: 'trade', state, code_challenge: challenge, code_challenge_method: 'S256' }).toString();
     res.writeHead(302, { location: authorize.toString(), 'cache-control': 'no-store' }); return res.end();
@@ -196,7 +199,7 @@ const server = http.createServer(async (req, res) => {
       const token = await exchangeCode(code, record.verifier);
       const sessionId = base64url(crypto.randomBytes(32));
       sessions.set(sessionId, { accessToken: token.access_token, expiresAt: Date.now() + (token.expires_in ?? 3600) * 1000 });
-      res.writeHead(302, { location: '/', 'set-cookie': `deriv_session=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${token.expires_in ?? 3600}`, 'cache-control': 'no-store' }); return res.end();
+      res.writeHead(302, { location: record.returnTo??'/', 'set-cookie': `deriv_session=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${token.expires_in ?? 3600}`, 'cache-control': 'no-store' }); return res.end();
     } catch { res.writeHead(502, { 'content-type': 'text/plain' }); return res.end('Deriv sign-in could not be completed. Check the registered callback URL and try again.'); }
   }
   const requested = req.url === '/' ? '/public/index.html' : `/public${req.url.split('?')[0]}`;

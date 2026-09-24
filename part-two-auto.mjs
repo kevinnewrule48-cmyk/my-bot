@@ -1,7 +1,7 @@
 import {readFile,stat} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {TickEngine} from './public/part-two/engine.js';
-import {SignalEngine} from './public/part-two/strategy.js';
+import {SignalEngine,scalpProfile} from './public/part-two/strategy.js';
 import {replay} from './public/part-two/replay.js';
 import {independentSessionReport} from './public/part-two/validation.js';
 
@@ -24,9 +24,9 @@ export function assessBundle(bundle,now=Date.now()){
   });
   return {symbol:sessions[0].symbol,type:bundle.type,barrier:bundle.barrier,expiresAt:bundle.expiresAt,reviewId:bundle.reviewId,bins,report};
 }
-export function analyzeServerHistory(history,order,now=Date.now()){
+export function analyzeServerHistory(history,order,now=Date.now(),experimental=false){
   if(!Array.isArray(history?.prices)||!Array.isArray(history?.times)||history.prices.length!==history.times.length||history.times.length<500||history.times.length>1000)throw Error('Server live history is incomplete.');
-  const engine=new TickEngine(order.symbol,order.precision),signals=new SignalEngine();let signal,previous=null;
+  const engine=new TickEngine(order.symbol,order.precision),signals=new SignalEngine(experimental?scalpProfile(order.signalTicks??200):{});let signal,previous=null;
   for(let i=0;i<history.times.length;i++){
     const epoch=history.times[i];
     if(!Number.isFinite(epoch)||(previous!==null&&(epoch<=previous||epoch-previous>(order.symbol.startsWith('1HZ')?3:6))))throw Error('Server history has a gap or invalid ordering.');
@@ -57,7 +57,7 @@ export function createAutoAuthority({modelFile,now=Date.now,experimentalDemo=fal
     modelPromise??=(async()=>{if((await stat(modelFile)).size>40000000)throw Error('Calibration bundle too large');return assessBundle(JSON.parse(await readFile(modelFile,'utf8')),now());})();
     const m=await modelPromise;if(m.expiresAt<=now())throw Error('Server calibration expired');return m;
   }
-  function active(owner,order,generation){const state=armed.get(`${owner}:${order.accountId}`);if(!state||state.until<=now()||key(state)!==key(order)||state.stake!==order.stake||(generation&&state.generation!==generation))throw Error('Auto stopped, changed or its heartbeat expired.');return state;}
+  function active(owner,order,generation){const state=armed.get(`${owner}:${order.accountId}`);if(!state||state.until<=now()||key(state)!==key(order)||state.stake!==order.stake||(state.signalTicks??200)!==(order.signalTicks??200)||(generation&&state.generation!==generation))throw Error('Auto stopped, changed or its heartbeat expired.');return state;}
   return {
     async status(){if(experimentalDemo)return {available:true,experimentalDemo:true,validated:false,reason:'Experimental demo Auto: research estimates are not validated win probabilities.'};try{const m=await model();return {available:true,validated:true,symbol:m.symbol,type:m.type,barrier:m.barrier,reviewId:m.reviewId,expiresAt:m.expiresAt};}catch(e){return {available:false,reason:e.message};}},
     async start(owner,order,cooldown){if(experimentalDemo){if(order.accountType!=='demo')throw Error('Experimental Auto requires a verified demo account');}else{const m=await model();if(key(m)!==key(order))throw Error('No validated model for this selected contract.');}if(!Number.isInteger(cooldown)||cooldown<1||cooldown>30)throw Error('Cooldown must be 1–30 ticks');const state={...order,cooldown,generation:randomUUID(),until:now()+15000};armed.set(`${owner}:${order.accountId}`,state);return state.generation;},

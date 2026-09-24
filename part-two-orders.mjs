@@ -1,6 +1,7 @@
 // Separate Part Two demo execution. Part One channels and receipts are never used.
 import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';
 import path from 'node:path';
+import {createFastPool} from './part-two-fast.mjs';
 import {createAutoAuthority,analyzeServerHistory} from './part-two-auto.mjs';
 import {precisionFromPip,extractDigit} from './public/part-two/engine.js';
 export function validateOrder(body) {
@@ -9,7 +10,9 @@ export function validateOrder(body) {
   if(!['OVER','UNDER'].includes(type)||!Number.isInteger(barrier)||barrier<(type==='OVER'?0:1)||barrier>(type==='OVER'?8:9))throw Error('Invalid OVER/UNDER barrier');
   if(!Number.isFinite(stake)||stake<=0||stake>50)throw Error('Part Two stake must be greater than zero and at most 50 account-currency units.');
   if(!['manual','auto'].includes(mode))throw Error('Select Manual or Auto.');
-  return {requestId,accountId,symbol,type,barrier,stake,mode};
+  const signalTicks=body.signalTicks??200;
+  if(![50,100,200,500,1000].includes(signalTicks))throw Error('Invalid analysis sample');
+  return {requestId,accountId,symbol,type,barrier,stake,mode,signalTicks};
 }
 export function riskReason(orders,accountId,stake,now=Date.now()) {
   const account=orders.filter(o=>o.accountId===accountId);
@@ -26,6 +29,7 @@ export function riskReason(orders,accountId,stake,now=Date.now()) {
 }
 export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,readJson,modelFile,experimentalDemo=false,autoAuthority=createAutoAuthority({modelFile,experimentalDemo})}) {
   let ledger=null,loading=null,queue=Promise.resolve();
+  const fast=createFastPool({deriv});
   async function authorizedAccounts(session){
     const response=await deriv('/trading/v1/options/accounts',session.accessToken);
     if(!response.ok)throw Error('Account connection unavailable');
@@ -39,15 +43,19 @@ export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,read
   async function update(order,changes){return serial(async()=>{Object.assign(order,changes);await save();});}
   async function run(order,session,owner,generation) {
     let socket,timer,buySent=false,finished=false,snapshot,proposalPending=false;
-    const proposal=()=>socket.send(JSON.stringify({proposal:1,amount:order.stake,basis:'stake',contract_type:order.type==='OVER'?'DIGITOVER':'DIGITUNDER',currency:order.currency,duration:1,duration_unit:'t',barrier:String(order.barrier),underlying_symbol:order.symbol,req_id:1}));
+    const prepared=fast.claim(owner,order);
+    const proposal=()=>{if(prepared&&Date.now()-prepared.quoteAt<=2000){queueMicrotask(()=>socket.onmessage({data:JSON.stringify(prepared.proposal)}));return;}socket.send(JSON.stringify({proposal:1,amount:order.stake,basis:'stake',contract_type:order.type==='OVER'?'DIGITOVER':'DIGITUNDER',currency:order.currency,duration:1,duration_unit:'t',barrier:String(order.barrier),underlying_symbol:order.symbol,req_id:1}));};
     const finish=async changes=>{if(finished)return;finished=true;clearTimeout(timer);socket?.close();await update(order,changes);};
     try{
+      if(prepared)socket=prepared.socket;
+      else {
       const response=await deriv(`/trading/v1/options/accounts/${encodeURIComponent(order.accountId)}/otp`,session.accessToken,{method:'POST'});
       if(!response.ok)throw Error('Could not open Deriv demo trading connection.');
       const url=(await response.json())?.data?.url;
       const parsed=new URL(url);
       if(parsed.protocol!=='wss:'||!(parsed.hostname==='derivws.com'||parsed.hostname.endsWith('.derivws.com'))||!parsed.pathname.endsWith('/ws/demo'))throw Error('Unexpected trading connection.');
       socket=new WebSocket(url);
+      }
       timer=setTimeout(()=>{finish({state:buySent?'unknown':'rejected',error:'Deriv response timed out. No automatic retry.'}).catch(console.error);},30000);
       socket.onopen=()=>socket.send(JSON.stringify({active_symbols:'brief',req_id:4}));
       socket.onmessage=async event=>{try{
@@ -60,7 +68,7 @@ export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,read
           if(finished)return;
           if(order.mode==='auto')socket.send(JSON.stringify({ticks_history:order.symbol,end:'latest',count:1000,style:'ticks',req_id:5}));else proposal();
         }
-        if(data.history&&data.req_id===5&&order.mode==='auto'){snapshot=analyzeServerHistory(data.history,order);proposal();}
+        if(data.history&&data.req_id===5&&order.mode==='auto'){snapshot=analyzeServerHistory(data.history,order,Date.now(),experimentalDemo);proposal();}
         if(data.proposal&&data.req_id===1&&!buySent&&!proposalPending){
           proposalPending=true;
           const p=data.proposal,ask=Number(p.ask_price),payout=Number(p.payout);
@@ -85,6 +93,7 @@ export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,read
       }catch(error){await finish({state:buySent?'unknown':order.mode==='auto'?'skipped':'rejected',error:error.message});}};
       socket.onerror=()=>{finish({state:buySent?'unknown':'rejected',error:'Trading connection error. No automatic retry.'}).catch(console.error);};
       socket.onclose=()=>{finish({state:buySent?'unknown':'rejected',error:'Trading connection closed before a result. No automatic retry.'}).catch(console.error);};
+      if(prepared)queueMicrotask(()=>socket.onmessage({data:JSON.stringify(prepared.market)}));
     }catch(error){await finish({state:buySent?'unknown':'rejected',error:error.message});}
   }
   return async(req,res,url)=>{
@@ -98,7 +107,7 @@ export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,read
         const autoValidation=await autoAuthority.status();
         json(res,200,{orders:ledger.filter(o=>ids.has(o.accountId)),autoAvailable:autoValidation.available,autoValidated:autoValidation.validated===true,autoValidation,realEnabled:false});return true;
       }
-      if(!['/api/part-two/order','/api/part-two/auto/start','/api/part-two/auto/stop','/api/part-two/auto/heartbeat'].includes(url.pathname)||req.method!=='POST'){json(res,404,{error:'Not found'});return true;}
+      if(!['/api/part-two/order','/api/part-two/prepare','/api/part-two/auto/start','/api/part-two/auto/stop','/api/part-two/auto/heartbeat'].includes(url.pathname)||req.method!=='POST'){json(res,404,{error:'Not found'});return true;}
       const origin=req.headers.origin;if(origin&&origin!==new URL(`http://${req.headers.host}`).origin&&origin!==`https://${req.headers.host}`){json(res,403,{error:'Invalid request origin'});return true;}
       const raw=await readJson(req),owner=cookieValue?.(req,'deriv_session');
       if(url.pathname==='/api/part-two/auto/stop'){autoAuthority.stop(owner,raw.accountId);json(res,200,{stopped:true});return true;}
@@ -106,6 +115,7 @@ export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,read
       const accounts=await authorizedAccounts(session);
       const account=accounts.find(a=>a.account_id===body.accountId);
       if(!account)throw Error('Select a connected demo account. Part Two real trading remains disabled.');
+      if(url.pathname==='/api/part-two/prepare'){if(!owner)throw Error('Connect account first');await fast.prepare(owner,{...body,currency:account.currency},session);json(res,200,{ready:true});return true;}
       if(url.pathname.includes('/auto/')){
         if(!owner||body.mode!=='auto')throw Error('An authenticated Auto session is required');
         if(url.pathname.endsWith('/start')){const reason=riskReason(ledger,body.accountId,body.stake);if(reason)throw Error(reason);await autoAuthority.start(owner,{...body,accountType:account.account_type},raw.cooldown);}
@@ -114,7 +124,7 @@ export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,read
       }
       const result=await serial(async()=>{
         const existing=ledger.find(o=>o.requestId===body.requestId);
-        if(existing){if(['accountId','symbol','type','barrier','stake','mode'].some(k=>existing[k]!==body[k]))throw Error('Request identifier has different parameters');return existing;}
+        if(existing){if(['accountId','symbol','type','barrier','stake','mode','signalTicks'].some(k=>existing[k]!==body[k]))throw Error('Request identifier has different parameters');return existing;}
         const reason=riskReason(ledger,body.accountId,body.stake);if(reason)throw Error(reason);
         const generation=body.mode==='auto'?autoAuthority.capture(owner,body):null;
         const order={...body,accountType:account.account_type,currency:account.currency,state:'pending',createdAt:Date.now()};ledger.push(order);await save();

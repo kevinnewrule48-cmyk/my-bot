@@ -43,7 +43,14 @@ export function checkAutoEdge(model,signal,ask,payout){
   if(!Number.isFinite(ask)||!Number.isFinite(payout)||ask<=0||payout<=ask||bin.lower<=ask/payout+.02)throw Error('Actual payout fails the conservative 2 percentage-point edge margin.');
   return {probability:bin.estimate,conservativeProbability:bin.lower,expectedValue:bin.lower*payout-ask,reviewId:model.reviewId};
 }
-export function createAutoAuthority({modelFile,now=Date.now}={}){
+export function checkExperimentalEdge(signal,ask,payout){
+  const failed=signal.checks.filter(c=>!['Calibrated confidence','Payout / EV'].includes(c.name)&&!c.pass);
+  if(!signal.checks.length||failed.length)throw Error(`Waiting for research signal: ${failed.map(c=>c.name).join(', ')}`);
+  const estimate=signal.modelProbability;
+  if(!Number.isFinite(estimate)||estimate<.65||estimate>1||!Number.isFinite(ask)||!Number.isFinite(payout)||ask<=0||payout<=ask||estimate<=ask/payout+.02)throw Error('Experimental estimate does not pass the actual payout margin.');
+  return {experimental:true,validated:false,researchEstimate:estimate,estimatedEV:estimate*payout-ask};
+}
+export function createAutoAuthority({modelFile,now=Date.now,experimentalDemo=false}={}){
   const armed=new Map();let modelPromise;
   async function model(){
     if(!modelFile)throw Error('No reviewed calibration bundle is installed on the server.');
@@ -52,19 +59,20 @@ export function createAutoAuthority({modelFile,now=Date.now}={}){
   }
   function active(owner,order,generation){const state=armed.get(`${owner}:${order.accountId}`);if(!state||state.until<=now()||key(state)!==key(order)||state.stake!==order.stake||(generation&&state.generation!==generation))throw Error('Auto stopped, changed or its heartbeat expired.');return state;}
   return {
-    async status(){try{const m=await model();return {available:true,symbol:m.symbol,type:m.type,barrier:m.barrier,reviewId:m.reviewId,expiresAt:m.expiresAt};}catch(e){return {available:false,reason:e.message};}},
-    async start(owner,order,cooldown){const m=await model();if(key(m)!==key(order))throw Error('No validated model for this selected contract.');if(!Number.isInteger(cooldown)||cooldown<1||cooldown>30)throw Error('Cooldown must be 1–30 ticks');const state={...order,cooldown,generation:randomUUID(),until:now()+15000};armed.set(`${owner}:${order.accountId}`,state);return state.generation;},
+    async status(){if(experimentalDemo)return {available:true,experimentalDemo:true,validated:false,reason:'Experimental demo Auto: research estimates are not validated win probabilities.'};try{const m=await model();return {available:true,validated:true,symbol:m.symbol,type:m.type,barrier:m.barrier,reviewId:m.reviewId,expiresAt:m.expiresAt};}catch(e){return {available:false,reason:e.message};}},
+    async start(owner,order,cooldown){if(experimentalDemo){if(order.accountType!=='demo')throw Error('Experimental Auto requires a verified demo account');}else{const m=await model();if(key(m)!==key(order))throw Error('No validated model for this selected contract.');}if(!Number.isInteger(cooldown)||cooldown<1||cooldown>30)throw Error('Cooldown must be 1–30 ticks');const state={...order,cooldown,generation:randomUUID(),until:now()+15000};armed.set(`${owner}:${order.accountId}`,state);return state.generation;},
     stop(owner,accountId){armed.delete(`${owner}:${accountId}`);},
     heartbeat(owner,order){active(owner,order).until=now()+15000;},
     capture(owner,order){return active(owner,order).generation;},
     async check(owner,order,snapshot,ask,payout,ledger,generation){
-      const m=await model(),state=active(owner,order,generation);
-      if(key(m)!==key(order))throw Error('Calibration contract mismatch');
+      const state=active(owner,order,generation),m=experimentalDemo?null:await model();
+      if(experimentalDemo&&(order.accountType!=='demo'||state.accountType!=='demo'))throw Error('Experimental Auto requires a verified demo account');
+      if(m&&key(m)!==key(order))throw Error('Calibration contract mismatch');
       if(now()-snapshot.epoch*1000>5000)throw Error('Signal expired before buy');
       const previous=ledger.filter(o=>o.accountId===order.accountId&&o.mode==='auto'&&o.state==='settled').at(-1);
       if(previous&&snapshot.times.filter(t=>t*1000>previous.completedAt).length<state.cooldown)throw Error('Server tick cooldown is active.');
       if(ledger.some(o=>o!==order&&o.accountId===order.accountId&&o.mode==='auto'&&o.signalEpoch===snapshot.epoch&&o.state!=='rejected'))throw Error('This signal tick was already used.');
-      return {...checkAutoEdge(m,snapshot.signal,ask,payout),signalEpoch:snapshot.epoch};
+      return {...(experimentalDemo?checkExperimentalEdge(snapshot.signal,ask,payout):checkAutoEdge(m,snapshot.signal,ask,payout)),signalEpoch:snapshot.epoch};
     }
   };
 }

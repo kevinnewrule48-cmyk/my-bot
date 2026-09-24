@@ -24,7 +24,7 @@ export function riskReason(orders,accountId,stake,now=Date.now()) {
   if(streak>=5)return 'Part Two stopped after five consecutive losses.';
   return null;
 }
-export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,readJson,modelFile,autoAuthority=createAutoAuthority({modelFile})}) {
+export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,readJson,modelFile,experimentalDemo=false,autoAuthority=createAutoAuthority({modelFile,experimentalDemo})}) {
   let ledger=null,loading=null,queue=Promise.resolve();
   async function authorizedAccounts(session){
     const response=await deriv('/trading/v1/options/accounts',session.accessToken);
@@ -96,7 +96,7 @@ export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,read
       if(url.pathname==='/api/part-two/orders'&&req.method==='GET'){
         const accounts=await authorizedAccounts(session),ids=new Set(accounts.map(a=>a.account_id));
         const autoValidation=await autoAuthority.status();
-        json(res,200,{orders:ledger.filter(o=>ids.has(o.accountId)),autoValidated:autoValidation.available,autoValidation,realEnabled:false});return true;
+        json(res,200,{orders:ledger.filter(o=>ids.has(o.accountId)),autoAvailable:autoValidation.available,autoValidated:autoValidation.validated===true,autoValidation,realEnabled:false});return true;
       }
       if(!['/api/part-two/order','/api/part-two/auto/start','/api/part-two/auto/stop','/api/part-two/auto/heartbeat'].includes(url.pathname)||req.method!=='POST'){json(res,404,{error:'Not found'});return true;}
       const origin=req.headers.origin;if(origin&&origin!==new URL(`http://${req.headers.host}`).origin&&origin!==`https://${req.headers.host}`){json(res,403,{error:'Invalid request origin'});return true;}
@@ -108,7 +108,7 @@ export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,read
       if(!account)throw Error('Select a connected demo account. Part Two real trading remains disabled.');
       if(url.pathname.includes('/auto/')){
         if(!owner||body.mode!=='auto')throw Error('An authenticated Auto session is required');
-        if(url.pathname.endsWith('/start')){const reason=riskReason(ledger,body.accountId,body.stake);if(reason)throw Error(reason);await autoAuthority.start(owner,body,raw.cooldown);}
+        if(url.pathname.endsWith('/start')){const reason=riskReason(ledger,body.accountId,body.stake);if(reason)throw Error(reason);await autoAuthority.start(owner,{...body,accountType:account.account_type},raw.cooldown);}
         else autoAuthority.heartbeat(owner,body);
         json(res,200,{armed:true});return true;
       }
@@ -117,7 +117,7 @@ export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,read
         if(existing){if(['accountId','symbol','type','barrier','stake','mode'].some(k=>existing[k]!==body[k]))throw Error('Request identifier has different parameters');return existing;}
         const reason=riskReason(ledger,body.accountId,body.stake);if(reason)throw Error(reason);
         const generation=body.mode==='auto'?autoAuthority.capture(owner,body):null;
-        const order={...body,currency:account.currency,state:'pending',createdAt:Date.now()};ledger.push(order);await save();
+        const order={...body,accountType:account.account_type,currency:account.currency,state:'pending',createdAt:Date.now()};ledger.push(order);await save();
         run(order,session,owner,generation).catch(error=>console.error('Part Two order tracking error:',error.message));return order;
       });
       json(res,202,{order:result});

@@ -8,7 +8,7 @@ export function setupExecution({parameters,readSignal}) {
   const updatePerformance=mountPerformance();
   let renderedOrders=null,renderedAccount=null;
   let armedSettings=null,validation=null;
-  let preparing=false;
+  let preparing=false,heartbeatPending=false;
   async function prepareQuick(){
     if(preparing||busy||pending()||account()?.accountType!=='demo'||!['manual','auto'].includes($('tradeMode').value))return;
     preparing=true;
@@ -18,7 +18,7 @@ export function setupExecution({parameters,readSignal}) {
   let accounts=[],orders=[],busy=false,uncertain=false,lastTick=-1,lastCompleted=null,autoValidated=false,polling=false;
   const account=()=>accounts.find(a=>a.accountId===$('tradeAccount').value);
   const selectedOrders=()=>orders.filter(o=>o.accountId===account()?.accountId);
-  const stop=message=>{const old=armedSettings;armedSettings=null;auto.stop();if(old)control('stop',old).catch(()=>{});$('executionStatus').textContent=message??'Auto stopped. An already accepted contract will still settle.';render();};
+  const stop=message=>{const old=armedSettings;armedSettings=null;auto.stop(message??'Stopped by you. An already accepted contract will still settle.');if(old)control('stop',old).catch(()=>{});render();};
   const pending=()=>selectedOrders().some(o=>['pending','entered','unknown'].includes(o.state));
   function render(){
     const snapshot=readSignal();
@@ -37,6 +37,7 @@ export function setupExecution({parameters,readSignal}) {
     $('startTrading').textContent=autoValidated?(validation?.experimentalDemo?'Start Auto · experimental demo':'Start Auto'):'Connect account to check Auto availability';
     $('stopTrading').disabled=!auto.armed;
     $('autoState').textContent=auto.label;
+    if(!auto.armed&&auto.stopReason)$('executionStatus').textContent=`AUTO OFF · ${auto.stopReason}`;
     $('manualTrade').textContent=`Place ${parameters().type} ${parameters().barrier} order`;
   }
   async function refreshAccounts(){
@@ -55,12 +56,12 @@ export function setupExecution({parameters,readSignal}) {
       auto.inFlight=pending();
       $('orderHistory').replaceChildren();
       for(const o of [...selectedOrders()].reverse().slice(0,30)){
-        const row=document.createElement('tr');for(const value of [new Date(o.createdAt).toLocaleTimeString(),`${o.type} ${o.barrier}`,o.symbol,o.state,o.buyPrice??o.stake,o.entryQuote??'—',o.exitQuote??'—',o.profit??'—']){const cell=document.createElement('td');cell.textContent=String(value);row.append(cell);}$('orderHistory').append(row);
+        const row=document.createElement('tr');for(const value of [new Date(o.createdAt).toLocaleTimeString(),`${o.type} ${o.barrier}`,o.symbol,o.error?`${o.state} · ${o.error}`:o.state,o.buyPrice??o.stake,o.entryQuote??'—',o.exitQuote??'—',o.profit??'—']){const cell=document.createElement('td');cell.textContent=String(value);row.append(cell);}$('orderHistory').append(row);
       }
       const latest=selectedOrders().at(-1);
       if(latest?.state==='unknown'){uncertain=true;stop(`Order result unresolved: ${latest.error??'Check Deriv contract history.'} No automatic retry.`);}
       if(latest?.state==='rejected'&&latest.requestId!==lastCompleted){lastCompleted=latest.requestId;stop(`Order rejected: ${latest.error}`);}
-      if(latest?.state==='skipped')$('executionStatus').textContent=`No order placed · ${latest.error}. Auto waits for the next qualifying tick.`;
+      if(latest?.state==='skipped'&&auto.armed)$('executionStatus').textContent=`No order placed · ${latest.error} Auto remains ON and waits for the next qualifying tick.`;
       if(latest?.state==='settled'&&latest.requestId!==lastCompleted){lastCompleted=latest.requestId;if(latest.mode==='auto')auto.settled($('tradeCooldown').value);$('executionStatus').textContent=`${latest.profit>0?'WIN':latest.profit<0?'LOSS':'SETTLED'} · ${latest.type} ${latest.barrier} · ${latest.profit} ${latest.currency}`;refreshAccounts();}
       render();
     }catch{stop('Cannot retrieve order status. Auto stopped; check Deriv before trying again.');}
@@ -91,7 +92,11 @@ export function setupExecution({parameters,readSignal}) {
   $('stop').addEventListener('click',()=>stop('Feed stopped. Auto is off.'));
   const timer=setInterval(refreshOrders,2000);
   const quickTimer=setInterval(prepareQuick,2000);
-  const heartbeat=setInterval(()=>{if(armedSettings&&auto.armed)control('heartbeat',armedSettings).catch(e=>stop(e.message));},5000);
+  const heartbeat=setInterval(async()=>{
+    if(!armedSettings||!auto.armed||heartbeatPending)return;
+    const settings=armedSettings;heartbeatPending=true;
+    try{await control('heartbeat',settings);}catch(e){if(armedSettings===settings&&auto.armed)stop(`Auto connection check failed: ${e.message}`);}finally{heartbeatPending=false;}
+  },5000);
   const feedObserver=new MutationObserver(render);
   feedObserver.observe($('status'),{childList:true,characterData:true,subtree:true});
   window.addEventListener('pagehide',()=>{clearInterval(timer);clearInterval(quickTimer);clearInterval(heartbeat);feedObserver.disconnect();stop();});

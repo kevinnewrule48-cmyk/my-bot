@@ -1,8 +1,8 @@
 // Lifecycle only; this does not approve or calibrate a trading strategy.
 export class AutoController {
   constructor(){this.stop();this.remaining=0;this.lastSequence=null;this.inFlight=false;}
-  start(){this.armed=true;}
-  stop(){this.armed=false;}
+  start(){this.armed=true;this.stopReason=null;}
+  stop(reason){this.armed=false;if(reason&&!this.stopReason)this.stopReason=reason;}
   tick(sequence){
     if(!Number.isInteger(sequence)||sequence<0)return;
     if(this.lastSequence!==null&&sequence>this.lastSequence)this.remaining=Math.max(0,this.remaining-(sequence-this.lastSequence));

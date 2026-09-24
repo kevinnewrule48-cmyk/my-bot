@@ -8,6 +8,12 @@ export function setupExecution({parameters,readSignal}) {
   const updatePerformance=mountPerformance();
   let renderedOrders=null,renderedAccount=null;
   let armedSettings=null,validation=null;
+  let preparing=false;
+  async function prepareQuick(){
+    if(preparing||busy||pending()||account()?.accountType!=='demo'||!['manual','auto'].includes($('tradeMode').value))return;
+    preparing=true;
+    try{await fetch('/api/part-two/prepare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...parameters(),accountId:account().accountId,requestId:crypto.randomUUID(),mode:$('tradeMode').value})});}catch{}finally{preparing=false;}
+  }
   const control=async(action,body)=>{const r=await fetch(`/api/part-two/auto/${action}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),keepalive:action==='stop'});const d=await r.json();if(!r.ok)throw Error(d.error??'Auto connection failed');return d;};
   let accounts=[],orders=[],busy=false,uncertain=false,lastTick=-1,lastCompleted=null,autoValidated=false,polling=false;
   const account=()=>accounts.find(a=>a.accountId===$('tradeAccount').value);
@@ -84,10 +90,11 @@ export function setupExecution({parameters,readSignal}) {
   for(const id of ['market','side','barrier','quoteStake'])$(id).addEventListener('change',()=>stop('Contract settings changed. Auto is off.'));
   $('stop').addEventListener('click',()=>stop('Feed stopped. Auto is off.'));
   const timer=setInterval(refreshOrders,2000);
+  const quickTimer=setInterval(prepareQuick,2000);
   const heartbeat=setInterval(()=>{if(armedSettings&&auto.armed)control('heartbeat',armedSettings).catch(e=>stop(e.message));},5000);
   const feedObserver=new MutationObserver(render);
   feedObserver.observe($('status'),{childList:true,characterData:true,subtree:true});
-  window.addEventListener('pagehide',()=>{clearInterval(timer);clearInterval(heartbeat);feedObserver.disconnect();stop();});
+  window.addEventListener('pagehide',()=>{clearInterval(timer);clearInterval(quickTimer);clearInterval(heartbeat);feedObserver.disconnect();stop();});
   refreshAccounts();refreshOrders();render();
   return {onSignal(){const s=readSignal();auto.tick(s?.sequence);render();if(auto.armed){$('executionStatus').textContent=auto.remaining?auto.label:s?.signal?.reason||'Waiting for a live signal.';submit('auto');}},stop};
 }

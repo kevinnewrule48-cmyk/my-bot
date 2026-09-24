@@ -2,7 +2,15 @@ import {wins} from './engine.js';
 // These are transparent research scores, not calibrated probabilities.
 export const STRATEGY = Object.freeze({momentum:58,zone:62,stability:70,score:80,quality:70,confidence:65,persistence:3,minHistory:500,minContext:30,
   weights:{momentum:1,zone:1,stability:2,pattern:1,transition:1,quality:2}});
+// Faster experimental demo profile. Digit support, not candle direction, drives entries.
+export const DEMO_SCALP = Object.freeze({momentum:52,zone:65,stability:40,score:60,quality:40,persistence:1,minHistory:200,minContext:10,
+  shortWindow:20,longWindow:100,stabilityWindows:[50,100,200],patternMinimum:0,transitionMinimum:40,
+  weights:{momentum:2,zone:2,stability:1,pattern:0,transition:1,quality:1}});
 const clamp=n=>Math.max(0,Math.min(100,n));
+export function scalpProfile(ticks=200){
+  if(![50,100,200,500,1000].includes(ticks))throw Error('Select 50, 100, 200, 500 or 1000 analysis ticks');
+  return {...DEMO_SCALP,sampleWindow:ticks,minHistory:ticks,longWindow:ticks,shortWindow:Math.min(20,Math.floor(ticks/5)),stabilityWindows:[Math.floor(ticks/2),ticks],minContext:Math.max(3,Math.min(10,Math.floor(ticks/10)))};
+}
 const rate=(h,type,b)=>h.length?h.filter(t=>wins(type,b,t.digit)).length/h.length:0;
 export function contexts(history,length,alpha=1) {
   const context=history.slice(-length).map(t=>t.digit),counts=Array(10).fill(0);
@@ -27,14 +35,14 @@ export function diagnostics(history,type,barrier) {
 export class SignalEngine {
   constructor(config={}) {this.config={...STRATEGY,...config,weights:{...STRATEGY.weights,...config.weights}};this.previousKey=null;this.persist=0;this.lastSequence=-1;this.cached=null;}
   update(engine,type,barrier) {
-    const h=engine.history,c=this.config,n=h.length,key=`${engine.symbol}:${type}:${barrier}`,sequence=engine.sequence;
+    const c=this.config,h=c.sampleWindow?engine.history.slice(-c.sampleWindow):engine.history,n=h.length,key=`${engine.symbol}:${type}:${barrier}`,sequence=engine.sequence;
     if(this.lastSequence===sequence&&this.previousKey===key)return this.cached;
     if(this.previousKey!==key)this.persist=0;
     const baseline=Array.from({length:10},(_,d)=>wins(type,barrier,d)).filter(Boolean).length/10;
-    const available=[100,200,300,500,1000].filter(w=>n>=w),rates=available.map(w=>rate(h.slice(-w),type,barrier));
+    const available=(c.stabilityWindows??[100,200,300,500,1000]).filter(w=>n>=w),rates=available.map(w=>rate(h.slice(-w),type,barrier));
     const stability=rates.length>=2?clamp(100-(Math.max(...rates)-Math.min(...rates))*500):0;
-    const momentum=n>=200?clamp(50+(rate(h.slice(-50),type,barrier)-rate(h.slice(-200),type,barrier))*250):0;
-    const zone=rate(h.slice(-50),type,barrier)*100;
+    const momentum=n>=(c.longWindow??200)?clamp(50+(rate(h.slice(-(c.shortWindow??50)),type,barrier)-rate(h.slice(-(c.longWindow??200)),type,barrier))*250):0;
+    const zone=rate(h.slice(-(c.shortWindow??50)),type,barrier)*100;
     const ctx=[1,2,3].map(l=>contexts(h,l)),probability=x=>x.distribution.reduce((sum,p,d)=>sum+(wins(type,barrier,d)?p:0),0);
     const transition=ctx[0].sample>=c.minContext?clamp(50+(probability(ctx[0])-baseline)*250):0;
     const patternContext=[...ctx.slice(1)].reverse().find(x=>x.sample>=c.minContext);
@@ -43,7 +51,7 @@ export class SignalEngine {
     const components={momentum,zone,stability,pattern,transition,quality},weightTotal=Object.values(c.weights).reduce((a,b)=>a+b,0);
     const contributions=Object.entries(components).map(([name,value])=>({name,value,weight:c.weights[name],contribution:value*c.weights[name]/weightTotal}));
     const score=contributions.reduce((sum,v)=>sum+v.contribution,0);
-    const checks=[['Momentum',momentum,c.momentum],['Zone',zone,c.zone],['Stability',stability,c.stability],['Pattern',pattern,50],['Transition',transition,50],['Quality',quality,c.quality],['Score',score,c.score]].map(([name,value,required])=>({name,value,required,pass:value>=required}));
+    const checks=[['Momentum',momentum,c.momentum],['Zone',zone,c.zone],['Stability',stability,c.stability],['Pattern',pattern,c.patternMinimum??50],['Transition',transition,c.transitionMinimum??50],['Quality',quality,c.quality],['Score',score,c.score]].map(([name,value,required])=>({name,value,required,pass:value>=required}));
     checks.push({name:'Data quality',value:n,required:c.minHistory,pass:n>=c.minHistory});
     const eligible=checks.every(x=>x.pass);
     this.persist=eligible?this.persist+1:0;

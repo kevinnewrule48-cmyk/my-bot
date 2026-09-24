@@ -1,6 +1,6 @@
 import {TickEngine,WINDOWS} from './engine.js';
 import {DerivFeed} from './client.js';
-import {SignalEngine} from './strategy.js';
+import {SignalEngine,scalpProfile} from './strategy.js';
 import {replay} from './replay.js';
 import {requestProposal} from './payout.js';
 import {Recorder} from './recorder.js';
@@ -11,12 +11,13 @@ const $=id=>document.getElementById(id), percent=n=>n===null?'—':`${(n*100).to
 let engine=null;
 let execution=null,currentSignal=null;
 let calibrationEvidence=null;
-let signalEngine=new SignalEngine();
+let signalEngine=new SignalEngine(scalpProfile());
 const recorder=new Recorder();let payout=null,quoteGeneration=0,recordingTick=0;
-const parameters=()=>({symbol:$('market').value,type:$('side').value,barrier:Number($('barrier').value),stake:Number($('quoteStake').value)});
+const parameters=()=>({symbol:$('market').value,type:$('side').value,barrier:Number($('barrier').value),stake:Number($('quoteStake').value),signalTicks:Number($('signalTicks').value)});
 const invalidateQuote=()=>{payout=null;quoteGeneration++;$('payout').textContent='Request a quote for the selected market, side, barrier and stake.';};
 async function loadSessions(){try{const sessions=await recorder.sessions();$('sessions').replaceChildren();for(const s of sessions){const o=document.createElement('option');o.value=s.id;o.textContent=`${s.symbol} · ${new Date(s.startedAt).toLocaleString()}`;$('sessions').append(o);}$('exportSession').disabled=!sessions.length;}catch(error){$('recordStatus').textContent=`Recording unavailable: ${error.message}`;}}
-const resetScoring=()=>{signalEngine=new SignalEngine();};
+const resetScoring=()=>{signalEngine=new SignalEngine(scalpProfile(Number($('signalTicks').value)));};
+$('signalTicks').addEventListener('change',()=>{execution?.stop('Analysis sample changed. Press Start Auto to resume.');resetScoring();calibrationEvidence=null;invalidateQuote();if(engine)render();});
 for(const n of [10,25,50,75,100])for(const fast of [false,true]) {
   const option=document.createElement('option');option.value=fast?`1HZ${n}V`:`R_${n}`;option.textContent=`Volatility ${n}${fast?' (1s)':''}`;$('market').append(option);
 }

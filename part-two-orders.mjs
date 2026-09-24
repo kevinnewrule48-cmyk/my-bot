@@ -112,6 +112,12 @@ export function createPartTwoOrders({file,deriv,getSession,cookieValue,json,read
       const raw=await readJson(req),owner=cookieValue?.(req,'deriv_session');
       if(url.pathname==='/api/part-two/auto/stop'){autoAuthority.stop(owner,raw.accountId);json(res,200,{stopped:true});return true;}
       const body=validateOrder(raw);
+      // Renew only this already-armed authenticated session. Account ownership is
+      // verified at Start and again before every order, not on each heartbeat.
+      if(url.pathname==='/api/part-two/auto/heartbeat'){
+        if(!owner||body.mode!=='auto')throw Error('An authenticated Auto session is required');
+        autoAuthority.heartbeat(owner,body);json(res,200,{armed:true});return true;
+      }
       const accounts=await authorizedAccounts(session);
       const account=accounts.find(a=>a.account_id===body.accountId);
       if(!account)throw Error('Select a connected demo account. Part Two real trading remains disabled.');

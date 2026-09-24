@@ -16,7 +16,7 @@ export function setupExecution({parameters,readSignal}) {
   const pending=()=>selectedOrders().some(o=>['pending','entered','unknown'].includes(o.state));
   function render(){
     const snapshot=readSignal();
-    updateEntryPanels(snapshot?.signal,snapshot?.market);
+    updateEntryPanels(snapshot?.signal,snapshot?.market,validation?.experimentalDemo===true);
     $('cooldownState').textContent=auto.inFlight?'ORDER PENDING':auto.remaining?`${auto.remaining} TICKS REMAINING`:auto.armed?'READY — NO COOLDOWN':'AUTO OFF';
     $('cooldownDetail').textContent=$('tradeMode').value==='manual'?'Manual mode — cooldown does not block your orders.':`Configured cooldown: ${$('tradeCooldown').value} ticks. Starts after an Auto settlement.`;
     const selected=account(),mode=$('tradeMode').value;
@@ -25,10 +25,10 @@ export function setupExecution({parameters,readSignal}) {
     }
     $('tradeBalance').textContent=selected?`${selected.accountType.toUpperCase()} · ${selected.balance??'Balance unavailable'} ${selected.currency}`:'Not connected';
     $('manualTrade').disabled=mode!=='manual'||selected?.accountType!=='demo'||busy||uncertain||pending();
-    const p=parameters(),matched=validation?.symbol===p.symbol&&validation?.type===p.type&&validation?.barrier===p.barrier;
+    const p=parameters(),matched=validation?.experimentalDemo===true||(validation?.symbol===p.symbol&&validation?.type===p.type&&validation?.barrier===p.barrier);
     $('startTrading').disabled=!autoValidated||!matched||mode!=='auto'||selected?.accountType!=='demo'||auto.armed||busy||uncertain||pending();
     $('startTrading').title=validation?.reason??(!matched?'No reviewed model for this contract.':'Server validation available');
-    $('startTrading').textContent=autoValidated?'Start Auto':'Auto unavailable — validation unfinished';
+    $('startTrading').textContent=autoValidated?(validation?.experimentalDemo?'Start Auto · experimental demo':'Start Auto'):'Connect account to check Auto availability';
     $('stopTrading').disabled=!auto.armed;
     $('autoState').textContent=auto.label;
     $('manualTrade').textContent=`Place ${parameters().type} ${parameters().barrier} order`;
@@ -45,7 +45,7 @@ export function setupExecution({parameters,readSignal}) {
     if(polling)return;
     polling=true;
     try{const response=await fetch('/api/part-two/orders',{cache:'no-store'});if(!response.ok){if(response.status===401){accounts=[];stop('Account disconnected. Reconnect before trading.');}else stop('Order status unavailable. Auto stopped.');return;}
-      const data=await response.json();orders=data.orders??[];autoValidated=data.autoValidated===true;validation=data.autoValidation;
+      const data=await response.json();orders=data.orders??[];autoValidated=data.autoAvailable===true||data.autoValidated===true;validation=data.autoValidation;
       auto.inFlight=pending();
       $('orderHistory').replaceChildren();
       for(const o of [...selectedOrders()].reverse().slice(0,30)){
@@ -53,7 +53,8 @@ export function setupExecution({parameters,readSignal}) {
       }
       const latest=selectedOrders().at(-1);
       if(latest?.state==='unknown'){uncertain=true;stop(`Order result unresolved: ${latest.error??'Check Deriv contract history.'} No automatic retry.`);}
-      if(latest?.state==='rejected')stop(`Order rejected: ${latest.error}`);
+      if(latest?.state==='rejected'&&latest.requestId!==lastCompleted){lastCompleted=latest.requestId;stop(`Order rejected: ${latest.error}`);}
+      if(latest?.state==='skipped')$('executionStatus').textContent=`No order placed · ${latest.error}. Auto waits for the next qualifying tick.`;
       if(latest?.state==='settled'&&latest.requestId!==lastCompleted){lastCompleted=latest.requestId;if(latest.mode==='auto')auto.settled($('tradeCooldown').value);$('executionStatus').textContent=`${latest.profit>0?'WIN':latest.profit<0?'LOSS':'SETTLED'} · ${latest.type} ${latest.barrier} · ${latest.profit} ${latest.currency}`;refreshAccounts();}
       render();
     }catch{stop('Cannot retrieve order status. Auto stopped; check Deriv before trying again.');}
@@ -78,7 +79,7 @@ export function setupExecution({parameters,readSignal}) {
   $('tradeMode').onchange=()=>stop('Mode selected. Auto requires an explicit Start.');
   $('tradeCooldown').onchange=()=>stop('Cooldown changed. Press Start to apply it.');
   $('manualTrade').onclick=()=>submit('manual');
-  $('startTrading').onclick=async()=>{if(!autoValidated||busy)return;busy=true;const settings={...parameters(),accountId:account()?.accountId,mode:'auto',requestId:crypto.randomUUID(),cooldown:Number($('tradeCooldown').value)};armedSettings=settings;render();try{await control('start',settings);if(armedSettings!==settings){await control('stop',settings);return;}auto.start();$('executionStatus').textContent='Auto armed. Server checks live history, validated confidence and actual payout before buying.';}catch(e){stop(e.message);}finally{busy=false;render();}};
+  $('startTrading').onclick=async()=>{if(!autoValidated||busy)return;busy=true;const settings={...parameters(),accountId:account()?.accountId,mode:'auto',requestId:crypto.randomUUID(),cooldown:Number($('tradeCooldown').value)};armedSettings=settings;render();try{await control('start',settings);if(armedSettings!==settings){await control('stop',settings);return;}auto.start();$('executionStatus').textContent='Auto armed. Server checks live history and actual payout. Experimental demo mode does not use validated confidence.';}catch(e){stop(e.message);}finally{busy=false;render();}};
   $('stopTrading').onclick=()=>stop();
   for(const id of ['market','side','barrier','quoteStake'])$(id).addEventListener('change',()=>stop('Contract settings changed. Auto is off.'));
   $('stop').addEventListener('click',()=>stop('Feed stopped. Auto is off.'));

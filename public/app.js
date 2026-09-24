@@ -29,7 +29,7 @@ const selectedAutoCooldown = () => Number($('autoCooldownTicks')?.value || 5);
 const momentumResetEnabled = () => $('momentumResetEnabled')?.checked !== false;
 let executionPreparing = false;
 let warmPrepareTimer;
-const scannerSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
+const scannerSymbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
 let lastMarketScan = [], marketScanBusy = false, scannerTimer, scannerRecommendedSymbol = null;
 // Each market keeps its own rolling tick memory. Switching markets restores
 // the sample already collected for that market instead of starting at zero.

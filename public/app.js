@@ -1,18 +1,51 @@
 import {DigitBarrierEngine,extractLastDigit,proposalRequest} from './digit-barrier-engine.js';
+import {diagnoseSnapshot} from './part-one-diagnostics.js';
 const $ = (id) => document.getElementById(id);
+const demoRiskLimits=()=>({maxStake:Number($('maxStake').value),maxSessionLoss:Number($('dailyLoss').value),maxTrades:Number($('maxTrades').value),maxConsecutiveLosses:Number($('maxConsecutiveLosses').value),cooldownTicks:Number($('autoCooldownTicks').value)});
 const barrierEngine = new DigitBarrierEngine();
 const barrierAudit = [];
 let barrierSnapshot = null;
+let auditEventSequence=0,auditDropped=0,currentDecisionId=null;
+const orderDecisionIds=new Map();
+let executionView=null,recentOrderFetch=false,executionTransportError='',manualHttpPending=false;
+const executionBlocked=()=>Boolean(executionView?.blocking);
+const executionRequest=trace=>({attemptId:trace.attemptId,decisionId:trace.decisionId,strategyEvidence:{source:'client strategy, not broker authorization',selected:barrierSnapshot?.selected?.type??null,checks:barrierSnapshot?.selected?.checks??[]}});
 const auditStage = (stage,detail) => {
-  barrierAudit.push({time:Date.now(),sequence:liveTickNumber,stage,...detail});
-  if(barrierAudit.length>2000)barrierAudit.shift();
+  const event={eventId:++auditEventSequence,time:Date.now(),sequence:liveTickNumber,decisionId:currentDecisionId,market:$('symbol').value,stage,...detail};
+  barrierAudit.push(event);
+  if(barrierAudit.length>2000){barrierAudit.shift();auditDropped++;}
+  return event.eventId;
+};
+const diagnosticRisk=()=>({connected:demoConnected,accountType:selectedAccount()?.accountType??null,mode:botMode,armed:autoEnabled,
+  pending:autoInFlight||manualOrderPending||autoContractIds.size>0,awaitingMomentumReset:autoAwaitingReset,
+  cooldownRemaining:Number.isFinite(lastAutoSignalTick)?Math.max(0,selectedAutoCooldown()-(liveTickNumber-lastAutoSignalTick)):0,
+  configuredCooldown:selectedAutoCooldown(),stake:Number($('stake').value),maximumStake:Number($('maxStake').value),
+  realAutoEnabled:false,dailyAccountLimits:'Demo server session ledger; not account-wide daily limits',requestedDemoLimits:demoRiskLimits()});
+const beginOrderAudit=(type,mode,stake)=>{
+  const decisionId=currentDecisionId;
+  const attemptId=globalThis.crypto?.randomUUID?.()??`${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  auditStage('signal-detected',{attemptId,decisionId,type,mode});
+  auditStage('condition-gate',{attemptId,decisionId,checks:barrierSnapshot?.candidates.find(c=>c.type===(type==='DIGITOVER'?'OVER':'UNDER'))?.checks??[],mode});
+  const requestId=auditStage('proposal-request',{attemptId,decisionId,type,mode,symbol:$('symbol').value,stake,risk:diagnosticRisk(),
+    request:{contract_type:type,barrier:type==='DIGITOVER'?'1':'8',duration:1,duration_unit:'t',basis:'stake'},
+    note:'Client order request; server determines actual account currency and proposal'});
+  return {decisionId,requestId,attemptId};
+};
+const acceptedOrderAudit=(trace,result)=>{
+  auditStage('proposal-validation',{...trace,validation:result.proposalValidation??null,status:result.proposalValidation?.validated?'validated':'not reported'});
+  auditStage('execution-accepted',{...trace,contractId:result.contractId,entryTick:result.entryTick,buyPrice:result.buyPrice,currency:result.currency});
+  orderDecisionIds.set(result.contractId,trace);if(orderDecisionIds.size>250)orderDecisionIds.delete(orderDecisionIds.keys().next().value);
 };
 const analyzeBoth = () => {
   const persistence=Math.max(1,Math.min(100,Math.floor(Number($('barrierPersistence').value)||1)));
   const snapshot=barrierEngine.analyze(ticks,{context:strengthContext(),sequence:liveTickNumber,minimumConfidence:Math.max(0,Math.min(100,Number($('minimum').value)||0)),persistence});
   if(snapshot!==barrierSnapshot){
     barrierSnapshot=snapshot;
-    auditStage('candidate-generation-through-selection',{legacy:calculateSignal(ticks),...snapshot});
+    currentDecisionId=`${snapshot.context}:${snapshot.sequence}:${auditEventSequence+1}`;
+    const latest=ticks.at(-1);
+    auditStage('candidate-evaluation',{...diagnoseSnapshot(snapshot,{timestamp:latest?.time??null,market:$('symbol').value,
+      quote:latest?.price??null,lastDigit:latest?.digit??null,rollingWindow:Number($('window').value)||200,risk:diagnosticRisk(),
+      config:{...barrierEngine.config,minimumConfidence:Number($('minimum').value),persistence}}),legacy:calculateSignal(ticks)});
     $('barrierDiagnostics').textContent=snapshot.candidates.map(c=>`${c.label}: support ${(c.observed*100).toFixed(1)}% | Momentum ${c.momentum===null?'waiting':c.momentum.toFixed(2)+' pp'} | Zone ${c.zone?'PASS':'FAIL'} | Stability ${c.stability} | Score ${c.score} | Persistence ${c.persistence} | Confidence ${c.confidence} (score) | Quality ${c.quality} | Gate ${c.gatePercent.toFixed(0)}% | ${c.ready?'READY':c.checks.filter(x=>!x.pass).map(x=>x.name).join(', ')}`).join('\n');
   }
   return snapshot;
@@ -40,6 +73,7 @@ let autoLastError = '';
 const autoContractIds = new Set();
 const storedOrders = () => { try { const value = JSON.parse(localStorage.getItem('derivAccountOrders') || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } };
 let accountOrderHistory = storedOrders();
+const displayedContractIds = new Set(accountOrderHistory.map(order=>String(order.contractId)));
 let lastSettledOrder = accountOrderHistory.at(-1) ?? null;
 let recentOrderPoll;
 let digitFlash = null, digitFlashTimer;
@@ -94,7 +128,10 @@ const tickDigit = (tick) => {
   const match = String(tick ?? '').match(/(\d)\D*$/);
   return match ? match[1] : '—';
 };
-const saveAccountOrderHistory = () => localStorage.setItem('derivAccountOrders', JSON.stringify(accountOrderHistory.slice(-250)));
+const saveAccountOrderHistory = () => {
+  try { localStorage.setItem('derivAccountOrders', JSON.stringify(accountOrderHistory.slice(-250))); }
+  catch (error) { auditStage('history-storage-error', { message:error.message, note:'Result remains in memory; server execution journal is unchanged.' }); }
+};
 const renderContractPayoutHistory = () => {
   const list = $('contractPayoutList'), count = $('contractPayoutCount');
   if (!list || !count) return;
@@ -154,6 +191,10 @@ const showOrderEntry = (type, result, source) => {
   renderLastSettledOrder(lastSettledOrder); update();
 };
 const showContractResult = (type, result, source) => {
+  displayedContractIds.add(String(result.contractId));
+  if(displayedContractIds.size>1000)displayedContractIds.delete(displayedContractIds.values().next().value);
+  auditStage('order-result',{...(orderDecisionIds.get(result.contractId)||{decisionId:null}),contractId:result.contractId,type,source,
+    status:result.status,entryTick:result.entryTick,exitTick:result.exitTick,profit:result.profit,payout:result.payout,buyPrice:result.buyPrice});
   const label = type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
   const won = result.status === 'won' || Number(result.profit) > 0;
   const outcome = won ? 'WON' : 'LOST';
@@ -176,6 +217,7 @@ const updateAutoIndicator = () => {
   if (botMode !== 'auto' || !autoEnabled) {
     indicator.textContent = 'AUTO BOT OFF'; indicator.className = 'autoBotIndicator'; return;
   }
+  if(executionBlocked()){indicator.textContent=`AUTO BOT · ${executionView.state.replaceAll('_',' ')}`;indicator.className='autoBotIndicator negative';return;}
   if (autoAwaitingReset && liveTickNumber - lastAutoSignalTick >= selectedAutoCooldown()) {
     indicator.textContent = `AUTO BOT PAUSED · RESET AT ${autoResetThreshold()}%`;
     indicator.className = 'autoBotIndicator negative'; return;
@@ -273,9 +315,8 @@ const digitPercentageGate = (type, history = ticks) => {
   if (history.length < 50) return {allowed:false, note:'Collect at least 50 ticks for the digit percentage check.'};
   const c = counts(history), n = history.length;
   const low = type === 'OVER' ? [0,1] : [8,9];
-  const high = type === 'OVER' ? [8,9] : [0,1];
-  const allowed = low.every(d => c[d]*100 <= n*8) && high.every(d => c[d]*100 >= n*10);
-  return {allowed, note:`${type === 'OVER' ? 'OVER 1' : 'UNDER 8'} needs ${low.join(' and ')} each ≤8%; ${high.join(' and ')} each ≥10%. Current: ${[0,1,8,9].map(d => `${d}: ${(c[d]/n*100).toFixed(2)}%`).join(', ')}`};
+  const allowed = low.every(d => c[d]*100 <= n*8);
+  return {allowed, note:`${type === 'OVER' ? 'OVER 1' : 'UNDER 8'} needs ${low.join(' and ')} each ≤8%. No opposite-digit minimum. Current: ${low.map(d => `${d}: ${(c[d]/n*100).toFixed(2)}%`).join(', ')}`};
 };
 const qualifiesForLiveSupport = (signal, minimum) => Boolean(
   signal && ['OVER', 'UNDER'].includes(signal.type) &&
@@ -578,7 +619,7 @@ const prepareFastExecution = async () => {
   if (!account || executionPreparing || (account.accountType === 'real' && !realTradingEnabled)) return;
   executionPreparing = true; $('accountHelp').textContent = 'Preparing fast execution connection…';
   try {
-    const response = await fetch('/api/order/prepare', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ accountId:account.accountId, accountType:account.accountType, symbol:$('symbol').value.trim(), stake:Number($('stake').value || 0) }) });
+    const response = await fetch('/api/order/prepare', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ accountId:account.accountId, accountType:account.accountType, symbol:$('symbol').value.trim(), stake:Number($('stake').value || 0),mode:botMode==='auto'?'auto':'manual',riskLimits:demoRiskLimits() }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Connection preparation failed.');
     $('accountHelp').textContent = result.warmed ? `Connected ${account.accountType} account · fast purchase proposals ready.` : `Connected ${account.accountType} account · fast execution connection ready.`;
@@ -589,36 +630,44 @@ const scheduleFastPreparation = () => {
   clearTimeout(warmPrepareTimer);
   warmPrepareTimer = setTimeout(prepareFastExecution, 350);
 };
-const loadRecentOrder = async () => {
+const loadRecentOrder = async (reconcile=false) => {
+  const account=selectedAccount();if(!account||recentOrderFetch)return;recentOrderFetch=true;
   try {
-    const response = await fetch('/api/orders/recent', { cache:'no-store' });
-    const result = await response.json();
-    if (!response.ok || !result.order) return;
-    const order = result.order;
-    if (order.state === 'failed') {
-      if (recentOrderPoll) { clearInterval(recentOrderPoll); recentOrderPoll = undefined; }
-      manualOrderPending = false;
-      $('demoOrderStatus').textContent = `Previous order could not settle: ${order.error || 'Deriv did not return a result.'} You can place another manual order.`;
-      updateDemoArmState();
-      return;
+    const query=new URLSearchParams({accountId:account.accountId,accountType:account.accountType,...(reconcile===true?{reconcile:'1'}:{})});
+    const response=await fetch('/api/orders/recent?'+query,{cache:'no-store',signal:globalThis.AbortSignal?.timeout?.(15000)}),result=await response.json();
+    if(!response.ok)throw Error(result.error||'Execution status could not be retrieved');
+    if(selectedAccount()?.accountId!==account.accountId)return;
+    executionTransportError='';
+    if(result.execution){executionView=result.execution;autoContractIds.clear();if(executionView.blocking&&executionView.last?.request.mode==='auto'&&executionView.last.contractId)autoContractIds.add(executionView.last.contractId);manualOrderPending=executionView.blocking||manualHttpPending;}
+    const order=result.order;
+    if(order){
+      const source=order.mode==='auto'||autoContractIds.has(order.contractId)?'Auto bot':'Manual bot';
+      if(order.state==='settled'){
+        autoContractIds.delete(order.contractId);manualOrderPending=false;
+        if(!displayedContractIds.has(String(order.contractId)))showContractResult(order.type,order,source);
+      }else if(order.state==='rejected'||order.state==='failed'){
+        auditStage('execution-terminal-error',{attemptId:order.attemptId,contractId:order.contractId,error:order.error});
+        // Only explicit server rejection proves no purchase. A legacy failed receipt is unresolved.
+        if(order.state==='rejected'){autoContractIds.delete(order.contractId);manualOrderPending=false;}
+        else executionView={...executionView,blocking:true,state:'RECONCILIATION_REQUIRED'};
+        $('demoOrderStatus').textContent=order.state==='rejected'?`Order rejected: ${order.error}`:`Outcome unresolved: ${order.error}. Recheck execution; do not submit a replacement.`;
+      }else if(order.contractId){
+        if(lastSettledOrder?.contractId!==order.contractId||lastSettledOrder?.entryTick!==order.entryTick)showOrderEntry(order.type,order,source);
+      }
     }
-    const source = autoContractIds.has(order.contractId) ? 'Auto bot' : 'Manual bot';
-    if (order.state === 'settled' || order.exitTick !== undefined && order.exitTick !== null) {
-      if (recentOrderPoll) { clearInterval(recentOrderPoll); recentOrderPoll = undefined; }
-      if (lastSettledOrder?.contractId !== order.contractId || lastSettledOrder?.state !== 'settled') showContractResult(order.type, order, source);
-    } else if (order.entryTick !== undefined && order.entryTick !== null && lastSettledOrder?.contractId !== order.contractId) showOrderEntry(order.type, order, source);
-  } catch { /* The live order receipt will still appear after the next completed order. */ }
+    updateDemoArmState();updateAutoState();
+  }catch(error){executionTransportError=error.message;auditStage('execution-status-error',{reason:error.message});}
+  finally{recentOrderFetch=false;}
 };
 const trackRecentOrder = () => {
-  if (recentOrderPoll) clearInterval(recentOrderPoll);
-  recentOrderPoll = setInterval(loadRecentOrder, 300);
-  loadRecentOrder();
+  if(recentOrderPoll)clearInterval(recentOrderPoll);
+  recentOrderPoll=setInterval(loadRecentOrder,1000);loadRecentOrder();
 };
 const loadAuthStatus = async () => {
   try {
     const status = await fetch('/api/auth/status', { cache:'no-store' }).then(r => r.json());
     const button = $('connect');
-    if (status.connected) { demoConnected = true; button.textContent = 'Deriv account connected'; button.disabled = true; loadAccounts().then(loadRecentOrder); return; }
+    if (status.connected) { demoConnected = true; button.textContent = 'Deriv account connected'; button.disabled = true; loadAccounts().then(trackRecentOrder); return; }
     demoConnected = false; autoEnabled = false;
     $('entryExecutionStatus').textContent = 'NO ORDER PLACED YET · Connect an account to execute.';
     $('entryExecutionStatus').className = 'entryExecutionStatus negative';
@@ -643,11 +692,14 @@ updateDemoArmState = () => {
   else if (accountReady) { $('executionMode').textContent = 'MANUAL READY'; $('executionMode').className = 'positive'; $('executionNote').textContent = 'Ready: press OVER 1 or UNDER 8 to send one order.'; }
   else { $('executionMode').textContent = 'ENTER STAKE'; $('executionMode').className = ''; $('executionNote').textContent = `Enter a stake up to ${money(maximum)} to enable manual execution.`; }
   const unstable = digitStability(ticks).unstable;
-  const manualReady = accountReady && botMode === 'manual' && !manualOrderPending && !unstable;
+  const manualReady = accountReady && botMode === 'manual' && !manualOrderPending && !manualHttpPending && !executionBlocked() && !unstable;
   $('executeOver').disabled = !manualReady; $('executeUnder').disabled = !manualReady;
   $('demoOrderStatus').textContent = !demoConnected ? 'Connect your Deriv account first.' : (manualOrderPending ? 'Current order is waiting for its one-tick settlement. Manual buttons will return immediately after settlement.' : (realSelected && !realTradingEnabled ? 'Real account is connected for later. Real-money ordering is disabled by the server setting.' : (accountReady ? `Ready for one order of ${money(stake)}.` : 'Select an account and enter a valid stake.')));
+  if(executionBlocked())$('demoOrderStatus').textContent=`Execution: ${executionView.state.replaceAll('_',' ')}. ${executionView.last?.error?.message??executionView.errorSummary??'Monitoring the accepted request.'}`;
 };
 const executeOrder = async (type) => {
+  if(manualOrderPending||manualHttpPending||executionBlocked()){trackRecentOrder();return;}
+  auditStage('manual-attempt',{type,risk:diagnosticRisk(),note:'Manual path uses existing guards, not automatic READY gate'});
   const digitGate = digitPercentageGate(type === 'DIGITOVER' ? 'OVER' : 'UNDER');
   if (!digitGate.allowed) { $('demoOrderStatus').textContent = `NO ORDER · ${digitGate.note}`; return; }
   if (digitStability(ticks).unstable) {
@@ -660,13 +712,17 @@ const executeOrder = async (type) => {
   const title = type === 'DIGITOVER' ? 'OVER 1' : 'UNDER 8';
   if (account.accountType === 'real' && !window.confirm(`Place one ${title} real-money order for ${money(stake)}?`)) return;
   const button = type === 'DIGITOVER' ? $('executeOver') : $('executeUnder'); manualOrderPending = true; $('executeOver').disabled = true; $('executeUnder').disabled = true; $('demoOrderStatus').textContent = 'ORDER REQUEST SENT · Waiting for Deriv to accept it…';
+  const trace=beginOrderAudit(type,'manual',stake);
+  manualHttpPending=true;trackRecentOrder();
   try {
-    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked }) });
+    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked,mode:'manual',riskLimits:demoRiskLimits() }) });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'The order was not accepted.');
+    if (!response.ok) throw Object.assign(new Error(result.error || 'The order was not accepted.'),{riskCode:result.riskCode});
+    acceptedOrderAudit(trace,result);
     $('demoOrderStatus').textContent = `ORDER ENTERED on digit ${tickDigit(result.entryTick)}. Waiting for the next tick to settle. Contract ${result.contractId}.`;
     showOrderEntry(type, result, 'Manual bot'); trackRecentOrder();
-  } catch (error) { manualOrderPending = false; $('demoOrderStatus').textContent = `No order placed: ${error.message}`; updateDemoArmState(); }
+  } catch (error) { auditStage('execution-error',{...trace,reason:error.message,riskCode:error.riskCode??null,proposalValidation:error.riskCode?'blocked by server risk before proposal/order':'not reported; failure stage unknown'}); manualOrderPending = false; $('demoOrderStatus').textContent = `${error.riskCode?'New request blocked':'Request failed; order outcome may need verification'}: ${error.message}`;trackRecentOrder();updateDemoArmState(); }
+  finally{manualHttpPending=false;}
 };
 const maybeAutoOrder = async (signal) => {
   if(analyzeBoth().selected?.type!==signal.type)return;
@@ -674,7 +730,7 @@ const maybeAutoOrder = async (signal) => {
   if (digitStability(ticks).unstable) return;
   if (!qualifiesForLiveSupport(signal, Number($('minimum').value || 65))) return;
   const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = liveTickNumber;
-  if (botMode !== 'auto' || !autoEnabled || autoAwaitingReset || autoInFlight || autoContractIds.size > 0 || !demoConnected || account?.accountType !== 'demo') return;
+  if (botMode !== 'auto' || !autoEnabled || autoAwaitingReset || autoInFlight || autoContractIds.size > 0 || executionBlocked() || !demoConnected || account?.accountType !== 'demo') return;
   const maximum = Number($('maxStake').value || 5000);
   if (!Number.isFinite(stake) || stake <= 0 || stake > maximum) {
     autoLastError = `Enter a stake between $0.01 and ${money(maximum)} before Auto Bot can send an order.`;
@@ -684,12 +740,12 @@ const maybeAutoOrder = async (signal) => {
   const ticksSinceLast = currentTick - lastAutoSignalTick;
   if (ticksSinceLast < selectedAutoCooldown()) return;
   autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
+  const trace=beginOrderAudit(signal.type==='OVER'?'DIGITOVER':'DIGITUNDER','auto',stake);
   try {
-    auditStage('proposal-request',{type:signal.type,symbol:$('symbol').value.trim(),stake});
-    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false }) });
+    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Auto order was not accepted.');
-    auditStage('execution-accepted',{type:signal.type,contractId:result.contractId,proposal:result.proposalValidation});
+    if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode});
+    acceptedOrderAudit(trace,result);
     lastAutoSignalTick = liveTickNumber;
     autoMomentumTrades += 1;
     autoContractIds.add(result.contractId);
@@ -701,8 +757,9 @@ const maybeAutoOrder = async (signal) => {
     // A rejected request must not silently turn the bot off. Keep it armed and
     // show the exact reason so the next LIVE SUPPORT signal can retry.
     autoLastError = error.message || 'Deriv did not accept the Auto Bot order.';
-    auditStage('execution-error',{type:signal.type,reason:autoLastError});
-    $('autoStatus').textContent = `Auto Bot is still ON. Order was not accepted: ${autoLastError}. It will retry on the next LIVE SUPPORT signal.`;
+    auditStage('execution-error',{...trace,type:signal.type,reason:autoLastError,riskCode:error.riskCode??null,proposalValidation:error.riskCode?'blocked by server risk before proposal/order':'not reported; failure stage unknown'});
+    $('autoStatus').textContent = `Auto Bot is still ON. Request error: ${autoLastError}. Checking execution status before another purchase.`;
+    trackRecentOrder();
   }
   finally { autoInFlight = false; updateAutoState(); }
 };
@@ -721,10 +778,11 @@ updateAutoState = () => {
   if (botMode !== 'auto') { updateAutoIndicator(); return; }
   if (!demoConnected) $('autoStatus').textContent = 'Connect your Deriv account first.';
   else if (account?.accountType !== 'demo') $('autoStatus').textContent = 'Auto mode is available only with the selected practice account.';
+  else if (executionBlocked()) $('autoStatus').textContent = `Execution: ${executionView.state.replaceAll('_',' ')}. ${executionView.last?.error?.message??'Monitoring current contract; no additional purchase.'}`;
   else if (researchGuardPaused()) $('autoStatus').textContent = 'Auto bot is paused by the research guard.';
   else if (autoAwaitingReset) $('autoStatus').textContent = `Momentum run complete. Waiting for confidence to reset to ${autoResetThreshold()}% or lower before Auto Bot rearms.`;
   else if (autoInFlight) $('autoStatus').textContent = 'LIVE SUPPORT confirmed. Sending Auto Bot order…';
-  else if (autoLastError) $('autoStatus').textContent = `Auto Bot is still ON. Last order was not accepted: ${autoLastError}. It will retry on the next LIVE SUPPORT signal.`;
+  else if (autoLastError) $('autoStatus').textContent = `Auto Bot is still ON. Last request error: ${autoLastError}. See Execution engine for the verified outcome.`;
   else if (autoEnabled) $('autoStatus').textContent = `Auto Bot trades at or above your ${Number($('minimum').value || 65)}% minimum when LIVE SUPPORT appears, then pauses for the selected cooldown.`;
   else $('autoStatus').textContent = 'Auto bot is not active.';
   updateAutoIndicator();
@@ -754,7 +812,7 @@ $('momentumResetEnabled').addEventListener('change', () => {
 updateActualPerformance();
 renderLastSettledOrder(lastSettledOrder);
 $('barrierPersistence').onchange=()=>{barrierEngine.reset();update();};
-$('exportBarrierAudit').onclick=()=>{const blob=new Blob([JSON.stringify({schema:'part-one-barrier-audit-v1',records:barrierAudit},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='part-one-barrier-audit.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('exportBarrierAudit').onclick=()=>{auditStage('export-state',{risk:diagnosticRisk()});const blob=new Blob([JSON.stringify({schema:'part-one-barrier-audit-v3',exportedAt:Date.now(),capacity:2000,droppedEvents:auditDropped,defaults:barrierEngine.config,experimentalConfidenceUsedForTrading:false,execution:executionView,records:barrierAudit},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='part-one-barrier-audit.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 
 // Read-only presentation adapter. Rendering never advances analysis or submits orders.
 if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mountDashboard}) => {
@@ -764,7 +822,7 @@ if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mount
     active:autoInFlight||manualOrderPending||autoContractIds.size>0,
     cooldown:Number.isFinite(lastAutoSignalTick)?Math.max(0,selectedAutoCooldown()-(liveTickNumber-lastAutoSignalTick)):0,
     awaitingReset:autoAwaitingReset, quotes, orders:accountOrderHistory,
-    lastOrder:lastSettledOrder, flash:digitFlash, audit:barrierAudit,
+    lastOrder:lastSettledOrder, flash:digitFlash, audit:barrierAudit,execution:executionView,executionTransportError,recheckExecution:()=>loadRecentOrder(true),
     minimum:Number($('minimum').value), persistence:Number($('barrierPersistence').value),
     stake:Number($('stake').value)}));
 }).catch(error => console.error('Dashboard presentation could not load',error));

@@ -1,5 +1,7 @@
 // Presentation-only calculations; no orders, prediction, or candidate selection.
 export function dashboardStatus(s) {
+  if(s.executionTransportError)return 'STATUS UNAVAILABLE';
+  if(s.execution?.blocking)return s.execution.state.replaceAll('_',' ');
   if(s.active)return 'TRADE ACTIVE';
   if(s.cooldown>0)return 'COOLDOWN';
   if(!s.feedLive)return 'STOPPED';

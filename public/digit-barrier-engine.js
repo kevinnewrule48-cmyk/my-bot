@@ -1,5 +1,5 @@
 // Part One: descriptive, independent barrier analysis. No next-digit prediction.
-export const DEFAULTS=Object.freeze({minimumSample:50,fullSample:200,minimumConfidence:65,minimumSupport:.9,lossDigitMaximum:.08,oppositeDigitMinimum:.10,persistence:1,quietTicks:5,jump:7});
+export const DEFAULTS=Object.freeze({minimumSample:50,fullSample:200,minimumConfidence:65,minimumSupport:.9,lossDigitMaximum:.08,oppositeDigitMinimum:.10,requireOppositeZone:false,persistence:1,quietTicks:5,jump:7});
 export function extractLastDigit(price,precision){
   if(price===null||price===''||!Number.isFinite(Number(price))||Number(price)<0||!Number.isInteger(precision)||precision<0||precision>10)throw Error('Invalid price or missing digit precision');
   const quote=Number(price).toFixed(precision);return {quote,digit:Number(quote.at(-1))};
@@ -37,7 +37,8 @@ export class DigitBarrierEngine{
       const advantage=side.observed-raw[1-i].observed;
       const score=Math.round(Math.max(0,Math.min(95,50+Math.max(0,advantage)*300*Math.min(1,n/c.fullSample))));
       const losses=side.type==='OVER'?[0,1]:[8,9],opposite=side.type==='OVER'?[8,9]:[0,1];
-      const zone=n>0&&losses.every(d=>side.counts[d]*100<=n*c.lossDigitMaximum*100)&&opposite.every(d=>side.counts[d]*100>=n*c.oppositeDigitMinimum*100);
+      // Opposite endpoint minimum is retained ONLY as an explicit offline legacy comparison.
+      const zone=n>0&&losses.every(d=>side.counts[d]*100<=n*c.lossDigitMaximum*100)&&(!c.requireOppositeZone||opposite.every(d=>side.counts[d]*100>=n*c.oppositeDigitMinimum*100));
       const checks=[{name:'Barrier',pass:n>=c.minimumSample&&side.observed>=c.minimumSupport},
         {name:'Momentum',pass:momentum!==null&&momentum>=-1e-9},{name:'Zone',pass:zone},
         {name:'Stability',pass:stable},{name:'Score',pass:score>=minimumConfidence}];

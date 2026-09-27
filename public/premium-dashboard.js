@@ -1,4 +1,6 @@
 import {dashboardStatus,heatMap,summarizeOrders,barrierView} from './premium-model.js';
+import {diagnoseSnapshot} from './part-one-diagnostics.js';
+import {DEFAULTS} from './digit-barrier-engine.js';
 const byId=id=>document.getElementById(id);
 const put=(id,value)=>{const n=byId(id);if(n&&n.textContent!==String(value))n.textContent=value;};
 const fmt=n=>Number.isFinite(n)?n.toFixed(2):'—';
@@ -18,6 +20,9 @@ export function mountDashboard(readState){
   <section class="panel chart-panel"><div class="card-heading"><div><p class="eyebrow">MARKET TELEMETRY</p><h2>Live analysis</h2></div><label>Chart view<select id="chartView"><option value="distribution">Digit distribution</option><option value="observed">Winning-set frequency</option><option value="momentum">Momentum</option><option value="stability">Stability</option><option value="quality">Quality</option></select></label></div><div id="chartLegend">OVER 1 · mint / UNDER 8 · lavender</div><svg id="analysisChart" viewBox="0 0 900 180" role="img" aria-label="Live descriptive analysis chart"></svg><p id="chartCaption" class="hint">Waiting for real observations</p></section>
   <details class="panel"><summary>Decision log · both candidates</summary><div id="premiumLog"></div></details><div id="lowerPanels" class="lower-panels"></div>`;
   main.prepend(layout);
+  const enginePanel=document.createElement('section');enginePanel.className='panel';
+  enginePanel.innerHTML='<div class="card-heading"><h2>Execution engine</h2><span id="executionEngineState">NO ACCOUNT</span></div><p id="executionStrategyState"></p><pre id="executionEngineDetails" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px"></pre><button id="recheckExecution" class="secondary">Recheck execution · no purchase</button><details><summary>Recent trade attempts</summary><div id="executionAttemptHistory"></div></details><details><summary>Execution event log</summary><pre id="executionEventLog" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:11px"></pre></details>';
+  byId('executionColumn').prepend(enginePanel);byId('recheckExecution').onclick=()=>readState().recheckExecution();
   const move=(selector,target)=>{const el=document.querySelector(selector);if(el)byId(target).append(el);};
   move('.controls','marketColumn');move('.scannerPanel','marketColumn');
   move('.entryDeck','analysisColumn');
@@ -37,20 +42,26 @@ export function mountDashboard(readState){
   headerStrip.innerHTML='<span id="premiumConnection">DISCONNECTED</span><span id="premiumAccount">NO ACCOUNT</span><span id="premiumMarket">—</span><span id="premiumStatus">STOPPED</span><button id="headerStop" class="danger">Stop bot</button>';
   document.querySelector('header').append(headerStrip);
   byId('headerStop').onclick=()=>byId('stopAuto').click();
-  const consecutive=byId('maxConsecutiveLosses');consecutive.type='number';consecutive.disabled=true;
-  const riskLabel=document.createElement('label');riskLabel.textContent='Maximum consecutive losses · not enforced by existing engine';consecutive.before(riskLabel);riskLabel.append(consecutive);
-  settings.querySelector('.automation').textContent='Risk fields are existing settings. Daily loss and trade-count ceilings are not verified as enforced for Part One account orders. Real-money Auto is disabled.';
+  const consecutive=byId('maxConsecutiveLosses');consecutive.type='number';consecutive.disabled=false;consecutive.min='0';consecutive.step='1';
+  const riskLabel=document.createElement('label');riskLabel.textContent='Demo maximum consecutive losses · 0 means off';consecutive.before(riskLabel);riskLabel.append(consecutive);
+  settings.querySelector('.automation').textContent='Demo server session limits apply to this bot, across tabs: loss allowance reserves the next stake, trade count and pending-order limit are enforced. Limits only tighten during a server ledger session; refreshing does not reset them. Auto cooldown uses server-observed ticks; manual has no cooldown. These are not account-wide daily limits. Real-money Auto is disabled.';
   const series=[];let previousSequence=-1,previousContext='',lastRenderKey='';
   function render(){
     const s=readState(),context=s.analysis?.context||s.market;
     if(previousContext!==context){series.length=0;previousSequence=-1;previousContext=context;}
     if(s.sequence!==previousSequence&&s.analysis){series.push(s.analysis.candidates);if(series.length>120)series.shift();previousSequence=s.sequence;}
-    const key=JSON.stringify([s.sequence,s.stake,s.account,s.connected,s.feedLive,s.autoEnabled,s.botMode,s.active,s.cooldown,s.awaitingReset,s.quotes,s.orders.length,s.lastOrder,s.flash,s.minimum,s.persistence,...['barrierViewMode','barrierDirection','barrierNumber','proposalSide','chartView'].map(id=>byId(id).value)]);
+    const key=JSON.stringify([s.sequence,s.stake,s.account,s.connected,s.feedLive,s.autoEnabled,s.botMode,s.active,s.cooldown,s.awaitingReset,s.quotes,s.orders.length,s.lastOrder,s.flash,s.minimum,s.persistence,s.execution,s.executionTransportError,...['barrierViewMode','barrierDirection','barrierNumber','proposalSide','chartView'].map(id=>byId(id).value)]);
     if(key===lastRenderKey)return;lastRenderKey=key;
     put('premiumConnection',s.feedLive?'● LIVE':'○ DISCONNECTED');
     put('premiumAccount',s.connected&&s.account?s.account.accountType.toUpperCase()+' ACCOUNT':'NO ACCOUNT');
     byId('premiumAccount').className=s.connected&&s.account?.accountType==='real'?'real-account':'demo-account';
     put('premiumMarket',s.market.replace('R_','Volatility ')+' Index');put('premiumStatus',dashboardStatus(s));
+    const execution=s.execution,lastAttempt=execution?.last;
+    put('executionEngineState',s.executionTransportError?'STATUS UNAVAILABLE':execution?.state??(s.connected?'CHECKING':'NO ACCOUNT'));
+    put('executionStrategyState',`Strategy: ${s.analysis?.selected?'GO AHEAD · '+s.analysis.selected.label:'NOT READY'} · Strategy permission is not a purchase.${execution?.errorSummary?' '+execution.errorSummary:''}`);
+    put('executionEngineDetails',lastAttempt?`Last trade: #${String(lastAttempt.number).padStart(3,'0')}\nAttempt: ${lastAttempt.attemptId}\nProposal: ${lastAttempt.proposalId??'WAITING'}\nBuy: ${lastAttempt.contractId?'CONFIRMED':lastAttempt.buySent?'SENT · OUTCOME UNCONFIRMED':'NOT SENT'}\nContract ID: ${lastAttempt.contractId??'—'}\nSettlement: ${lastAttempt.result?lastAttempt.result.status.toUpperCase()+' · P/L '+lastAttempt.result.profit:'WAITING'}\n${lastAttempt.error?'Last error: '+lastAttempt.error.code+' · '+lastAttempt.error.message:''}\n${s.executionTransportError||''}`:s.executionTransportError||'No recorded account order attempt.');
+    byId('executionAttemptHistory').replaceChildren(...(execution?.attempts??[]).slice().reverse().map(a=>{const row=document.createElement('p');row.textContent=`#${String(a.number).padStart(3,'0')} · ${a.contractId?'BUY CONFIRMED':a.buySent?'BUY SENT':'NO BUY'} → ${a.result?.status?.toUpperCase()??a.state}${a.error?' · '+a.error.code:''}`;return row;}));
+    put('executionEventLog',(execution?.events??[]).slice(-80).map(e=>JSON.stringify(e)).join('\n'));
     put('heroMarket',s.market);const newDigit=String(s.ticks.at(-1)?.digit??'—');if(byId('heroDigit').textContent!==newDigit){put('heroDigit',newDigit);if(!matchMedia('(prefers-reduced-motion: reduce)').matches)byId('heroDigit').animate([{opacity:.6,transform:'translateY(3px)'},{opacity:1,transform:'translateY(0)'}],{duration:180});}put('heroPrice',s.ticks.at(-1)?.price??'Waiting for a verified price');
     byId('recentStream').innerHTML=s.ticks.slice(-10).reverse().map(t=>`<span>${t.digit}</span>`).join('');
     const heat=heatMap(s.ticks);byId('premiumHeat').innerHTML=heat.map(h=>{const exit=s.flash?.exitDigit===String(h.digit),entry=s.flash?.entryDigit===String(h.digit);return `<div class="heat-cell ${h.label.toLowerCase().replace(' ','-')} ${h.digit===s.ticks.at(-1)?.digit?'current':''}"><b>${h.digit}</b><span>${h.percent.toFixed(1)}%</span><small>${h.count} ticks</small><em class="${exit?(s.flash.won?'positive':'negative'):''}">${exit?(s.flash.won?'WIN':'LOSS'):entry?'ENTRY':h.label}</em></div>`;}).join('');
@@ -63,10 +74,12 @@ export function mountDashboard(readState){
     byId('barrierRail').innerHTML=Array.from({length:10},(_,d)=>`<span class="${d===barrier?'barrier-point':sets.winning.includes(d)?'winning-digit':''}">${d}</span>`).join('');
     put('barrierExplanation',manual?`EXPLORATION · ${direction} ${barrier}`:selected?`SELECTED · ${selected.label}`:'NO CANDIDATE SELECTED · preview OVER 1');
     put('winningSet',sets.winning.join(' · ')||'None');put('losingSet',sets.losing.join(' · '));put('barrierSample',s.ticks.length);
-    const candidates=s.analysis?.candidates||[];
+    const candidates=s.analysis?diagnoseSnapshot(s.analysis,{config:{...DEFAULTS,minimumConfidence:s.minimum,persistence:s.persistence}}).candidates:[];
     byId('candidateCards').innerHTML=candidates.map(c=>`<article class="candidate ${c.type.toLowerCase()}"><div class="candidate-title"><h3>${c.label}</h3><span class="${c.ready?'positive':'muted'}">${c.ready?'READY':'WAITING'}</span></div>${c.checks.map(check=>{
-      const values={Barrier:[`${(c.observed*100).toFixed(1)}%`,'≥90% · ≥50 ticks',c.observed*100],Momentum:[c.momentum===null?'—':c.momentum.toFixed(2)+' pp','≥0 pp',check.pass?100:0],Zone:[c.zone?'PASS':'FAIL','Loss digits ≤8%; opposite ≥10%',check.pass?100:0],Stability:[c.stability,'5 quiet transitions',c.stability],Score:[c.score,`≥${s.minimum}`,c.score],Persistence:[c.persistence,`≥${s.persistence} ticks`,Math.min(100,c.persistence/Math.max(1,s.persistence)*100)],Confidence:[c.confidence,`≥${s.minimum} · score`,c.confidence],Quality:[c.quality.toFixed(0), '≥50 sample ticks',c.quality]};
-      const [v,threshold,progress]=values[check.name];return `<div class="metric-row"><div><span>${check.name}</span><b>${v}</b><em class="${check.pass?'positive':'muted'}">${check.pass?'PASS':'FAIL'}</em></div><small>${threshold}</small><progress value="${progress}" max="100" aria-label="${c.label} ${check.name}"></progress></div>`;}).join('')}<footer>Conditions Passed <b>${c.checks.filter(x=>x.pass).length} / ${c.checks.length}</b></footer></article>`).join('');
+      const values={Barrier:[`${(c.observed*100).toFixed(1)}%`,'≥90% · ≥50 ticks',c.observed*100],Momentum:[c.momentum===null?'—':c.momentum.toFixed(2)+' pp','≥0 pp',check.pass?100:0],Zone:[c.zone?'PASS':'FAIL','Own losing digits each ≤8%; no opposite minimum',check.pass?100:0],Stability:[c.stability,'5 quiet transitions',c.stability],Score:[c.score,`≥${s.minimum}`,c.score],Persistence:[c.persistence,`≥${s.persistence} unique ticks`,Math.min(100,c.persistence/Math.max(1,s.persistence)*100)],Confidence:[c.confidence,`≥${s.minimum} · derived from Score, not probability`,c.confidence],Quality:[c.quality.toFixed(0), `≥50 sample ticks · actual ${c.sample}`,c.quality]};
+      const [v,threshold,progress]=values[check.name];const label=check.name==='Quality'?'Sample adequacy':check.name==='Confidence'?'Confidence (= Score)':check.name;
+      const detail=check.name==='Zone'?c.zoneMeasurements.map(z=>`digit ${z.digit}: ${z.value.toFixed(2)}% ≤${z.threshold}% ${z.pass?'PASS':'FAIL'}`).join(' · '):check.name==='Persistence'&&c.persistence===0?'Prerequisites failing: '+c.checks.slice(0,5).filter(x=>!x.pass).map(x=>x.name).join(', '):!check.pass?'Requirement not met'+(check.name==='Momentum'&&c.momentum===null?' · waiting for previous observation':''):'';
+      return `<div class="metric-row"><div><span>${label}</span><b>${v}</b><em class="${check.pass?'positive':'muted'}">${check.pass?'PASS':'FAIL'}</em></div><small>${threshold}</small><small>${detail}</small><progress value="${progress}" max="100" aria-label="${c.label} ${check.name}"></progress></div>`;}).join('')}<footer>Conditions Passed <b>${c.checks.filter(x=>x.pass).length} / ${c.checks.length}</b></footer></article>`).join('');
     const inspected=selected||candidates.find(c=>c.type===byId('proposalSide').value);
     const passed=inspected?.checks.filter(c=>c.pass).length||0,total=inspected?.checks.length||8,percent=passed/total*100;
     put('gateTitle',selected?`${selected.label} · READY`:`${inspected?.label||'Candidate'} · NOT READY`);put('gateText',`${passed} / ${total} Conditions Passed${!selected?' · inspected candidate, not selected':''}`);put('gatePercent',percent.toFixed(0)+'%');byId('gateRing').style.setProperty('--gate',percent+'%');

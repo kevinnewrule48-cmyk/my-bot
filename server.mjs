@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {createPartTwoOrders} from './part-two-orders.mjs';
+import {proposalRequest,validateProposal} from './public/digit-barrier-engine.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
@@ -50,12 +51,15 @@ const openTradeChannel = async ({ key, token, accountId, accountType }) => {
       const data = JSON.parse(event.data);
       const warmRequest = channel.warmRequests.get(data.req_id);
       if (warmRequest && data.proposal?.id) {
-        channel.warm.set(warmRequest.key, { id:data.proposal.id, askPrice:data.proposal.ask_price, updatedAt:Date.now() });
+        channel.warm.set(warmRequest.key, { id:data.proposal.id, askPrice:data.proposal.ask_price,payout:data.proposal.payout, updatedAt:Date.now() });
         return;
       }
       const active = channel.active; if (!active) return;
       if (data.error) return active.fail(new Error(data.error.message ?? 'Deriv rejected the order.'));
-      if (data.proposal?.id && active.stage === 'proposal') { active.stage = 'buy'; return channel.ws.send(JSON.stringify({ buy:data.proposal.id, price:data.proposal.ask_price })); }
+      if (data.proposal?.id && active.stage === 'proposal') {
+        try { const buy=validateProposal(data.proposal,active.stake);active.proposalValidation={validated:true,ask:buy.price,payout:Number(data.proposal.payout)};active.stage='buy';return channel.ws.send(JSON.stringify(buy)); }
+        catch(error){return active.fail(error);}
+      }
       if (data.buy && active.stage === 'buy') {
         active.stage = 'settlement';
         active.buy = data.buy;
@@ -68,7 +72,7 @@ const openTradeChannel = async ({ key, token, accountId, accountType }) => {
         if (!active.entrySent && entryTick !== null) {
           active.entrySent = true;
           active.entryTick = entryTick;
-          active.entry({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick });
+          active.entry({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick,proposalValidation:active.proposalValidation });
         }
         if (!contract.is_sold) return;
         return active.finish({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick:active.entryTick ?? entryTick, exitTick, status:contract.status, profit:contract.profit, payout:contract.payout });
@@ -85,7 +89,7 @@ const warmTradeProposals = (channel, { symbol, stake, currency }) => {
     const key = proposalKey({ type, symbol, stake, currency });
     const reqId = ++channel.warmSequence;
     channel.warmRequests.set(reqId, { key });
-    channel.ws.send(JSON.stringify({ proposal:1, amount:stake, basis:'stake', contract_type:type, currency, duration:1, duration_unit:'t', barrier, underlying_symbol:symbol, subscribe:1, req_id:reqId }));
+    channel.ws.send(JSON.stringify({...proposalRequest({type,symbol,stake,currency}),subscribe:1,req_id:reqId}));
   }
 };
 const accountOrder = async ({ key, token, accountId, accountType, currency, type, symbol, stake }) => {
@@ -94,14 +98,18 @@ const accountOrder = async ({ key, token, accountId, accountType, currency, type
   let acceptEntry, rejectEntry, acceptSettlement, rejectSettlement;
   const entry = new Promise((resolve, reject) => { acceptEntry = resolve; rejectEntry = reject; });
   const settlement = new Promise((resolve, reject) => { acceptSettlement = resolve; rejectSettlement = reject; });
+  settlement.catch(()=>{}); // Entry can fail before the route attaches settlement handling.
   const fail = (error) => { clearTimeout(timeout); channel.active = null; rejectEntry(error); rejectSettlement(error); };
   const finish = (result) => { clearTimeout(timeout); channel.active = null; acceptSettlement(result); };
   const timeout = setTimeout(() => fail(new Error('Order result timed out.')), 15_000);
   const warm = channel.warm.get(proposalKey({ type, symbol, stake, currency }));
   const useWarmProposal = warm && Date.now() - warm.updatedAt <= 5_000;
-  channel.active = { stage:useWarmProposal ? 'buy' : 'proposal', entry:acceptEntry, finish, fail, entrySent:false };
-  if (useWarmProposal) channel.ws.send(JSON.stringify({ buy:warm.id, price:warm.askPrice }));
-  else channel.ws.send(JSON.stringify({ proposal:1, amount:stake, basis:'stake', contract_type:type, currency, duration:1, duration_unit:'t', barrier:type === 'DIGITOVER' ? '1' : '8', underlying_symbol:symbol }));
+  channel.active = { stake,stage:useWarmProposal ? 'buy' : 'proposal', entry:acceptEntry, finish, fail, entrySent:false };
+  if (useWarmProposal) {
+    try {const buy=validateProposal({id:warm.id,ask_price:warm.askPrice,payout:warm.payout},stake);channel.active.proposalValidation={validated:true,ask:buy.price,payout:Number(warm.payout)};channel.ws.send(JSON.stringify(buy));}
+    catch(error){fail(error);}
+  }
+  else channel.ws.send(JSON.stringify(proposalRequest({type,symbol,stake,currency})));
   return { entry, settlement };
 };
 
@@ -156,7 +164,8 @@ const server = http.createServer(async (req, res) => {
     const session = getSession(req);
     if (!session) return json(res, 401, { error:'Connect your Deriv demo account first.' });
     try {
-      const { armed, type, symbol, stake, accountId, accountType, realConfirmed } = await readJson(req);
+      const { armed, type, symbol, stake, accountId, accountType, realConfirmed,mode } = await readJson(req);
+      if(mode==='auto'&&accountType!=='demo')return json(res,403,{error:'Real-money Auto is disabled during barrier development.'});
       const amount = Number(stake), maxStake = 5000;
       if (armed !== true) return json(res, 403, { error:'Demo trading is not armed.' });
       if (!['DIGITOVER', 'DIGITUNDER'].includes(type) || !/^[A-Za-z0-9_]{2,30}$/.test(symbol ?? '') || !['demo','real'].includes(accountType)) return json(res, 400, { error:'Invalid account or contract request.' });

@@ -755,4 +755,17 @@ updateActualPerformance();
 renderLastSettledOrder(lastSettledOrder);
 $('barrierPersistence').onchange=()=>{barrierEngine.reset();update();};
 $('exportBarrierAudit').onclick=()=>{const blob=new Blob([JSON.stringify({schema:'part-one-barrier-audit-v1',records:barrierAudit},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='part-one-barrier-audit.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+
+// Read-only presentation adapter. Rendering never advances analysis or submits orders.
+if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mountDashboard}) => {
+  mountDashboard(() => ({ticks, sequence:liveTickNumber, analysis:barrierSnapshot,
+    market:$('symbol').value, account:selectedAccount(), connected:demoConnected,
+    feedLive:socket?.readyState===1 && isRunning, botMode, autoEnabled,
+    active:autoInFlight||manualOrderPending||autoContractIds.size>0,
+    cooldown:Number.isFinite(lastAutoSignalTick)?Math.max(0,selectedAutoCooldown()-(liveTickNumber-lastAutoSignalTick)):0,
+    awaitingReset:autoAwaitingReset, quotes, orders:accountOrderHistory,
+    lastOrder:lastSettledOrder, flash:digitFlash, audit:barrierAudit,
+    minimum:Number($('minimum').value), persistence:Number($('barrierPersistence').value),
+    stake:Number($('stake').value)}));
+}).catch(error => console.error('Dashboard presentation could not load',error));
 loadAuthStatus();

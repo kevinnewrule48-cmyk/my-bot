@@ -1,4 +1,22 @@
+import {DigitBarrierEngine,extractLastDigit,proposalRequest} from './digit-barrier-engine.js';
 const $ = (id) => document.getElementById(id);
+const barrierEngine = new DigitBarrierEngine();
+const barrierAudit = [];
+let barrierSnapshot = null;
+const auditStage = (stage,detail) => {
+  barrierAudit.push({time:Date.now(),sequence:liveTickNumber,stage,...detail});
+  if(barrierAudit.length>2000)barrierAudit.shift();
+};
+const analyzeBoth = () => {
+  const persistence=Math.max(1,Math.min(100,Math.floor(Number($('barrierPersistence').value)||1)));
+  const snapshot=barrierEngine.analyze(ticks,{context:strengthContext(),sequence:liveTickNumber,minimumConfidence:Math.max(0,Math.min(100,Number($('minimum').value)||0)),persistence});
+  if(snapshot!==barrierSnapshot){
+    barrierSnapshot=snapshot;
+    auditStage('candidate-generation-through-selection',{legacy:calculateSignal(ticks),...snapshot});
+    $('barrierDiagnostics').textContent=snapshot.candidates.map(c=>`${c.label}: support ${(c.observed*100).toFixed(1)}% | Momentum ${c.momentum===null?'waiting':c.momentum.toFixed(2)+' pp'} | Zone ${c.zone?'PASS':'FAIL'} | Stability ${c.stability} | Score ${c.score} | Persistence ${c.persistence} | Confidence ${c.confidence} (score) | Quality ${c.quality} | Gate ${c.gatePercent.toFixed(0)}% | ${c.ready?'READY':c.checks.filter(x=>!x.pass).map(x=>x.name).join(', ')}`).join('\n');
+  }
+  return snapshot;
+};
 let ticks = [], distributionDigits = [], socket, distributionTimer, isRunning = false, lastSignalIndex = -Infinity, liveTickNumber = 0;
 const pending = [], settled = [];
 const quotes = { over: null, under: null };
@@ -275,7 +293,9 @@ const updateSideScores = (signal) => {
   }
 };
 const updateEntryStrength = () => {
-  const signal = calculateSignal(ticks);
+  const analysis=analyzeBoth();
+  const legacy=calculateSignal(ticks);
+  const signal = analysis.selected ? {...analysis.selected,options:legacy?.options} : legacy;
   const minimum = Number($('minimum').value || 65);
   const stability = digitStability(ticks);
   if (stability.unstable) {
@@ -303,7 +323,7 @@ const updateEntryStrength = () => {
   const changeText = change === null ? 'Waiting for two live samples' : `${change > 0 ? '+' : ''}${change.toFixed(2)} percentage points this tick`;
   const displayedRate = (signal.observed * 100).toFixed(1);
   const digitGate = digitPercentageGate(signal.type);
-  const liveSupport = qualifiesForLiveSupport(signal, minimum);
+  const liveSupport = Boolean(analysis.selected) && qualifiesForLiveSupport(signal, minimum);
   const label = !digitGate.allowed ? 'DIGIT FILTER' : change !== null && change < 0 ? 'DETERIORATING' : liveSupport ? 'LIVE SUPPORT' : 'WAITING';
   $('entryStrength').textContent = label;
   $('entryStrength').className = label === 'STRONG' || label === 'LIVE SUPPORT' ? 'positive' : label === 'CAUTION' ? 'regime-consolidation' : 'negative';
@@ -375,7 +395,9 @@ const update = () => {
   const candidate = calculateSignal(ticks);
   const confidence = candidate.confidence;
   const threshold = Number($('minimum').value);
-  showSignal(candidate.type && confidence >= threshold ? {...candidate, confidence} : null, candidate, confidence);
+  const selected=analyzeBoth().selected;
+  showSignal(selected ? {...selected,options:candidate.options} : null, candidate, confidence);
+  if(!selected)$('signalNote').textContent='No candidate passes every analysis condition. See the two-candidate diagnostics for failed checks.';
   updatePricing();
 };
 const showSignal = (signal, candidate, confidence) => {
@@ -384,10 +406,10 @@ const showSignal = (signal, candidate, confidence) => {
   $('executeOver').classList.toggle('suggested', signal.type === 'OVER'); $('executeUnder').classList.toggle('suggested', signal.type === 'UNDER');
 };
 const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
+  let parsed;
+  try { parsed=extractLastDigit(price,pipSize); } catch(error) { auditStage('invalid-tick',{reason:error.message}); return; }
   liveTickNumber++;
-  const numeric = Number(price);
-  const raw = Number.isFinite(numeric) && Number.isInteger(Number(pipSize)) ? numeric.toFixed(Number(pipSize)) : String(price);
-  const digit = Number(raw.at(-1));
+  const raw=parsed.quote,digit=parsed.digit;
   if(Number.isInteger(digit)){
     const tick = {price:raw,time:epoch,digit};
     ticks.push(tick);
@@ -405,7 +427,7 @@ const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
 const refreshPricing = () => {
   if (!socket || socket.readyState !== WebSocket.OPEN) { logger('<span class="negative">Start the live feed before requesting current Deriv pricing.</span>'); return; }
   const amount = Number($('stake').value) || 1, symbol = $('symbol').value.trim();
-  for (const [contract_type, barrier] of [['DIGITOVER', '1'], ['DIGITUNDER', '8']]) socket.send(JSON.stringify({proposal:1, amount, basis:'stake', contract_type, currency:'USD', duration:1, duration_unit:'t', barrier, underlying_symbol:symbol}));
+  for (const type of ['OVER','UNDER']) socket.send(JSON.stringify(proposalRequest({type,symbol,stake:amount})));
 };
 const classifyMarket = (symbol, rawPrices) => {
   const prices = rawPrices.map(Number).filter(Number.isFinite);
@@ -647,6 +669,8 @@ const executeOrder = async (type) => {
   } catch (error) { manualOrderPending = false; $('demoOrderStatus').textContent = `No order placed: ${error.message}`; updateDemoArmState(); }
 };
 const maybeAutoOrder = async (signal) => {
+  if(analyzeBoth().selected?.type!==signal.type)return;
+  auditStage('risk-manager',{type:signal.type,connected:demoConnected,mode:botMode,armed:autoEnabled,pending:autoInFlight||autoContractIds.size>0,reset:autoAwaitingReset,cooldown:Math.max(0,selectedAutoCooldown()-(liveTickNumber-lastAutoSignalTick))});
   if (digitStability(ticks).unstable) return;
   if (!qualifiesForLiveSupport(signal, Number($('minimum').value || 65))) return;
   const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = liveTickNumber;
@@ -661,9 +685,11 @@ const maybeAutoOrder = async (signal) => {
   if (ticksSinceLast < selectedAutoCooldown()) return;
   autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
   try {
-    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false }) });
+    auditStage('proposal-request',{type:signal.type,symbol:$('symbol').value.trim(),stake});
+    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Auto order was not accepted.');
+    auditStage('execution-accepted',{type:signal.type,contractId:result.contractId,proposal:result.proposalValidation});
     lastAutoSignalTick = liveTickNumber;
     autoMomentumTrades += 1;
     autoContractIds.add(result.contractId);
@@ -675,6 +701,7 @@ const maybeAutoOrder = async (signal) => {
     // A rejected request must not silently turn the bot off. Keep it armed and
     // show the exact reason so the next LIVE SUPPORT signal can retry.
     autoLastError = error.message || 'Deriv did not accept the Auto Bot order.';
+    auditStage('execution-error',{type:signal.type,reason:autoLastError});
     $('autoStatus').textContent = `Auto Bot is still ON. Order was not accepted: ${autoLastError}. It will retry on the next LIVE SUPPORT signal.`;
   }
   finally { autoInFlight = false; updateAutoState(); }
@@ -726,4 +753,6 @@ $('momentumResetEnabled').addEventListener('change', () => {
 ['stake','maxStake','dailyLoss','dailyProfitTarget','maxTrades','maxConsecutiveLosses','maxTradesPerSetup'].forEach(id=>$(id).addEventListener('input', updateRiskSummary)); updateRiskSummary();
 updateActualPerformance();
 renderLastSettledOrder(lastSettledOrder);
+$('barrierPersistence').onchange=()=>{barrierEngine.reset();update();};
+$('exportBarrierAudit').onclick=()=>{const blob=new Blob([JSON.stringify({schema:'part-one-barrier-audit-v1',records:barrierAudit},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='part-one-barrier-audit.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 loadAuthStatus();

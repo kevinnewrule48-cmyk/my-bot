@@ -1,2 +1,6 @@
 .env
+checkpoints/
 *.log
+work/part-two-orders.json*
+work/part-one-demo-risk.json*
+work/part-one-execution.json*

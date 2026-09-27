@@ -4,22 +4,20 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {createPartTwoOrders} from './part-two-orders.mjs';
-import {proposalRequest,validateProposal} from './public/digit-barrier-engine.js';
+import {DemoRiskLedger,guardedDemoOrder,RiskRejection} from './part-one-risk.mjs';
+import {PartOneExecution} from './part-one-execution.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
+const demoRisk = new DemoRiskLedger({file:process.env.PART_ONE_RISK_PATH||path.join(root,'work','part-one-demo-risk.json')});
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 const oauthStates = new Map();
 const sessions = new Map();
 const recentOrders = new Map();
-const tradeChannels = new Map();
 const clientId = process.env.DERIV_CLIENT_ID;
 const redirectUri = process.env.DERIV_REDIRECT_URI;
 const realTradingEnabled = process.env.ENABLE_REAL_TRADING === 'true';
 const oauthReady = Boolean(clientId && redirectUri && redirectUri.startsWith('https://'));
 const base64url = (value) => Buffer.from(value).toString('base64url');
-const contractEntrySpot = (contract) => contract.entry_tick ?? contract.entry_spot ?? contract.current_spot ?? null;
-const contractExitSpot = (contract) => contract.exit_tick ?? contract.exit_spot ?? contract.sell_spot ?? contract.current_spot ?? null;
-const proposalKey = ({ type, symbol, stake, currency }) => `${type}:${symbol}:${stake}:${currency}`;
 const cookieValue = (req, name) => (req.headers.cookie ?? '').split(';').map(x => x.trim()).find(x => x.startsWith(`${name}=`))?.slice(name.length + 1);
 const readJson = async (req) => {
   let raw = '';
@@ -32,86 +30,18 @@ const getSession = (req) => {
   return session && session.expiresAt > Date.now() ? session : null;
 };
 const deriv = async (path, token, options = {}) => fetch(`https://api.derivws.com${path}`, { ...options, headers: { ...(options.headers ?? {}), authorization: `Bearer ${token}` } });
-const openTradeChannel = async ({ key, token, accountId, accountType }) => {
-  const existing = tradeChannels.get(key);
-  if (existing?.ws?.readyState === WebSocket.OPEN) return existing;
-  if (existing?.ready) return existing.ready;
-  const otp = await deriv(`/trading/v1/options/accounts/${encodeURIComponent(accountId)}/otp`, token, { method:'POST' });
-  if (!otp.ok) throw new Error('Deriv could not prepare the trading connection.');
-  const otpBody = await otp.json(), url = otpBody?.data?.url;
-  if (!url || !new RegExp(`/ws/${accountType}\\?otp=`).test(url)) throw new Error(`Deriv did not return a valid ${accountType} trading session.`);
-  const channel = { ws:new WebSocket(url), active:null, ready:null, warm:new Map(), warmRequests:new Map(), warmSequence:1000, warmConfig:null };
-  tradeChannels.set(key, channel);
-  channel.ready = new Promise((resolve, reject) => {
-    const failReady = (message) => { tradeChannels.delete(key); reject(new Error(message)); };
-    channel.ws.addEventListener('open', () => resolve(channel), { once:true });
-    channel.ws.addEventListener('error', () => { if (channel.active) channel.active.fail(new Error('Trading connection failed.')); else failReady('Trading connection failed.'); });
-    channel.ws.addEventListener('close', () => { tradeChannels.delete(key); if (channel.active) channel.active.fail(new Error('Trading connection closed.')); });
-    channel.ws.addEventListener('message', (event) => {
-      const data = JSON.parse(event.data);
-      const warmRequest = channel.warmRequests.get(data.req_id);
-      if (warmRequest && data.proposal?.id) {
-        channel.warm.set(warmRequest.key, { id:data.proposal.id, askPrice:data.proposal.ask_price,payout:data.proposal.payout, updatedAt:Date.now() });
-        return;
-      }
-      const active = channel.active; if (!active) return;
-      if (data.error) return active.fail(new Error(data.error.message ?? 'Deriv rejected the order.'));
-      if (data.proposal?.id && active.stage === 'proposal') {
-        try { const buy=validateProposal(data.proposal,active.stake);active.proposalValidation={validated:true,ask:buy.price,payout:Number(data.proposal.payout)};active.stage='buy';return channel.ws.send(JSON.stringify(buy)); }
-        catch(error){return active.fail(error);}
-      }
-      if (data.buy && active.stage === 'buy') {
-        active.stage = 'settlement';
-        active.buy = data.buy;
-        return channel.ws.send(JSON.stringify({ proposal_open_contract:1, contract_id:data.buy.contract_id, subscribe:1 }));
-      }
-      if (data.proposal_open_contract && active.stage === 'settlement') {
-        const contract = data.proposal_open_contract;
-        const entryTick = contractEntrySpot(contract);
-        const exitTick = contractExitSpot(contract);
-        if (!active.entrySent && entryTick !== null) {
-          active.entrySent = true;
-          active.entryTick = entryTick;
-          active.entry({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick,proposalValidation:active.proposalValidation });
-        }
-        if (!contract.is_sold) return;
-        return active.finish({ contractId:active.buy.contract_id, buyPrice:active.buy.buy_price, transactionId:active.buy.transaction_id, entryTick:active.entryTick ?? entryTick, exitTick, status:contract.status, profit:contract.profit, payout:contract.payout });
-      }
-    });
-  });
-  return channel.ready;
+const connectExecution=async({token,accountId,accountType})=>{
+  const otp=await deriv(`/trading/v1/options/accounts/${encodeURIComponent(accountId)}/otp`,token,{method:'POST',signal:AbortSignal.timeout(10000)});
+  if(!otp.ok)throw Error(`Trading connection authorization failed (${otp.status})`);
+  const url=(await otp.json())?.data?.url;if(!url||!new RegExp(`/ws/${accountType}\\?otp=`).test(url))throw Error('Invalid authenticated trading URL');
+  const ws=new WebSocket(url);
+  await new Promise((resolve,reject)=>{const cleanup=()=>{clearTimeout(timer);ws.removeEventListener('open',opened);ws.removeEventListener('error',failed);ws.removeEventListener('close',failed);};const opened=()=>{cleanup();resolve();};const failed=()=>{cleanup();reject(Error('Trading socket connection failed'));};const timer=setTimeout(()=>{cleanup();ws.close();reject(Error('Trading socket connection timeout'));},10000);ws.addEventListener('open',opened);ws.addEventListener('error',failed);ws.addEventListener('close',failed);});return ws;
 };
-const warmTradeProposals = (channel, { symbol, stake, currency }) => {
-  const config = `${symbol}:${stake}:${currency}`;
-  if (channel.warmConfig === config) return;
-  channel.warmConfig = config;
-  for (const [type, barrier] of [['DIGITOVER', '1'], ['DIGITUNDER', '8']]) {
-    const key = proposalKey({ type, symbol, stake, currency });
-    const reqId = ++channel.warmSequence;
-    channel.warmRequests.set(reqId, { key });
-    channel.ws.send(JSON.stringify({...proposalRequest({type,symbol,stake,currency}),subscribe:1,req_id:reqId}));
-  }
-};
-const accountOrder = async ({ key, token, accountId, accountType, currency, type, symbol, stake }) => {
-  const channel = await openTradeChannel({ key, token, accountId, accountType });
-  if (channel.active) throw new Error('An order is already being processed for this account.');
-  let acceptEntry, rejectEntry, acceptSettlement, rejectSettlement;
-  const entry = new Promise((resolve, reject) => { acceptEntry = resolve; rejectEntry = reject; });
-  const settlement = new Promise((resolve, reject) => { acceptSettlement = resolve; rejectSettlement = reject; });
-  settlement.catch(()=>{}); // Entry can fail before the route attaches settlement handling.
-  const fail = (error) => { clearTimeout(timeout); channel.active = null; rejectEntry(error); rejectSettlement(error); };
-  const finish = (result) => { clearTimeout(timeout); channel.active = null; acceptSettlement(result); };
-  const timeout = setTimeout(() => fail(new Error('Order result timed out.')), 15_000);
-  const warm = channel.warm.get(proposalKey({ type, symbol, stake, currency }));
-  const useWarmProposal = warm && Date.now() - warm.updatedAt <= 5_000;
-  channel.active = { stake,stage:useWarmProposal ? 'buy' : 'proposal', entry:acceptEntry, finish, fail, entrySent:false };
-  if (useWarmProposal) {
-    try {const buy=validateProposal({id:warm.id,ask_price:warm.askPrice,payout:warm.payout},stake);channel.active.proposalValidation={validated:true,ask:buy.price,payout:Number(warm.payout)};channel.ws.send(JSON.stringify(buy));}
-    catch(error){fail(error);}
-  }
-  else channel.ws.send(JSON.stringify(proposalRequest({type,symbol,stake,currency})));
-  return { entry, settlement };
-};
+const execution=new PartOneExecution({connect:connectExecution,file:process.env.PART_ONE_EXECUTION_PATH||path.join(root,'work','part-one-execution.json'),
+  onTick:(id,tick)=>demoRisk.tick(id,tick),
+  onSettled:(id,attempt,result)=>{const pending=demoRisk.status(id).pending;if(pending?.attemptId===attempt.attemptId)demoRisk.settle(id,pending.id,result);},
+  onRejected:(id,attempt)=>{const pending=demoRisk.status(id).pending;if(pending?.attemptId===attempt.attemptId)demoRisk.rejected(id,pending.id,{orderNotSubmitted:true});},
+  log:event=>console.log(JSON.stringify({component:'part-one-execution',...event}))});
 
 async function exchangeCode(code, verifier) {
   const form = new URLSearchParams({ grant_type: 'authorization_code', client_id: clientId, code, code_verifier: verifier, redirect_uri: redirectUri });
@@ -133,7 +63,7 @@ const server = http.createServer(async (req, res) => {
     const session = getSession(req);
     if (!session) return json(res, 401, { error:'Connect your Deriv account first.' });
     try {
-      const response = await deriv('/trading/v1/options/accounts', session.accessToken);
+      const response = await deriv('/trading/v1/options/accounts', session.accessToken,{signal:AbortSignal.timeout(10000)});
       if (!response.ok) throw new Error('Deriv could not retrieve your accounts.');
       const accounts = ((await response.json())?.data ?? []).filter((account) => account.status === 'active' && ['demo','real'].includes(account.account_type)).map((account) => ({ accountId:account.account_id, accountType:account.account_type, currency:account.currency, balance:account.balance }));
       return json(res, 200, { accounts, realTradingEnabled });
@@ -142,42 +72,62 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/orders/recent' && req.method === 'GET') {
     const session = getSession(req);
     if (!session) return json(res, 401, { error:'Connect your Deriv account first.' });
-    return json(res, 200, { order:recentOrders.get(cookieValue(req, 'deriv_session')) ?? null });
+    if(!url.searchParams.get('accountId'))return json(res,200,{order:recentOrders.get(cookieValue(req,'deriv_session'))??null});
+    try{
+      if(!session.executionAccounts||session.executionAccountsAt<Date.now()-30000){const response=await deriv('/trading/v1/options/accounts',session.accessToken,{signal:AbortSignal.timeout(10000)});if(!response.ok)throw Error('Account verification failed');session.executionAccounts=(await response.json())?.data??[];session.executionAccountsAt=Date.now();}
+      const account=session.executionAccounts.find(a=>a.account_id===url.searchParams.get('accountId')&&a.account_type===url.searchParams.get('accountType')&&a.status==='active');if(!account)return json(res,403,{error:'Selected account is not available'});
+      await execution.resume({accountId:account.account_id,accountType:account.account_type,token:session.accessToken},url.searchParams.get('reconcile')==='1');
+      const snapshot=execution.snapshot(account.account_id),risk=account.account_type==='demo'?demoRisk.status(account.account_id):null;
+      if(risk?.pending&&!snapshot.blocking){snapshot.state='RECONCILIATION_REQUIRED';snapshot.blocking=true;snapshot.externalRiskPending=true;snapshot.errorSummary='A prior server risk reservation is unresolved. Account reconciliation required; no replacement BUY permitted.';}
+      return json(res,200,{order:execution.receipt(account.account_id),execution:{...snapshot,risk}});
+    }catch(error){return json(res,502,{error:error.message});}
   }
   if (url.pathname === '/api/order/prepare' && req.method === 'POST') {
     const session = getSession(req);
     if (!session) return json(res, 401, { error:'Connect your Deriv account first.' });
     try {
-      const { accountId, accountType, symbol, stake } = await readJson(req);
+      const { accountId, accountType, symbol, stake, riskLimits, mode='manual' } = await readJson(req);
       if (!['demo','real'].includes(accountType)) return json(res, 400, { error:'Choose a valid account type.' });
       if (accountType === 'real' && !realTradingEnabled) return json(res, 403, { error:'Real-money orders are disabled by the server setting.' });
-      const response = await deriv('/trading/v1/options/accounts', session.accessToken), accounts = (await response.json())?.data ?? [];
+      const response = await deriv('/trading/v1/options/accounts', session.accessToken,{signal:AbortSignal.timeout(10000)}), accounts = (await response.json())?.data ?? [];
       const selected = accounts.find((account) => account.account_id === accountId && account.account_type === accountType && account.status === 'active');
       if (!selected) return json(res, 403, { error:'The selected account is not available.' });
-      const channel = await openTradeChannel({ key:`${cookieValue(req, 'deriv_session')}:${accountId}`, token:session.accessToken, accountId, accountType });
       const amount = Number(stake);
-      if (/^[A-Za-z0-9_]{2,30}$/.test(symbol ?? '') && Number.isFinite(amount) && amount > 0) warmTradeProposals(channel, { symbol, stake:amount, currency:selected.currency });
-      return json(res, 200, { ready:true, accountType, warmed:Boolean(channel.warmConfig) });
-    } catch (error) { return json(res, 502, { error:error.message || 'Fast execution connection could not be prepared.' }); }
+      if(accountType==='demo')demoRisk.configure(accountId,riskLimits);
+      const credentials={accountId,accountType,token:session.accessToken};
+      await execution.resume(credentials);
+      // Recovery is read-only and may run even while a risk reservation blocks new orders.
+      if(accountType==='demo')demoRisk.check(accountId,{stake:amount,mode});
+      const prepared=await execution.prepare(credentials,{symbol,stake:amount,currency:selected.currency});
+      return json(res, 200, { ...prepared, accountType });
+    } catch (error) { return json(res, error instanceof RiskRejection?409:502, { error:error.message || 'Fast execution connection could not be prepared.',riskCode:error.code }); }
   }
   if ((url.pathname === '/api/order' || url.pathname === '/api/demo/order') && req.method === 'POST') {
     const session = getSession(req);
     if (!session) return json(res, 401, { error:'Connect your Deriv demo account first.' });
     try {
-      const { armed, type, symbol, stake, accountId, accountType, realConfirmed,mode } = await readJson(req);
+      const { armed, type, symbol, stake, accountId, accountType, realConfirmed,mode='manual',riskLimits,attemptId:clientAttemptId,decisionId,strategyEvidence } = await readJson(req);
+      const attemptId=clientAttemptId||crypto.randomUUID();
+      if(!/^[A-Za-z0-9_-]{8,100}$/.test(attemptId))return json(res,400,{error:'Invalid attempt ID'});
+      if(!['manual','auto'].includes(mode))return json(res,400,{error:'Invalid execution mode.'});
       if(mode==='auto'&&accountType!=='demo')return json(res,403,{error:'Real-money Auto is disabled during barrier development.'});
       const amount = Number(stake), maxStake = 5000;
       if (armed !== true) return json(res, 403, { error:'Demo trading is not armed.' });
       if (!['DIGITOVER', 'DIGITUNDER'].includes(type) || !/^[A-Za-z0-9_]{2,30}$/.test(symbol ?? '') || !['demo','real'].includes(accountType)) return json(res, 400, { error:'Invalid account or contract request.' });
       if (!Number.isFinite(amount) || amount <= 0 || amount > maxStake) return json(res, 400, { error:`Stake must be between $0.01 and $${maxStake}.` });
-      const accountResponse = await deriv('/trading/v1/options/accounts', session.accessToken);
+      const accountResponse = await deriv('/trading/v1/options/accounts', session.accessToken,{signal:AbortSignal.timeout(10000)});
       const accounts = (await accountResponse.json())?.data ?? [];
       const selectedAccount = accounts.find((account) => account.account_id === accountId && account.account_type === accountType && account.status === 'active');
       if (!selectedAccount) return json(res, 403, { error:'The selected Deriv account is not available.' });
       if (accountType === 'real' && !realTradingEnabled) return json(res, 403, { error:'Your real account is connected, but real-money orders are disabled by the server setting.' });
       if (accountType === 'real' && realConfirmed !== true) return json(res, 403, { error:'A separate real-money confirmation is required.' });
       const sessionKey = cookieValue(req, 'deriv_session');
-      const orderFlow = await accountOrder({ key:`${sessionKey}:${accountId}`, token:session.accessToken, accountId:selectedAccount.account_id, accountType, currency:selectedAccount.currency, type, symbol, stake:amount });
+      const credentials={accountId:selectedAccount.account_id,accountType,token:session.accessToken};
+      const request={attemptId,decisionId,strategyEvidence,type,symbol,stake:amount,currency:selectedAccount.currency,mode,riskLimits};
+      const existing=execution.find(accountId,attemptId);
+      if(existing&&['type','symbol','stake','mode','currency'].some(k=>existing.request[k]!==request[k]))return json(res,409,{error:'Attempt ID already belongs to a different order'});
+      const place=()=>execution.execute(credentials,request);
+      const orderFlow = existing?execution.flow(accountId,existing):accountType==='demo'?await guardedDemoOrder(demoRisk,accountId,request,place):place();
       const entry = await orderFlow.entry;
       const receipt = { type, symbol, accountType, accountId:selectedAccount.account_id, currency:selectedAccount.currency, ...entry, state:'entered', enteredAt:Date.now() };
       recentOrders.set(sessionKey, receipt);
@@ -187,8 +137,8 @@ const server = http.createServer(async (req, res) => {
       }).catch((error) => {
         recentOrders.set(sessionKey, { ...receipt, state:'failed', completedAt:Date.now(), error:error.message || 'Deriv did not return a settlement result.' });
       });
-      return json(res, 200, { ok:true, account:`${accountType === 'real' ? 'Real' : 'Demo'} ${selectedAccount.account_id}`, currency:selectedAccount.currency, ...receipt });
-    } catch (error) { return json(res, 502, { error:error.message || 'Demo order could not be completed.' }); }
+      return json(res, 200, { ok:true, attemptId, account:`${accountType === 'real' ? 'Real' : 'Demo'} ${selectedAccount.account_id}`, currency:selectedAccount.currency, ...receipt });
+    } catch (error) { return json(res, error instanceof RiskRejection?409:502, { error:error.message || 'Order could not be completed.',riskCode:error instanceof RiskRejection?error.code:undefined,executionCode:error.code,attemptId:error.attemptId,uncertain:!!error.uncertain }); }
   }
   if (url.pathname === '/api/auth/start') {
     if (!oauthReady) { res.writeHead(409, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'OAuth is not configured. Set DERIV_CLIENT_ID and an HTTPS DERIV_REDIRECT_URI first.' })); }

@@ -1,4 +1,6 @@
 import {DigitBarrierEngine,extractLastDigit,proposalRequest} from './digit-barrier-engine.js';
+import {liveDigitWheel} from './live-digit-wheel.js';
+import {heatMap} from './premium-model.js';
 import {diagnoseSnapshot} from './part-one-diagnostics.js';
 const $ = (id) => document.getElementById(id);
 const demoRiskLimits=()=>({maxStake:Number($('maxStake').value),maxSessionLoss:Number($('dailyLoss').value),maxTrades:Number($('maxTrades').value),maxConsecutiveLosses:Number($('maxConsecutiveLosses').value),cooldownTicks:Number($('autoCooldownTicks').value)});
@@ -24,6 +26,7 @@ const diagnosticRisk=()=>({connected:demoConnected,accountType:selectedAccount()
 const beginOrderAudit=(type,mode,stake)=>{
   const decisionId=currentDecisionId;
   const attemptId=globalThis.crypto?.randomUUID?.()??`${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  liveDigitWheel.register(attemptId);
   auditStage('signal-detected',{attemptId,decisionId,type,mode});
   auditStage('condition-gate',{attemptId,decisionId,checks:barrierSnapshot?.candidates.find(c=>c.type===(type==='DIGITOVER'?'OVER':'UNDER'))?.checks??[],mode});
   const requestId=auditStage('proposal-request',{attemptId,decisionId,type,mode,symbol:$('symbol').value,stake,risk:diagnosticRisk(),
@@ -116,6 +119,7 @@ const restoreMarketTicks = (symbol) => {
 const selectedAccount = () => availableAccounts.find((account) => account.accountId === $('accountSelector').value);
 const showSelectedBalance = () => {
   const account = selectedAccount();
+  liveDigitWheel.setAccount(account?.accountId ?? null);
   if (!account) { $('accountBalance').textContent = 'Account balance: connect your account to view it.'; return; }
   const label = 'Account balance';
   const numericBalance = Number(account.balance);
@@ -183,6 +187,7 @@ const renderLastSettledOrder = (order) => {
   $('actualOrderSide').textContent = settled ? `${order.label ?? 'ORDER'} · ${order.source ?? 'Account order'}` : `${order.label ?? 'ORDER'} · waiting for settlement`;
 };
 const showOrderEntry = (type, result, source) => {
+  liveDigitWheel.confirm(result);
   const label = type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
   lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), entryTick:result.entryTick, state:'entered', label, source, time:Date.now() };
   $('entryExecutionStatus').textContent = `ORDER ENTERED · ${label} · ${source} · entry number ${tickDigit(result.entryTick)} · waiting for the next tick to settle · contract ${result.contractId}`;
@@ -191,6 +196,7 @@ const showOrderEntry = (type, result, source) => {
   renderLastSettledOrder(lastSettledOrder); update();
 };
 const showContractResult = (type, result, source) => {
+  liveDigitWheel.settle(result);
   displayedContractIds.add(String(result.contractId));
   if(displayedContractIds.size>1000)displayedContractIds.delete(displayedContractIds.values().next().value);
   auditStage('order-result',{...(orderDecisionIds.get(result.contractId)||{decisionId:null}),contractId:result.contractId,type,source,
@@ -422,15 +428,12 @@ const update = () => {
   if (typeof updateDemoArmState === 'function') updateDemoArmState();
   updateCooldownMonitor();
   const c = counts(ticks), n = ticks.length, displayed = ticks.length, latest = ticks.at(-1);
+  liveDigitWheel.setLive(latest, heatMap(ticks), $('symbol').value);
   $('sample').textContent = n; $('sampleNote').textContent = n < 50 ? `Need ${50-n} more ticks` : `Rolling last ${n} ticks`;
   if(latest){ $('price').textContent = latest.price; $('tickTime').textContent = new Date(latest.time * 1000).toLocaleTimeString(); }
   if(latest) $('priceDigitCursor').textContent = `Live ${$('symbol').value.trim()} price: ${latest.price} · last digit ${latest.digit}`;
   $('digits').innerHTML = c.map((value,digit) => {
-    const isEntry = digitFlash?.entryDigit === String(digit);
-    const isExit = digitFlash?.exitDigit === String(digit);
-    const resultClass = isExit ? (digitFlash.won ? ' order-won-digit' : ' order-lost-digit') : '';
-    const marker = isExit ? `<em>${digitFlash.won ? 'WIN' : 'LOSS'}</em>` : (isEntry ? '<em>ENTRY</em>' : '');
-    return `<div class="digit${latest?.digit === digit ? ' latest-digit' : ''}${isEntry ? ' order-entry-digit' : ''}${resultClass}"><b>${digit}</b><span>${displayed ? (value/displayed*100).toFixed(1) : '0.0'}%</span>${marker}</div>`;
+    return `<div class="digit"><b>${digit}</b><span>${displayed ? (value/displayed*100).toFixed(1) : '0.0'}%</span></div>`;
   }).join('');
   if(n < 50) { showSignal(null); updateEntryStrength(); return; }
   const candidate = calculateSignal(ticks);
@@ -639,6 +642,7 @@ const loadRecentOrder = async (reconcile=false) => {
     if(selectedAccount()?.accountId!==account.accountId)return;
     executionTransportError='';
     if(result.execution){executionView=result.execution;autoContractIds.clear();if(executionView.blocking&&executionView.last?.request.mode==='auto'&&executionView.last.contractId)autoContractIds.add(executionView.last.contractId);manualOrderPending=executionView.blocking||manualHttpPending;}
+    liveDigitWheel.observeExecution(result.execution);
     const order=result.order;
     if(order){
       const source=order.mode==='auto'||autoContractIds.has(order.contractId)?'Auto bot':'Manual bot';

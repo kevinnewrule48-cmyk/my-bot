@@ -1,6 +1,7 @@
 import {dashboardStatus,heatMap,summarizeOrders,barrierView} from './premium-model.js';
 import {diagnoseSnapshot} from './part-one-diagnostics.js';
 import {DEFAULTS} from './digit-barrier-engine.js';
+import {liveDigitWheel,mountDigitWheel} from './live-digit-wheel.js';
 const byId=id=>document.getElementById(id);
 const put=(id,value)=>{const n=byId(id);if(n&&n.textContent!==String(value))n.textContent=value;};
 const fmt=n=>Number.isFinite(n)?n.toFixed(2):'—';
@@ -20,6 +21,10 @@ export function mountDashboard(readState){
   <section class="panel chart-panel"><div class="card-heading"><div><p class="eyebrow">MARKET TELEMETRY</p><h2>Live analysis</h2></div><label>Chart view<select id="chartView"><option value="distribution">Digit distribution</option><option value="observed">Winning-set frequency</option><option value="momentum">Momentum</option><option value="stability">Stability</option><option value="quality">Quality</option></select></label></div><div id="chartLegend">OVER 1 · mint / UNDER 8 · lavender</div><svg id="analysisChart" viewBox="0 0 900 180" role="img" aria-label="Live descriptive analysis chart"></svg><p id="chartCaption" class="hint">Waiting for real observations</p></section>
   <details class="panel"><summary>Decision log · both candidates</summary><div id="premiumLog"></div></details><div id="lowerPanels" class="lower-panels"></div>`;
   main.prepend(layout);
+  const wheelPanel=document.createElement('section');wheelPanel.className='panel live-wheel-panel';
+  byId('marketColumn').prepend(wheelPanel);
+  const disposeWheel=mountDigitWheel(wheelPanel);
+  document.querySelector('.digit-hero').hidden=true;
   const enginePanel=document.createElement('section');enginePanel.className='panel';
   enginePanel.innerHTML='<div class="card-heading"><h2>Execution engine</h2><span id="executionEngineState">NO ACCOUNT</span></div><p id="executionStrategyState"></p><pre id="executionEngineDetails" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px"></pre><button id="recheckExecution" class="secondary">Recheck execution · no purchase</button><details><summary>Recent trade attempts</summary><div id="executionAttemptHistory"></div></details><details><summary>Execution event log</summary><pre id="executionEventLog" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:11px"></pre></details>';
   byId('executionColumn').prepend(enginePanel);byId('recheckExecution').onclick=()=>readState().recheckExecution();
@@ -64,7 +69,7 @@ export function mountDashboard(readState){
     put('executionEventLog',(execution?.events??[]).slice(-80).map(e=>JSON.stringify(e)).join('\n'));
     put('heroMarket',s.market);const newDigit=String(s.ticks.at(-1)?.digit??'—');if(byId('heroDigit').textContent!==newDigit){put('heroDigit',newDigit);if(!matchMedia('(prefers-reduced-motion: reduce)').matches)byId('heroDigit').animate([{opacity:.6,transform:'translateY(3px)'},{opacity:1,transform:'translateY(0)'}],{duration:180});}put('heroPrice',s.ticks.at(-1)?.price??'Waiting for a verified price');
     byId('recentStream').innerHTML=s.ticks.slice(-10).reverse().map(t=>`<span>${t.digit}</span>`).join('');
-    const heat=heatMap(s.ticks);byId('premiumHeat').innerHTML=heat.map(h=>{const exit=s.flash?.exitDigit===String(h.digit),entry=s.flash?.entryDigit===String(h.digit);return `<div class="heat-cell ${h.label.toLowerCase().replace(' ','-')} ${h.digit===s.ticks.at(-1)?.digit?'current':''}"><b>${h.digit}</b><span>${h.percent.toFixed(1)}%</span><small>${h.count} ticks</small><em class="${exit?(s.flash.won?'positive':'negative'):''}">${exit?(s.flash.won?'WIN':'LOSS'):entry?'ENTRY':h.label}</em></div>`;}).join('');
+    const heat=liveDigitWheel.stats.length?liveDigitWheel.stats:heatMap(s.ticks);byId('premiumHeat').innerHTML=heat.map(h=>`<div class="heat-cell ${h.label.toLowerCase().replace(' ','-')}"><b>${h.digit}</b><span>${h.percent.toFixed(1)}%</span><small>${h.count} ticks</small><em>${h.label}</em></div>`).join('');
     const manual=byId('barrierViewMode').value==='manual',selected=s.analysis?.selected;
     byId('barrierNumber').disabled=byId('barrierDirection').disabled=!manual;
     const direction=manual?byId('barrierDirection').value:selected?.type||'OVER';
@@ -99,5 +104,5 @@ export function mountDashboard(readState){
   }
   layout.addEventListener('change',render);
   render();const timer=setInterval(()=>{if(!document.hidden)render();},250);
-  window.addEventListener('pagehide',()=>clearInterval(timer),{once:true});
+  window.addEventListener('pagehide',()=>{clearInterval(timer);disposeWheel();liveDigitWheel.dispose();},{once:true});
 }

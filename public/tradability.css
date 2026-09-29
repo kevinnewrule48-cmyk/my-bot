@@ -17,6 +17,8 @@
 .tradability-metrics>div,.tradability-score>div{min-width:0;overflow-wrap:anywhere}
 
 /* Keep entry decisions together and move the detailed comparison to the end. */
+.premium .dashboard-stack{display:flex;flex-direction:column;gap:0;min-width:0}
+.premium .dashboard-stack>.panel,.premium .dashboard-stack>.controls{margin:0;width:100%;box-sizing:border-box}
 @media(min-width:760px){
  .premium .terminal{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;align-items:start}
  .premium .terminal .terminal-grid,.premium .terminal .column,.premium .terminal #executionColumn,.premium .terminal .entryDeck{display:contents}
@@ -43,6 +45,10 @@
  .premium .terminal>details{grid-column:7/13;grid-row:9}
  .premium .terminal .lower-panels{grid-column:1/-1;grid-row:10}
  .premium .terminal .comparison{grid-column:1/-1;grid-row:11}
+ .premium .terminal .entry-execution-stack{grid-column:1/5;grid-row:3}
+ .premium .terminal .heat-scanner-stack{grid-column:1/5;grid-row:4}
+ .premium .terminal .controls-chart-stack{grid-column:5/9;grid-row:4}
+ .premium .terminal .barrier-card{grid-column:9/13;grid-row:4}
 }
 @media(max-width:759px){
  .premium .terminal .entryDeck{display:contents}
@@ -54,4 +60,7 @@
  .premium .terminal .modePanel{order:8}
  .premium .terminal #autoOrderPanel{order:9}
  .premium .terminal .comparison{order:30}
+ .premium .terminal .entry-execution-stack{order:3}
+ .premium .terminal .heat-scanner-stack{order:6}
+ .premium .terminal .controls-chart-stack{order:7}
 }

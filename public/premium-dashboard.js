@@ -41,6 +41,11 @@ export function mountDashboard(readState){
   const settings=byId('stake').closest('section');byId('executionColumn').append(settings);
   // Existing controls retain their nodes, IDs and handlers; no duplicate execution paths.
   byId('executionColumn').prepend(document.querySelector('.modePanel'),byId('autoOrderPanel'));
+  // Stack related panels without shared grid-row height leaving blank space.
+  const stackPanels=(name,selectors)=>{const stack=document.createElement('div');stack.className=`dashboard-stack ${name}`;layout.append(stack);for(const selector of selectors)stack.append(document.querySelector(selector));};
+  stackPanels('entry-execution-stack',['.entryAnalyzerPanel','#autoOrderPanel']);
+  stackPanels('heat-scanner-stack',['section:has(#premiumHeat)','.scannerPanel']);
+  stackPanels('controls-chart-stack',['.controls','.chart-panel']);
   move('.orderPerformancePanel','lowerPanels');move('.movedMetrics','lowerPanels');
   const diagnostic=byId('barrierDiagnostics').closest('section');byId('lowerPanels').append(diagnostic);
   document.querySelector('.entryDeck').classList.add('compact-entry');

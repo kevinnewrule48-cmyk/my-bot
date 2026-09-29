@@ -1,7 +1,7 @@
 // Existing Part One execution transport, isolated from all signal/strategy calculations.
 import {existsSync,readFileSync,writeFileSync,renameSync,mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';import {createHash,randomUUID} from 'node:crypto';
-import {proposalRequest,validateProposal} from './public/digit-barrier-engine.js';
+import {proposalRequest,validateProposal,extractLastDigit} from './public/digit-barrier-engine.js';
 const terminal=a=>['SETTLED','REJECTED'].includes(a.state);
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});promise.catch(()=>{});return {promise,resolve,reject};};
 const safe=x=>{if(!x||typeof x!=='object')return x;if(Array.isArray(x))return x.map(safe);return Object.fromEntries(Object.entries(x).filter(([k])=>!/(token|authorize|otp|password|secret)/i.test(k)).map(([k,v])=>[k,typeof v==='object'?safe(v):v]));};
@@ -29,7 +29,7 @@ export class PartOneExecution {
   const {accountId:id}=credentials,key=this.key(id);this.credentials.set(key,credentials);
   if(this.channels.get(key)?.ws.readyState===1)return this.channels.get(key);
   if(this.connecting.has(key))return this.connecting.get(key);
-  const promise=(async()=>{const ws=await this.connect(credentials),ch={ws,requests:new Map(),warm:new Map(),warmConfig:null,tickSymbols:new Set()};this.channels.set(key,ch);
+  const promise=(async()=>{const ws=await this.connect(credentials),ch={ws,requests:new Map(),warm:new Map(),warmConfig:null,tickSymbols:new Set(),latestTicks:new Map()};this.channels.set(key,ch);
    ws.addEventListener('message',e=>{try{this.receive(id,ch,JSON.parse(e.data));}catch(error){const a=this.current(id);this.event(id,a,'HANDLER_ERROR',{error:{code:error.code??'HANDLER',message:error.message}});if(a)this.unresolved(id,a,{code:'HANDLER_ERROR',message:error.message});}});
    let closed=false;const disconnect=()=>{if(closed||this.channels.get(key)!==ch)return;closed=true;if(this.channels.get(key)===ch)this.channels.delete(key);ch.warm.clear();if(ws.readyState===1)ws.close();this.event(id,this.current(id),'SOCKET_DISCONNECTED');const a=this.current(id);if(!a)return;if(!a.buySent)this.reject(id,a,{code:'DISCONNECTED_BEFORE_BUY',message:'Connection lost before BUY; no purchase sent'});else{this.unresolved(id,a,{code:'DISCONNECTED_AFTER_BUY',message:'Connection lost after BUY; reconciling without buying again'});void this.reconcile(credentials,a).catch(e=>this.event(id,a,'RECONNECT_ERROR',{error:{code:e.code,message:e.message}}));}};
    ws.addEventListener('close',disconnect);ws.addEventListener('error',disconnect);this.event(id,this.current(id),'SOCKET_CONNECTED');return ch;
@@ -59,7 +59,11 @@ export class PartOneExecution {
  proposal(id,ch,a,p){if(terminal(a)||a.buySent)return;let buy;try{buy=validateProposal(p,a.request.stake);}catch(error){return this.reject(id,a,{code:'INVALID_PROPOSAL',message:error.message});}
   a.proposalId=p.id;a.proposalValidation={validated:true,ask:buy.price,payout:Number(p.payout)};this.state(id,a,'PROPOSAL_READY');this.event(id,a,'PROPOSAL_ID_RECEIVED');
   // Persist the intent BEFORE sending. A crash here requires review, never a replacement BUY.
+  const observed=ch.latestTicks.get(a.request.symbol);
+  a.purchaseTick=observed&&this.now()-observed.receivedAt<=5000?{...observed}:null;
+  a.buySubmittedAt=this.now();
   a.buySent=true;this.state(id,a,'BUY_PENDING');this.watch(id,a,'BUY_PENDING');this.send(id,ch,buy,{kind:'buy',attemptId:a.attemptId});
+  this.event(id,a,'AUTHORIZATION_TO_BUY',{authorizedAt:a.startedAt,buySubmittedAt:a.buySubmittedAt,elapsedMs:a.buySubmittedAt-a.startedAt,purchaseTick:a.purchaseTick});
  }
  receive(id,ch,data){if(this.channels.get(this.key(id))!==ch)return;const meta=ch.requests.get(data.req_id);const a=meta?.attemptId?this.find(id,meta.attemptId):null;
   if(!meta){if(data.subscription?.id)this.forget(id,ch,data.subscription.id);this.event(id,null,'UNMATCHED_RESPONSE_IGNORED',{req_id:data.req_id,msg_type:data.msg_type,contractId:data.proposal_open_contract?.contract_id,error:data.error?{code:data.error.code,message:data.error.message,echo_req:safe(data.echo_req)}:null});return;}
@@ -69,21 +73,28 @@ export class PartOneExecution {
    if(!meta.subscribe)ch.requests.delete(data.req_id);
    if(a&&!terminal(a)){if(meta.kind==='proposal'||meta.kind==='buy'&&!a.contractId)this.reject(id,a,error);else if(meta.kind==='contract'){this.unresolved(id,a,error);void this.reconcile(this.credentials.get(this.key(id)),a).catch(e=>this.event(id,a,'RECONCILE_ERROR',{error:{message:e.message}}));}}return;
   }
-  if(meta.kind==='ticks'&&data.tick){this.onTick(id,data.tick);return;}
+  if(meta.kind==='ticks'&&data.tick){
+   const t=data.tick;
+   if(t.symbol===meta.symbol&&Number.isFinite(t.epoch))try{
+    const normalized=extractLastDigit(t.quote,t.pip_size),previous=ch.latestTicks.get(t.symbol);
+    if(!previous||t.epoch>=previous.epoch)ch.latestTicks.set(t.symbol,{price:normalized.quote,digit:normalized.digit,pipSize:t.pip_size,epoch:t.epoch,tickId:t.id??null,receivedAt:this.now(),source:'server tick observed before BUY submission'});
+   }catch{/* Missing/invalid observation must never hold up a purchase. */}
+   this.onTick(id,data.tick);return;
+  }
   if(meta.kind==='warm'&&data.proposal){ch.warm.set(meta.key,{at:this.now(),proposal:data.proposal,config:ch.warmConfig});return;}
   if(meta.kind==='proposal'&&data.proposal){this.event(id,a,'PROPOSAL_RESPONSE_RECEIVED',{req_id:data.req_id});ch.requests.delete(data.req_id);if(a)this.proposal(id,ch,a,data.proposal);return;}
   if(meta.kind==='buy'&&data.buy){this.event(id,a,'BUY_RESPONSE_RECEIVED',{req_id:data.req_id});if(!a||terminal(a)||a.contractId)return;
    const idNumber=Number(data.buy.contract_id);if(!Number.isSafeInteger(idNumber)||idNumber<=0){this.unresolved(id,a,{code:'INVALID_BUY_RESPONSE',message:'BUY response has no valid contract ID'});return;}
-   a.contractId=idNumber;a.buyPrice=Number(data.buy.buy_price);a.transactionId=data.buy.transaction_id;a.entry={...a.request,attemptId:a.attemptId,contractId:idNumber,buyPrice:a.buyPrice,transactionId:a.transactionId,entryTick:null,proposalValidation:a.proposalValidation};this.state(id,a,'CONTRACT_OPEN');this.event(id,a,'CONTRACT_ID_RECEIVED');this.callbacks(id,a).entry.resolve(a.entry);this.monitor(id,ch,a,true);return;
+   a.contractId=idNumber;a.buyPrice=Number(data.buy.buy_price);a.transactionId=data.buy.transaction_id;a.entry={...a.request,attemptId:a.attemptId,contractId:idNumber,buyPrice:a.buyPrice,transactionId:a.transactionId,entryTick:null,purchaseTick:a.purchaseTick,buySubmittedAt:a.buySubmittedAt,buyConfirmedAt:this.now(),proposalValidation:a.proposalValidation};this.state(id,a,'CONTRACT_OPEN');this.event(id,a,'CONTRACT_ID_RECEIVED');this.callbacks(id,a).entry.resolve(a.entry);this.monitor(id,ch,a,true);return;
   }
   if(meta.kind==='contract'&&data.proposal_open_contract){if(!a||terminal(a)){this.forget(id,ch,meta.subscription);ch.requests.delete(data.req_id);return;}const c=data.proposal_open_contract;
    if(String(c.contract_id)!==String(a.contractId)){this.event(id,a,'WRONG_CONTRACT_IGNORED',{receivedContractId:c.contract_id,req_id:data.req_id});return;}
    this.event(id,a,data.subscription?.id?'OPEN_CONTRACT_SUBSCRIPTION_ACTIVE':'CONTRACT_UPDATE',{req_id:data.req_id,subscriptionId:data.subscription?.id});
    const entryTick=c.entry_tick??c.entry_spot??null,exitTick=c.exit_tick??c.exit_spot??null;
-   if(entryTick!==null){a.entry={...a.entry,entryTick};this.save();}
+   if(entryTick!==null&&a.entry?.entryTick==null){a.entry={...a.entry,entryTick,entryTickTime:c.entry_tick_time??c.date_start??null};this.save();}
    if(c.is_sold===1||c.is_sold===true||['won','lost','sold'].includes(c.status)){
     if(c.profit==null||!Number.isFinite(Number(c.profit))||!['won','lost','sold'].includes(c.status)){this.unresolved(id,a,{code:'INVALID_SETTLEMENT',message:'Terminal contract lacks valid status/profit'});return;}
-    a.result={...a.entry,...a.request,contractId:a.contractId,entryTick:a.entry?.entryTick??entryTick,exitTick,status:c.status,profit:Number(c.profit),payout:c.payout,attemptId:a.attemptId};this.event(id,a,'WIN_LOSS_DETECTED',{status:c.status,profit:Number(c.profit)});this.complete(id,a);
+    a.result={...a.entry,...a.request,contractId:a.contractId,entryTick:a.entry?.entryTick??entryTick,exitTick,exitTickTime:c.exit_tick_time??c.date_expiry??null,status:c.status,profit:Number(c.profit),payout:c.payout,attemptId:a.attemptId};this.event(id,a,'WIN_LOSS_DETECTED',{status:c.status,profit:Number(c.profit)});this.complete(id,a);
    }else{this.event(id,a,'CONTRACT_RUNNING');if(a.state!=='SETTLEMENT_PENDING'){this.state(id,a,'SETTLEMENT_PENDING');this.watch(id,a,'SETTLEMENT_PENDING');}}
    if(!meta.subscribe)ch.requests.delete(data.req_id);return;
   }

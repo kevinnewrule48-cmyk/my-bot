@@ -1,0 +1,6 @@
+import {performance} from 'node:perf_hooks';
+import {TradabilityEngine,replayTradability} from '../public/tradability-engine.js';
+const repeat=(a,n)=>Array.from({length:n},(_,i)=>a[i%a.length]);
+const cases={stable:repeat([4,5,4,6,5,3],150),heavy:repeat([0,9,1,8,0,8,1,9],150),isolated:[...repeat([4,5],110),0,9,...repeat([5,4,6,3],35)],recent:[...repeat([4,5],1000),...repeat([0,9,1,8],50)],recovery:[...repeat([0,9],200),...repeat([4,5],180)],warmup:repeat([0,9],83)};
+for(const [name,digits] of Object.entries(cases)){const s=replayTradability(digits,{windowSize:['recent','warmup'].includes(name)?500:100}).at(-1);console.log(JSON.stringify({case:name,sample:s.sample,window:s.windowSize,state:s.state,chaos:+s.chaos.toFixed(3),bounceRate:+s.extremeBounceRate.toFixed(3),recentPressure:+s.components.recentBouncePressure.toFixed(3),crossings:s.raw.crossings}));}
+const e=new TradabilityEngine(),timings=[];for(let i=0;i<10000;i++){const t=performance.now();e.push({digit:(i*17+(i%13)*3)%10,epoch:i*2,symbol:'BENCH'});timings.push(performance.now()-t);}timings.sort((a,b)=>a-b);console.log(JSON.stringify({benchmarkTicks:10000,meanMs:timings.reduce((s,v)=>s+v,0)/timings.length,p95Ms:timings[9500],maxMs:timings.at(-1),retained:e.count}));

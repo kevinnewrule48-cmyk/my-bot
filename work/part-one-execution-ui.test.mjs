@@ -1,0 +1,41 @@
+import {TradabilityEngine,tradabilityBlocks} from '../public/tradability-engine.js';
+import {DifferEngine} from '../public/differ-engine.js';
+import crypto from 'node:crypto';
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFileSync} from 'node:fs';
+import {DigitBarrierEngine,extractLastDigit,proposalRequest} from '../public/digit-barrier-engine.js';
+import {diagnoseSnapshot} from '../public/part-one-diagnostics.js';
+import {DigitWheelState} from '../public/live-digit-wheel.js';
+import {heatMap} from '../public/premium-model.js';
+const source=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
+test('real dashboard polling: late settlement releases Auto lock, survives Stop and storage failure, no duplicate result',async()=>{
+ const fields=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],{value:'0',checked:false,textContent:'',classList:{toggle(){},add(){},remove(){}},addEventListener(){},setCustomValidity(){},querySelector(){return null;},replaceChildren(){},append(){}}]));
+ for(const [k,v] of Object.entries({symbol:'R_100',window:200,minimum:65,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo1',duration:1}))fields[k].value=String(v);
+ let receipt=null,clearCount=0,orders=0;
+ const context=vm.createContext({TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,URLSearchParams,console,document:{getElementById:id=>fields[id]},localStorage:{getItem:()=>null,setItem(){throw Error('Storage full');}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){clearCount++;},fetch:async url=>{
+   if(url.startsWith('/api/orders/recent'))return {ok:true,json:async()=>receipt};
+   if(url==='/api/order')orders++;
+   return {ok:true,json:async()=>({connected:false,configured:false,accounts:[]})};
+ }});
+ vm.runInContext(source.replace(/^import[^\n]*\n/gm,''),context);await new Promise(setImmediate);
+ vm.runInContext("demoConnected=true;availableAccounts=[{accountId:'demo1',accountType:'demo'}];botMode='auto';autoEnabled=true;autoContractIds.add(6);recentOrderPoll=1;",context);
+ const request={mode:'auto'};
+ receipt={execution:{state:'RECONCILIATION_REQUIRED',blocking:true,last:{request,contractId:6}},order:{state:'unresolved',contractId:6,type:'DIGITOVER',mode:'auto'}};
+ await vm.runInContext('loadRecentOrder()',context);
+ assert.equal(vm.runInContext('executionBlocked()',context),true);
+ fields.stopAuto.onclick();assert.equal(clearCount,0);assert.equal(vm.runInContext('autoEnabled',context),false);
+ receipt={execution:{state:'IDLE',blocking:false,last:{request,contractId:6}},order:{state:'settled',contractId:6,type:'DIGITOVER',mode:'auto',status:'won',profit:.1,buyPrice:1,payout:1.1,entryTick:100.10,exitTick:100.18}};
+ await vm.runInContext('loadRecentOrder()',context);
+ assert.equal(vm.runInContext('autoContractIds.size',context),0);assert.equal(vm.runInContext('manualOrderPending',context),false);
+ assert.equal(vm.runInContext('accountOrderHistory.length',context),1);assert.match(fields.actualOrderOutcome.textContent,/WON/);
+ assert.equal(vm.runInContext('barrierAudit.some(e=>e.stage==="history-storage-error")',context),true);
+ // Account refresh can replace selector options; restore selected account for the next poll.
+ vm.runInContext("availableAccounts=[{accountId:'demo1',accountType:'demo'}];$('accountSelector').value='demo1';",context);
+ await vm.runInContext('loadRecentOrder()',context);
+ assert.equal(vm.runInContext('accountOrderHistory.length',context),1);assert.equal(clearCount,0);assert.equal(orders,0);
+ vm.runInContext('accountOrderHistory=[]',context);await vm.runInContext('loadRecentOrder()',context);
+ assert.equal(vm.runInContext('accountOrderHistory.length',context),0,'continuous polling must not restore a cleared display');
+});

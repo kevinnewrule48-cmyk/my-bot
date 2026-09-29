@@ -76,7 +76,7 @@ const server = http.createServer(async (req, res) => {
       if(c.pageId!==session.executionPageId||session.tradabilityRevision!==operation)throw Error('Superseded tradability control');
       if(c.mode==='auto-block'&&c.live!==true)throw Error('Explicitly start the live feed first');
       tradability.configure(session,c);
-      if(c.mode==='auto-block'){const ch=await execution.channel({accountId:c.accountId,accountType:c.accountType,token:session.accessToken});if(c.pageId!==session.executionPageId||session.tradabilityRevision!==operation)throw Error('Session changed');execution.ticks(c.accountId,ch,c.symbol);}
+      if(c.mode==='auto-block'){const ch=await execution.channel({accountId:c.accountId,accountType:c.accountType,token:session.accessToken});if(c.pageId!==session.executionPageId||session.tradabilityRevision!==operation)throw Error('Session changed');for(const symbol of ['R_10','R_25','R_50','R_75','R_100']){tradability.watch(c.accountId,symbol);execution.ticks(c.accountId,ch,symbol);}}
       if(session.tradabilityRevision===operation)session.tradabilityPending=false;
       return json(res,200,tradability.status(session,c.accountId,c.symbol,c.mode));
     }catch(error){return json(res,409,{error:error.message});}

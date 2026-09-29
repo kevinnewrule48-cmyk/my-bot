@@ -15,3 +15,43 @@
 }
 .tradability-panel{height:auto;max-height:none;overflow:visible;min-width:0}
 .tradability-metrics>div,.tradability-score>div{min-width:0;overflow-wrap:anywhere}
+
+/* Keep entry decisions together and move the detailed comparison to the end. */
+@media(min-width:760px){
+ .premium .terminal{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;align-items:start}
+ .premium .terminal .terminal-grid,.premium .terminal .column,.premium .terminal #executionColumn,.premium .terminal .entryDeck{display:contents}
+ .premium .terminal .workspace-heading{grid-column:1/-1;grid-row:1}
+ .premium .terminal .suggestedEntryPanel{grid-column:1/5;grid-row:2}
+ .premium .terminal .gate-card{grid-column:5/10;grid-row:2}
+ .premium .terminal .modePanel{grid-column:10/13;grid-row:2}
+ .premium .terminal .entryAnalyzerPanel{grid-column:1/5;grid-row:3}
+ .premium .terminal .cooldownPanel{grid-column:5/9;grid-row:3}
+ .premium .terminal .live-wheel-panel{grid-column:9/13;grid-row:3}
+ .premium .terminal #marketColumn>section:has(#premiumHeat){grid-column:1/5;grid-row:4}
+ .premium .terminal .controls{grid-column:5/9;grid-row:4}
+ .premium .terminal #autoOrderPanel{grid-column:9/13;grid-row:4}
+ .premium .terminal .scannerPanel{grid-column:1/5;grid-row:5}
+ .premium .terminal .chart-panel{grid-column:5/9;grid-row:5}
+ .premium .terminal .barrier-card{grid-column:9/13;grid-row:5}
+ .premium .terminal #executionColumn>section:has(#executionEngineState){grid-column:1/5;grid-row:6}
+ .premium .terminal #executionColumn>section:has(#tradeFacts){grid-column:5/9;grid-row:6}
+ .premium .terminal #executionColumn>section:has(#sessionStats){grid-column:9/13;grid-row:6}
+ .premium .terminal .tradability-panel{grid-column:1/-1;grid-row:7}
+ .premium .terminal #manualOrderPanel{grid-column:1/5;grid-row:8}
+ .premium .terminal #executionColumn>section:has(#stake){grid-column:5/13;grid-row:8}
+ .premium .terminal .decision-details{grid-column:1/7;grid-row:9}
+ .premium .terminal>details{grid-column:7/13;grid-row:9}
+ .premium .terminal .lower-panels{grid-column:1/-1;grid-row:10}
+ .premium .terminal .comparison{grid-column:1/-1;grid-row:11}
+}
+@media(max-width:759px){
+ .premium .terminal .entryDeck{display:contents}
+ .premium .terminal .entryAnalyzerPanel{order:3}
+ .premium .terminal #executionColumn .cooldownPanel{order:4}
+ .premium .terminal .live-wheel-panel{order:5}
+ .premium .terminal #marketColumn>section:has(#premiumHeat){order:6}
+ .premium .terminal .controls{order:7}
+ .premium .terminal .modePanel{order:8}
+ .premium .terminal #autoOrderPanel{order:9}
+ .premium .terminal .comparison{order:30}
+}

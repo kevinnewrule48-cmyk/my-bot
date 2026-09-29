@@ -1,17 +1,9 @@
 // Presentation observer only: no sockets, orders, signals, or execution decisions.
-import {extractLastDigit} from './digit-barrier-engine.js';
-export const contractDigit = (price, precision) => {
-  if (price === null || price === undefined || price === '') return null;
-  if (Number.isInteger(precision)) {
-    try { return extractLastDigit(price,precision).digit; } catch { return null; }
-  }
-  // JSON numbers lose trailing zeroes. Do not guess without verified symbol precision.
-  if (typeof price === 'number') return null;
-  const match = String(price).match(/(\d)\D*$/);
-  return match ? Number(match[1]) : null;
-};
+import {ContractLifecycleStore,contractDigit} from './contract-lifecycle.js';
+export {contractDigit} from './contract-lifecycle.js';
 export class DigitWheelState {
   constructor({now = Date.now} = {}) {
+    this.contracts=new ContractLifecycleStore();
     this.now = now; this.listeners = new Set(); this.attempts = new Map();
     this.liveDigit = null; this.price = null; this.stats = [];
     this.entryDigit = null; this.resultDigit = null; this.contractStatus = 'IDLE';
@@ -25,7 +17,7 @@ export class DigitWheelState {
   emit() { for (const listener of this.listeners) { try { listener(this); } catch(error) { console.error('Digit wheel presentation error',error); } } }
   setAccount(accountId) {
     if (this.accountId === accountId) return;
-    this.accountId = accountId; clearTimeout(this.timer); this.timer = null;
+    this.accountId = accountId; this.contracts.clear(); clearTimeout(this.timer); this.timer = null;
     this.attempts.clear(); this.highWater = -Infinity; this.displayAttemptId = null;
     this.activeContractId = null; this.entryDigit = null; this.resultDigit = null;
     this.entryTickTime = null; this.exitTickTime = null; this.entrySource = null;
@@ -57,17 +49,10 @@ export class DigitWheelState {
       this.entryTickTime = null; this.exitTickTime = null; this.entrySource = null;
     }
     attempt.contractId = id;
-    // Freeze entry once. Settlement data can never rewrite a displayed entry.
-    if (this.entryDigit === null) {
-      const observed=receipt.purchaseTick;
-      const validObserved=Number.isInteger(observed?.digit)&&observed.digit>=0&&observed.digit<=9;
-      const digit=validObserved?observed.digit:contractDigit(receipt.entryTick,this.precisions.get(receipt.symbol));
-      if (digit !== null) {
-        this.entryDigit=digit; this.entryTickTime=validObserved?observed.epoch:receipt.entryTickTime??null;
-        this.entrySource=validObserved?'purchase-time observation':'Deriv entry spot';
-        if(validObserved&&Number.isInteger(observed.pipSize))attempt.precision=observed.pipSize;
-      }
-    }
+    const record=this.contracts.accept(receipt.lifecycle?receipt:{...receipt,precision:this.precisions.get(receipt.symbol)??receipt.purchaseTick?.pipSize});
+    if(!record)return false;
+    this.entryDigit=record.entryDigit;this.entryTickTime=record.entryTickTime;
+    this.entrySource=record.entryDigit===null?null:'Deriv entry tick';
     this.emit(); return true;
   }
   settle(receipt) {
@@ -76,9 +61,10 @@ export class DigitWheelState {
     if (String(receipt.contractId) !== this.activeContractId) return false;
     if (!['won','lost','sold'].includes(receipt.status)) return false;
     // Same outcome convention as existing showContractResult; never use a live tick.
-    this.resultDigit = contractDigit(receipt.exitTick,attempt.precision??this.precisions.get(receipt.symbol));
-    this.exitTickTime = receipt.exitTickTime ?? null;
-    this.contractStatus = receipt.status === 'won' || Number(receipt.profit) > 0 ? 'WON' : 'LOST';
+    const record=this.contracts.accept(receipt.lifecycle?receipt:{...receipt,precision:this.precisions.get(receipt.symbol)??receipt.purchaseTick?.pipSize});
+    this.resultDigit = record.settlementDigit;
+    this.exitTickTime = record.exitTickTime;
+    this.contractStatus = record.result;
     attempt.finished = true; this.expiresAt = this.now() + 2200;
     const id = this.activeContractId;
     clearTimeout(this.timer);
@@ -135,7 +121,7 @@ export function mountDigitWheel(host, model = liveDigitWheel) {
       cell.classList.toggle('is-lost',d===s.resultDigit&&s.contractStatus==='LOST');
       cell.querySelector('small').textContent=(s.stats[d]?.percent??0).toFixed(1)+'%';
       cell.querySelector('.wheel-entry').textContent=d===s.entryDigit?'ENTRY':'';
-      cell.querySelector('.wheel-result').textContent=d===s.resultDigit?(s.contractStatus==='WON'?'💰 WIN':'😞 LOSS'):'';
+      cell.querySelector('.wheel-result').textContent=d===s.resultDigit?(s.contractStatus==='WON'?'💰 WIN':s.contractStatus==='LOST'?'😞 LOSS':'SETTLED'):'';
       if (s.tick!==priorTick) {
         animations.get(cell)?.cancel();
         if(d===s.liveDigit)animate(cell,[{filter:'brightness(1.7)'},{filter:'brightness(1)'}],160);

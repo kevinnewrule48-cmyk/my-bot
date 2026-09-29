@@ -115,7 +115,7 @@ let lastAutoSignalTick = -Infinity;
 let autoMomentumTrades = 0, autoAwaitingReset = false;
 let autoLastError = '';
 const autoContractIds = new Set();
-const storedOrders = () => { try { const value = JSON.parse(localStorage.getItem('derivAccountOrders') || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } };
+const storedOrders = () => { try { const value = JSON.parse(localStorage.getItem('derivAccountOrders') || '[]'); return Array.isArray(value) ? value.map(order=>order.lifecycle?.schema===1?{...order,...order.lifecycle}:{...order,entryDigit:null,settlementDigit:null,result:'UNVERIFIED'}) : []; } catch { return []; } };
 let accountOrderHistory = storedOrders();
 const displayedContractIds = new Set(accountOrderHistory.map(order=>String(order.contractId)));
 let lastSettledOrder = accountOrderHistory.at(-1) ?? null;
@@ -169,10 +169,6 @@ const showSelectedBalance = () => {
   $('accountBalance').className = `accountBalance ${account.accountType === 'demo' ? 'positive' : ''}`;
 };
 const logger = (html) => { const e = document.createElement('div'); e.className = 'entry'; e.innerHTML = html; const blank = $('.log').querySelector('.empty'); if(blank) blank.remove(); $('.log').prepend(e); };
-const tickDigit = (tick) => {
-  const match = String(tick ?? '').match(/(\d)\D*$/);
-  return match ? match[1] : '—';
-};
 const saveAccountOrderHistory = () => {
   try { localStorage.setItem('derivAccountOrders', JSON.stringify(accountOrderHistory.slice(-250))); }
   catch (error) { auditStage('history-storage-error', { message:error.message, note:'Result remains in memory; server execution journal is unchanged.' }); }
@@ -188,7 +184,7 @@ const renderContractPayoutHistory = () => {
     const stake = Number(order.buyPrice ?? order.stake ?? 0);
     const payout = Number(order.payout ?? 0);
     const profit = Number(order.profit ?? 0);
-    return `<article class="contractPayoutRow ${won ? 'contractWon' : 'contractLost'}"><div><b>${order.label ?? 'CONTRACT'} · ${won ? 'WON' : 'LOST'}</b><small>Entry ${order.entryDigit ?? '—'} → settlement ${order.exitDigit ?? '—'} · ${order.source ?? 'Account order'}</small></div><div><span>Contract amount</span><strong>${money(stake)}</strong></div><div><span>Deriv payout</span><strong>${money(payout)}</strong></div><div><span>Profit / loss</span><strong class="${profit >= 0 ? 'positive' : 'negative'}">${profit >= 0 ? '+' : ''}${money(profit)}</strong></div></article>`;
+    return `<article class="contractPayoutRow ${won ? 'contractWon' : 'contractLost'}"><div><b>${order.label ?? 'CONTRACT'} · ${order.result??'UNVERIFIED'}</b><small>Entry ${order.entryDigit ?? '—'} → settlement ${order.settlementDigit ?? '—'} · ${order.source ?? 'Account order'}</small></div><div><span>Contract amount</span><strong>${money(stake)}</strong></div><div><span>Deriv payout</span><strong>${money(payout)}</strong></div><div><span>Profit / loss</span><strong class="${profit >= 0 ? 'positive' : 'negative'}">${profit >= 0 ? '+' : ''}${money(profit)}</strong></div></article>`;
   }).join('');
 };
 const updateActualPerformance = () => {
@@ -219,40 +215,53 @@ const renderLastSettledOrder = (order) => {
   if (!order) return;
   const settled = order.state === 'settled' || order.exitTick !== undefined && order.exitTick !== null;
   const won = order.won === true;
-  $('actualEntryTick').textContent = order.entryDigit ?? tickDigit(order.entryTick);
+  $('actualEntryTick').textContent = order.entryDigit ?? '—';
   $('actualEntryDigit').textContent = `Entry price: ${order.entryTick ?? '—'}`;
-  $('actualExitTick').textContent = settled ? (order.exitDigit ?? tickDigit(order.exitTick)) : '—';
+  $('actualExitTick').textContent = settled ? (order.settlementDigit ?? '—') : '—';
   $('actualExitDigit').textContent = `Settlement price: ${settled ? order.exitTick : 'waiting for the next tick'}`;
-  $('actualOrderOutcome').textContent = settled ? (won ? 'WON' : 'LOST') : 'ORDER ENTERED';
+  $('actualOrderOutcome').textContent = settled ? (order.result ?? 'UNVERIFIED') : 'ORDER ENTERED';
   $('actualOrderOutcome').className = settled ? (won ? 'positive' : 'negative') : '';
   $('actualOrderSide').textContent = settled ? `${order.label ?? 'ORDER'} · ${order.source ?? 'Account order'}` : `${order.label ?? 'ORDER'} · waiting for settlement`;
 };
 const showOrderEntry = (type, result, source) => {
-  liveDigitWheel.confirm(result);
+  if(result.lifecycle?.accountId&&result.lifecycle.accountId!==selectedAccount()?.accountId)return;
+  if(!liveDigitWheel.confirm(result))return;
+  const record=liveDigitWheel.contracts.contracts.get(String(result.contractId));
+  if(!record||record.state==='settled')return;
   const label = type==='DIGITDIFF'?`DIFFER ${result.barrier}`:type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
-  lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), entryTick:result.entryTick, state:'entered', label, source, time:Date.now() };
-  $('entryExecutionStatus').textContent = `ORDER ENTERED · ${label} · ${source} · entry number ${tickDigit(result.entryTick)} · waiting for the next tick to settle · contract ${result.contractId}`;
+  lastSettledOrder = { ...record, lifecycle:record, label, source, time:Date.now() };
+  $('entryExecutionStatus').textContent = `ORDER ENTERED · ${label} · ${source} · entry number ${record.entryDigit??'pending from Deriv'} · waiting for settlement · contract ${record.contractId}`;
   $('entryExecutionStatus').className = 'entryExecutionStatus';
   clearTimeout(digitFlashTimer); digitFlash = { entryDigit:lastSettledOrder.entryDigit }; digitFlashTimer = setTimeout(() => { digitFlash = null; update(); }, 800);
   renderLastSettledOrder(lastSettledOrder); update();
 };
 const showContractResult = (type, result, source) => {
+  if(result.lifecycle?.accountId&&result.lifecycle.accountId!==selectedAccount()?.accountId)return;
   liveDigitWheel.settle(result);
+  const record=liveDigitWheel.contracts.accept(result);
+  if(!record||record.state!=='settled')return;
+  const alreadyReported=displayedContractIds.has(String(result.contractId));
   displayedContractIds.add(String(result.contractId));
   if(displayedContractIds.size>1000)displayedContractIds.delete(displayedContractIds.values().next().value);
   auditStage('order-result',{...(orderDecisionIds.get(result.contractId)||{decisionId:null}),contractId:result.contractId,type,source,
     status:result.status,entryTick:result.entryTick,exitTick:result.exitTick,profit:result.profit,payout:result.payout,buyPrice:result.buyPrice});
   const label = type==='DIGITDIFF'?`DIFFER ${result.barrier}`:type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
-  const won = result.status === 'won' || Number(result.profit) > 0;
-  const outcome = won ? 'WON' : 'LOST';
-  $('entryExecutionStatus').textContent = `ORDER PLACED · ${outcome} · ${label} · ${source} · executed on ${result.entryTick} (digit ${tickDigit(result.entryTick)}) · settled on ${result.exitTick} (digit ${tickDigit(result.exitTick)}) · contract ${result.contractId}`;
+  const won = record.result==='WON';
+  const outcome = record.result;
+  const completedOrder={...record,lifecycle:record,won,buyPrice:Number(result.buyPrice||0),payout:Number(result.payout||0),profit:Number(result.profit||0),label,source,time:Date.now()};
+  const current=liveDigitWheel.activeContractId===record.contractId||!liveDigitWheel.activeContractId&&(!lastSettledOrder||String(lastSettledOrder.contractId)===record.contractId);
+  if(current){
+  $('entryExecutionStatus').textContent = `ORDER PLACED · ${outcome} · ${label} · ${source} · entry ${record.entryDigit??'unavailable'} · settlement ${record.settlementDigit??'unavailable'} · contract ${record.contractId}`;
   $('entryExecutionStatus').className = `entryExecutionStatus ${won ? 'positive' : 'negative'}`;
-  lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), exitDigit:tickDigit(result.exitTick), won, entryTick:result.entryTick, exitTick:result.exitTick, buyPrice:Number(result.buyPrice || 0), payout:Number(result.payout || 0), profit:Number(result.profit || 0), state:'settled', label, source, time:Date.now() };
-  clearTimeout(digitFlashTimer); digitFlash = { exitDigit:lastSettledOrder.exitDigit, won }; digitFlashTimer = setTimeout(() => { digitFlash = null; update(); }, 800);
-  if (!accountOrderHistory.some((order) => order.contractId && order.contractId === lastSettledOrder.contractId)) accountOrderHistory.push(lastSettledOrder);
-  saveAccountOrderHistory(); renderLastSettledOrder(lastSettledOrder); updateActualPerformance();
+  lastSettledOrder = completedOrder;
+  clearTimeout(digitFlashTimer); digitFlash = { exitDigit:record.settlementDigit, won }; digitFlashTimer = setTimeout(() => { digitFlash = null; update(); }, 800);
+  renderLastSettledOrder(lastSettledOrder);
+  }
+  const storedIndex=accountOrderHistory.findIndex(order=>String(order.contractId)===record.contractId);
+  if(storedIndex<0)accountOrderHistory.push(completedOrder);else accountOrderHistory[storedIndex]=completedOrder;
+  saveAccountOrderHistory(); updateActualPerformance();
   manualOrderPending = false;
-  if (source === 'Auto bot'&&result.strategy!=='DIFFER') handleAutoSettlement(result, won);
+  if (!alreadyReported&&source === 'Auto bot'&&result.strategy!=='DIFFER') handleAutoSettlement(result, won);
   if (botMode === 'manual') updateDemoArmState();
   update();
   loadAccounts({ preserveSelection:true, refreshOnly:true });
@@ -701,7 +710,8 @@ const loadRecentOrder = async (reconcile=false) => {
       const source=order.strategy==='DIFFER'?'DIFFER Auto':order.mode==='auto'||autoContractIds.has(order.contractId)?'Auto bot':'Manual bot';
       if(order.state==='settled'){
         autoContractIds.delete(order.contractId);manualOrderPending=false;
-        if(!displayedContractIds.has(String(order.contractId)))showContractResult(order.type,order,source);
+        const saved=accountOrderHistory.find(r=>String(r.contractId)===String(order.contractId));
+        if(!displayedContractIds.has(String(order.contractId))||order.lifecycle&&(saved?.entryDigit!==order.lifecycle.entryDigit||saved?.settlementDigit!==order.lifecycle.settlementDigit))showContractResult(order.type,order,source);
       }else if(order.state==='rejected'||order.state==='failed'){
         auditStage('execution-terminal-error',{attemptId:order.attemptId,contractId:order.contractId,error:order.error});
         // Only explicit server rejection proves no purchase. A legacy failed receipt is unresolved.
@@ -709,7 +719,7 @@ const loadRecentOrder = async (reconcile=false) => {
         else executionView={...executionView,blocking:true,state:'RECONCILIATION_REQUIRED'};
         $('demoOrderStatus').textContent=order.state==='rejected'?`Order rejected: ${order.error}`:`Outcome unresolved: ${order.error}. Recheck execution; do not submit a replacement.`;
       }else if(order.contractId){
-        if(lastSettledOrder?.contractId!==order.contractId||lastSettledOrder?.entryTick!==order.entryTick)showOrderEntry(order.type,order,source);
+        if(String(lastSettledOrder?.contractId)!==String(order.contractId)||lastSettledOrder?.entryTick!==order.entryTick)showOrderEntry(order.type,order,source);
       }
     }
     updateDemoArmState();updateAutoState();
@@ -778,7 +788,7 @@ const executeOrder = async (type) => {
     const result = await response.json();
     if (!response.ok) throw Object.assign(new Error(result.error || 'The order was not accepted.'),{riskCode:result.riskCode});
     acceptedOrderAudit(trace,result);
-    $('demoOrderStatus').textContent = `ORDER ENTERED on digit ${tickDigit(result.entryTick)}. Waiting for the next tick to settle. Contract ${result.contractId}.`;
+    $('demoOrderStatus').textContent = `ORDER ENTERED on digit ${result.lifecycle?.entryDigit??'pending from Deriv'}. Waiting for the next tick to settle. Contract ${result.contractId}.`;
     showOrderEntry(type, result, 'Manual bot'); trackRecentOrder();
   } catch (error) { auditStage('execution-error',{...trace,reason:error.message,riskCode:error.riskCode??null,proposalValidation:error.riskCode?'blocked by server risk before proposal/order':'not reported; failure stage unknown'}); manualOrderPending = false; $('demoOrderStatus').textContent = `${error.riskCode?'New request blocked':'Request failed; order outcome may need verification'}: ${error.message}`;trackRecentOrder();updateDemoArmState(); }
   finally{manualHttpPending=false;}
@@ -811,7 +821,7 @@ const maybeAutoOrder = async (signal) => {
     autoMomentumTrades += 1;
     autoContractIds.add(result.contractId);
     autoAwaitingReset = momentumResetEnabled();
-    $('autoStatus').textContent = `ORDER ENTERED on digit ${tickDigit(result.entryTick)}. Waiting for the next tick to settle. Auto bot will pause for ${selectedAutoCooldown()} ticks after this order.`;
+    $('autoStatus').textContent = `ORDER ENTERED on digit ${result.lifecycle?.entryDigit??'pending from Deriv'}. Waiting for the next tick to settle. Auto bot will pause for ${selectedAutoCooldown()} ticks after this order.`;
     showOrderEntry(signal.type, result, 'Auto bot'); trackRecentOrder();
     updateCooldownMonitor();
   } catch (error) {

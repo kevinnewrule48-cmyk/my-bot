@@ -1,4 +1,6 @@
 // Independent tick-driven analysis; never rounds a percentage into qualification.
+export const DIFFER_MAX_PERCENT=6;
+export const qualifiesDifferFrequency=(count,sample)=>Number.isSafeInteger(count)&&Number.isSafeInteger(sample)&&count>0&&sample>0&&count<=sample&&count*100<=sample*DIFFER_MAX_PERCENT;
 export class DifferEngine {
   constructor(){this.armed=false;this.context=null;this.sequence=-1;this.candidate=null;this.signal=null;this.status='DISARMED';this.executionLock=false;this.contractId=null;this.settlement=null;this.cooldown=0;this.logs=[];this.attemptId=null;}
   record(status,detail={}){this.status=status;this.logs.push({status,sequence:this.sequence,...detail});if(this.logs.length>250)this.logs.shift();}
@@ -25,7 +27,7 @@ export class DifferEngine {
       this.record('DIFFER ENTRY',this.signal);return this.signal;
     }
     const n=history.length,count=history.filter(t=>t.digit===digit).length;
-    if(n>0&&count*100===n){this.record('1.0% DETECTED',{digit,count,sample:n});this.candidate={digit,sequence,count,sample:n};this.record('WAITING FOR JUMP',{digit});}
+    if(qualifiesDifferFrequency(count,n)){this.record('6% OR BELOW DETECTED',{digit,count,sample:n});this.candidate={digit,sequence,count,sample:n};this.record('WAITING FOR JUMP',{digit});}
     else this.record('WATCHING',{digit,count,sample:n});
     return null;
   }

@@ -9,6 +9,8 @@ import {PartOneExecution} from './part-one-execution.mjs';
 import {strategyForType} from './public/strategy-proposal.js';
 import {qualifiesDifferFrequency} from './public/differ-engine.js';
 import {resetExecution,purchasePermission} from './execution-permission.mjs';
+import {TradabilityAuthority} from './part-one-tradability.mjs';
+const tradability=new TradabilityAuthority({log:event=>console.log(JSON.stringify(event))});
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const demoRisk = new DemoRiskLedger({file:process.env.PART_ONE_RISK_PATH||path.join(root,'work','part-one-demo-risk.json')});
@@ -41,8 +43,8 @@ const connectExecution=async({token,accountId,accountType})=>{
   await new Promise((resolve,reject)=>{const cleanup=()=>{clearTimeout(timer);ws.removeEventListener('open',opened);ws.removeEventListener('error',failed);ws.removeEventListener('close',failed);};const opened=()=>{cleanup();resolve();};const failed=()=>{cleanup();reject(Error('Trading socket connection failed'));};const timer=setTimeout(()=>{cleanup();ws.close();reject(Error('Trading socket connection timeout'));},10000);ws.addEventListener('open',opened);ws.addEventListener('error',failed);ws.addEventListener('close',failed);});return ws;
 };
 const execution=new PartOneExecution({connect:connectExecution,file:process.env.PART_ONE_EXECUTION_PATH||path.join(root,'work','part-one-execution.json'),
-  onDisconnect:id=>{for(const session of sessions.values())if(session.autoControl?.accountId===id||session.manualIntent?.accountId===id)resetExecution(session);},
-  onTick:(id,tick)=>demoRisk.tick(id,tick),
+  onDisconnect:id=>{tradability.disconnect(id);for(const session of sessions.values())if(session.autoControl?.accountId===id||session.manualIntent?.accountId===id)resetExecution(session);},
+  onTick:(id,tick)=>{demoRisk.tick(id,tick);tradability.tick(id,tick);},
   onSettled:(id,attempt,result)=>{const pending=demoRisk.status(id).pending;if(pending?.attemptId===attempt.attemptId)demoRisk.settle(id,pending.id,result);},
   onRejected:(id,attempt)=>{const pending=demoRisk.status(id).pending;if(pending?.attemptId===attempt.attemptId)demoRisk.rejected(id,pending.id,{orderNotSubmitted:true});},
   log:event=>console.log(JSON.stringify({component:'part-one-execution',...event}))});
@@ -58,6 +60,28 @@ const partTwoOrders = createPartTwoOrders({file:process.env.PART_TWO_LEDGER_PATH
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if(await partTwoOrders(req,res,url))return;
+  if(url.pathname==='/api/tradability/status'&&req.method==='GET'){
+    const session=getSession(req);if(!session)return json(res,401,{error:'Connect account first'});const c=session.tradabilityControl;
+    return json(res,200,tradability.status(session,c?.accountId,c?.symbol));
+  }
+  if(url.pathname==='/api/tradability/control'&&req.method==='POST'){
+    const session=getSession(req);if(!session)return json(res,401,{error:'Connect account first'});
+    let operation;
+    try{const c=await readJson(req);if(!session.executionPageId||c.pageId!==session.executionPageId)throw Error('Stale page');
+      if(!['monitor','auto-block'].includes(c.mode)||!['R_10','R_25','R_50','R_75','R_100'].includes(c.symbol)||!['demo','real'].includes(c.accountType)||!Number.isSafeInteger(c.revision)||c.revision<=(session.tradabilityRevision??-1))throw Error('Invalid or superseded tradability control');
+      operation=c.revision;session.tradabilityRevision=operation;session.tradabilityPending=true;
+      if(c.mode==='monitor'){tradability.configure(session,c);session.tradabilityPending=false;return json(res,200,tradability.status(session,c.accountId,c.symbol));}
+      const response=await deriv('/trading/v1/options/accounts',session.accessToken,{signal:AbortSignal.timeout(10000)});if(!response.ok)throw Error('Account verification failed');
+      const account=((await response.json())?.data??[]).find(a=>a.account_id===c.accountId&&a.account_type===c.accountType&&a.status==='active');if(!account)throw Error('Selected account unavailable');
+      if(c.pageId!==session.executionPageId||session.tradabilityRevision!==operation)throw Error('Superseded tradability control');
+      if(c.mode==='auto-block'&&c.live!==true)throw Error('Explicitly start the live feed first');
+      tradability.configure(session,c);
+      if(c.mode==='auto-block'){const ch=await execution.channel({accountId:c.accountId,accountType:c.accountType,token:session.accessToken});if(c.pageId!==session.executionPageId||session.tradabilityRevision!==operation)throw Error('Session changed');execution.ticks(c.accountId,ch,c.symbol);}
+      if(session.tradabilityRevision===operation)session.tradabilityPending=false;
+      return json(res,200,tradability.status(session,c.accountId,c.symbol,c.mode));
+    }catch(error){return json(res,409,{error:error.message});}
+    // Failed configuration stays fail-closed until a successful fresh configuration.
+  }
   if(url.pathname==='/api/execution/reset'&&req.method==='POST'){
     const session=getSession(req);if(session)resetExecution(session);
     return json(res,200,{stopped:true,pageId:session?.executionPageId??null});
@@ -114,12 +138,16 @@ const server = http.createServer(async (req, res) => {
     const session = getSession(req);
     if (!session) return json(res, 401, { error:'Connect your Deriv demo account first.' });
     try {
-      const { armed, type, barrier, runId, executionSessionId, signalAt, gatePassed, symbol, stake, accountId, accountType, realConfirmed,mode='manual',riskLimits,attemptId:clientAttemptId,decisionId,strategyEvidence } = await readJson(req);
+      const { armed, type, barrier, runId, executionSessionId, signalAt, gatePassed, tradabilityMode='monitor',symbol, stake, accountId, accountType, realConfirmed,mode='manual',riskLimits,attemptId:clientAttemptId,decisionId,strategyEvidence } = await readJson(req);
       const strategy=strategyForType(type);
       const requiredChecks=['Barrier','Momentum','Zone','Stability','Score','Persistence','Confidence','Quality'];
       const verifiedGate=gatePassed===true&&(type==='DIGITDIFF'||(strategyEvidence?.selected===(type==='DIGITOVER'?'OVER':'UNDER')&&requiredChecks.every(name=>strategyEvidence?.checks?.some(c=>c.name===name&&c.pass===true))));
-      const authorizePurchase=purchasePermission(session,{mode,executionSessionId,attemptId:clientAttemptId,accountId,type,strategy,decisionId,signalAt,gatePassed:verifiedGate});
-      if(!authorizePurchase()){console.warn(JSON.stringify({stage:'PURCHASE BLOCKED',reason:'No fresh current-session execution permission',botState:session.autoControl?.running??false,autoTrading:mode==='auto',live:session.autoControl?.live??false,signalId:decisionId??null,proposalId:null,executionSessionId:executionSessionId??null,timestamp:Date.now()}));return json(res,403,{error:'PURCHASE BLOCKED: Start a new Auto session or explicitly click a manual order.'});}
+      const permission=purchasePermission(session,{mode,executionSessionId,attemptId:clientAttemptId,accountId,type,strategy,decisionId,signalAt,gatePassed:verifiedGate});
+      const gate=()=>tradability.status(session,accountId,symbol,tradabilityMode);
+      const authorizePurchase=()=>permission()&&gate().allowed;
+      authorizePurchase.snapshot=()=>({...permission.snapshot(),tradability:gate()});
+      if(!gate().allowed){const status=gate();console.warn(JSON.stringify({stage:'TRADABILITY BLOCKED',timestamp:Date.now(),signalId:decisionId,executionSessionId,...status}));return json(res,409,{error:status.reason,riskCode:'TRADABILITY_BLOCKED'});}
+      if(!authorizePurchase()){const reason=permission.failureReason();console.warn(JSON.stringify({stage:'PURCHASE BLOCKED',reason,...permission.snapshot(),timestamp:Date.now()}));return json(res,403,{error:'PURCHASE BLOCKED: '+reason,executionCode:'PURCHASE_BLOCKED'});}
       const attemptId=clientAttemptId||crypto.randomUUID();
       if(!/^[A-Za-z0-9_-]{8,100}$/.test(attemptId))return json(res,400,{error:'Invalid attempt ID'});
       if(!['manual','auto'].includes(mode))return json(res,400,{error:'Invalid execution mode.'});

@@ -2,6 +2,47 @@ import {DigitBarrierEngine,extractLastDigit,proposalRequest} from './digit-barri
 import {liveDigitWheel} from './live-digit-wheel.js';
 import {heatMap} from './premium-model.js';
 import {diagnoseSnapshot} from './part-one-diagnostics.js';
+import {DifferEngine} from './differ-engine.js';
+const overUnderEngineState={armed:true,status:'ANALYZING'};
+let differEngineState=new DifferEngine();
+let parallelRunId='',parallelRevision=Date.now(),parallelAutoReady=false;
+const syncParallelControl=async()=>{
+  parallelAutoReady=false;const runId=crypto.randomUUID();parallelRunId=runId;
+  try{
+    const response=await fetch('/api/auto/control',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({runId,revision:++parallelRevision,running:autoEnabled&&botMode==='auto',overUnder:overUnderEngineState.armed,differ:differEngineState.armed})});
+    if(!response.ok)throw Error('Auto control was not acknowledged');
+    if(parallelRunId===runId)parallelAutoReady=true;
+  }catch(error){if(parallelRunId===runId){parallelAutoReady=false;autoLastError=error.message;} }
+  renderParallel();
+};
+const renderParallel=()=>{
+  if(!$('differStatus'))return;
+  $('ouArm').textContent=overUnderEngineState.armed?'OVER/UNDER · ARMED':'OVER/UNDER · DISARMED';
+  $('differArm').textContent=differEngineState.armed?'DIFFER · ARMED':'DIFFER · DISARMED';
+  $('parallelMasterStatus').textContent=!autoEnabled?'AUTOBOT OFF':!parallelAutoReady?'WAITING FOR SERVER AUTHORIZATION':'AUTOBOT ON';
+  $('ouEngineStatus').textContent=!overUnderEngineState.armed?'DISARMED':!autoEnabled?'AUTOBOT OFF':autoInFlight||autoContractIds.size?'CONTRACT OPEN':differEngineState.executionLock||executionBlocked()?'ANALYZING · ACCOUNT PURCHASE LOCK':autoAwaitingReset?'WAITING FOR MOMENTUM RESET':barrierSnapshot?.selected?'READY':'ANALYZING';
+  $('differStatus').textContent=`${differEngineState.status}${differEngineState.candidate?' · digit '+differEngineState.candidate.digit:''}${differEngineState.cooldown?' · '+differEngineState.cooldown+' ticks':''}`;
+};
+const maybeDifferOrder=async(signal)=>{
+  if(!signal)return;
+  const engine=differEngineState;
+  const account=selectedAccount(),stake=Number($('stake').value);
+  if(!parallelAutoReady||!autoEnabled||botMode!=='auto'||!engine.armed||!demoConnected||account?.accountType!=='demo'){engine.record('NOT AUTHORIZED');renderParallel();return;}
+  if(executionBlocked()||autoInFlight||manualHttpPending||manualOrderPending||autoContractIds.size||engine.executionLock){engine.record('ACCOUNT BUSY · signal expired; no delayed purchase');renderParallel();return;}
+  if(!Number.isFinite(stake)||stake<=0||stake>Number($('maxStake').value)){engine.record('INVALID STAKE');renderParallel();return;}
+  const attemptId=crypto.randomUUID();engine.pending(attemptId);liveDigitWheel.register(attemptId);
+  try{
+    const response=await fetch('/api/order',{method:'POST',headers:{'content-type':'application/json'},signal:globalThis.AbortSignal?.timeout?.(45000),body:JSON.stringify({attemptId,runId:parallelRunId,armed:true,mode:'auto',type:'DIGITDIFF',barrier:signal.barrier,symbol:$('symbol').value,stake,accountId:account.accountId,accountType:'demo',riskLimits:demoRiskLimits(),strategyEvidence:{...signal,jumpDigit:ticks.at(-1)?.digit}})});
+    const result=await response.json();
+    if(!response.ok){
+      // Explicit pre-purchase rejections are safe; transport failures remain locked for reconciliation.
+      if(response.status===400||response.status===403||result.riskCode||['INVALID_PROPOSAL','AUTO_STOPPED','EXECUTION_BUSY'].includes(result.executionCode))engine.executionLock=false;
+      throw Error(result.error||'DIFFER request failed');
+    }
+    engine.observe(result);if(selectedAccount()?.accountId!==account.accountId)return;showOrderEntry('DIGITDIFF',result,'DIFFER Auto');
+  }catch(error){engine.record((engine.executionLock?'RECONCILIATION REQUIRED · ':'BLOCKED · ')+error.message);}
+  finally{trackRecentOrder();renderParallel();}
+};
 const $ = (id) => document.getElementById(id);
 const demoRiskLimits=()=>({maxStake:Number($('maxStake').value),maxSessionLoss:Number($('dailyLoss').value),maxTrades:Number($('maxTrades').value),maxConsecutiveLosses:Number($('maxConsecutiveLosses').value),cooldownTicks:Number($('autoCooldownTicks').value)});
 const barrierEngine = new DigitBarrierEngine();
@@ -188,7 +229,7 @@ const renderLastSettledOrder = (order) => {
 };
 const showOrderEntry = (type, result, source) => {
   liveDigitWheel.confirm(result);
-  const label = type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
+  const label = type==='DIGITDIFF'?`DIFFER ${result.barrier}`:type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
   lastSettledOrder = { contractId:result.contractId, entryDigit:tickDigit(result.entryTick), entryTick:result.entryTick, state:'entered', label, source, time:Date.now() };
   $('entryExecutionStatus').textContent = `ORDER ENTERED · ${label} · ${source} · entry number ${tickDigit(result.entryTick)} · waiting for the next tick to settle · contract ${result.contractId}`;
   $('entryExecutionStatus').className = 'entryExecutionStatus';
@@ -201,7 +242,7 @@ const showContractResult = (type, result, source) => {
   if(displayedContractIds.size>1000)displayedContractIds.delete(displayedContractIds.values().next().value);
   auditStage('order-result',{...(orderDecisionIds.get(result.contractId)||{decisionId:null}),contractId:result.contractId,type,source,
     status:result.status,entryTick:result.entryTick,exitTick:result.exitTick,profit:result.profit,payout:result.payout,buyPrice:result.buyPrice});
-  const label = type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
+  const label = type==='DIGITDIFF'?`DIFFER ${result.barrier}`:type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
   const won = result.status === 'won' || Number(result.profit) > 0;
   const outcome = won ? 'WON' : 'LOST';
   $('entryExecutionStatus').textContent = `ORDER PLACED · ${outcome} · ${label} · ${source} · executed on ${result.entryTick} (digit ${tickDigit(result.entryTick)}) · settled on ${result.exitTick} (digit ${tickDigit(result.exitTick)}) · contract ${result.contractId}`;
@@ -211,7 +252,7 @@ const showContractResult = (type, result, source) => {
   if (!accountOrderHistory.some((order) => order.contractId && order.contractId === lastSettledOrder.contractId)) accountOrderHistory.push(lastSettledOrder);
   saveAccountOrderHistory(); renderLastSettledOrder(lastSettledOrder); updateActualPerformance();
   manualOrderPending = false;
-  if (source === 'Auto bot') handleAutoSettlement(result, won);
+  if (source === 'Auto bot'&&result.strategy!=='DIFFER') handleAutoSettlement(result, won);
   if (botMode === 'manual') updateDemoArmState();
   update();
   loadAccounts({ preserveSelection:true, refreshOnly:true });
@@ -466,7 +507,13 @@ const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
     strengthSample = { context, signal:current, changes:sampleRateChanges(previous, current) };
     if (!distributionDigits.length) distributionDigits = [tick];
     if (!distributionTimer) distributionTimer = setTimeout(() => { distributionDigits = ticks.slice(); distributionTimer = undefined; update(); }, 5000);
-    settleSignals(); update(); saveMarketTicks($('symbol').value.trim()); updateCooldownMonitor();
+    const differSignal=differEngineState.tick(ticks.slice(-(Number($('window').value)||200)),{context:strengthContext()+':'+selectedAccount()?.accountId,sequence:liveTickNumber,running:autoEnabled&&botMode==='auto',cooldownTicks:selectedAutoCooldown()});
+    // Both analyses see the same tick; neither awaits the other engine's network work.
+    // Alternate dispatch precedence on simultaneous signals; the account safety lock remains authoritative.
+    if(liveTickNumber%2===0)void maybeDifferOrder(differSignal);
+    settleSignals(); update();
+    if(liveTickNumber%2!==0)void maybeDifferOrder(differSignal);
+    renderParallel();saveMarketTicks($('symbol').value.trim()); updateCooldownMonitor();
   }
 };
 const refreshPricing = () => {
@@ -642,11 +689,16 @@ const loadRecentOrder = async (reconcile=false) => {
     if(!response.ok)throw Error(result.error||'Execution status could not be retrieved');
     if(selectedAccount()?.accountId!==account.accountId)return;
     executionTransportError='';
-    if(result.execution){executionView=result.execution;autoContractIds.clear();if(executionView.blocking&&executionView.last?.request.mode==='auto'&&executionView.last.contractId)autoContractIds.add(executionView.last.contractId);manualOrderPending=executionView.blocking||manualHttpPending;}
+    if(result.execution){executionView=result.execution;autoContractIds.clear();if(executionView.blocking&&executionView.last?.request.mode==='auto'&&executionView.last.request.strategy!=='DIFFER'&&executionView.last.contractId)autoContractIds.add(executionView.last.contractId);manualOrderPending=executionView.blocking||manualHttpPending;}
     liveDigitWheel.observeExecution(result.execution);
     const order=result.order;
+    if(order?.strategy==='DIFFER'){
+      if(!differEngineState.attemptId){differEngineState.pending(order.attemptId);differEngineState.pendingCooldown=Number($('autoCooldownTicks').value)||5;}
+      differEngineState.observe(order);
+    }
+    renderParallel();
     if(order){
-      const source=order.mode==='auto'||autoContractIds.has(order.contractId)?'Auto bot':'Manual bot';
+      const source=order.strategy==='DIFFER'?'DIFFER Auto':order.mode==='auto'||autoContractIds.has(order.contractId)?'Auto bot':'Manual bot';
       if(order.state==='settled'){
         autoContractIds.delete(order.contractId);manualOrderPending=false;
         if(!displayedContractIds.has(String(order.contractId)))showContractResult(order.type,order,source);
@@ -703,7 +755,7 @@ updateDemoArmState = () => {
   if(executionBlocked())$('demoOrderStatus').textContent=`Execution: ${executionView.state.replaceAll('_',' ')}. ${executionView.last?.error?.message??executionView.errorSummary??'Monitoring the accepted request.'}`;
 };
 const executeOrder = async (type) => {
-  if(manualOrderPending||manualHttpPending||executionBlocked()){trackRecentOrder();return;}
+  if(manualOrderPending||manualHttpPending||executionBlocked()||differEngineState.executionLock){trackRecentOrder();return;}
   auditStage('manual-attempt',{type,risk:diagnosticRisk(),note:'Manual path uses existing guards, not automatic READY gate'});
   const digitGate = digitPercentageGate(type === 'DIGITOVER' ? 'OVER' : 'UNDER');
   if (!digitGate.allowed) { $('demoOrderStatus').textContent = `NO ORDER · ${digitGate.note}`; return; }
@@ -732,6 +784,8 @@ const executeOrder = async (type) => {
   finally{manualHttpPending=false;}
 };
 const maybeAutoOrder = async (signal) => {
+  if(!overUnderEngineState.armed||!parallelAutoReady)return;
+  if(differEngineState.executionLock){if(overUnderEngineState.blockedSequence!==liveTickNumber){overUnderEngineState.blockedSequence=liveTickNumber;auditStage('account-purchase-lock',{strategy:'OVER_UNDER',reason:'DIFFER execution unresolved; analysis continues, no delayed purchase'});}return;}
   if(analyzeBoth().selected?.type!==signal.type)return;
   auditStage('risk-manager',{type:signal.type,connected:demoConnected,mode:botMode,armed:autoEnabled,pending:autoInFlight||autoContractIds.size>0,reset:autoAwaitingReset,cooldown:Math.max(0,selectedAutoCooldown()-(liveTickNumber-lastAutoSignalTick))});
   if (digitStability(ticks).unstable) return;
@@ -749,7 +803,7 @@ const maybeAutoOrder = async (signal) => {
   autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
   const trace=beginOrderAudit(signal.type==='OVER'?'DIGITOVER':'DIGITUNDER','auto',stake);
   try {
-    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
+    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),runId:parallelRunId,mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
     const result = await response.json();
     if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode});
     acceptedOrderAudit(trace,result);
@@ -833,4 +887,13 @@ if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mount
     minimum:Number($('minimum').value), persistence:Number($('barrierPersistence').value),
     stake:Number($('stake').value)}));
 }).catch(error => console.error('Dashboard presentation could not load',error));
+// The main Start/Stop remains the only AutoBot switch. Arm switches do not start it.
+for(const id of ['startAuto','stopAuto','manualMode']){
+  const previous=$(id).onclick;
+  $(id).onclick=(event)=>{parallelAutoReady=false;previous?.(event);differEngineState.candidate=null;differEngineState.signal=null;if(id==='startAuto'&&!isRunning)startLive();void syncParallelControl();};
+}
+$('ouArm').onclick=()=>{overUnderEngineState.armed=!overUnderEngineState.armed;$('ouArm').setAttribute('aria-pressed',String(overUnderEngineState.armed));void syncParallelControl();renderParallel();};
+$('differArm').onclick=()=>{differEngineState.arm(!differEngineState.armed);$('differArm').setAttribute('aria-pressed',String(differEngineState.armed));void syncParallelControl();renderParallel();};
+$('accountSelector').addEventListener('change',()=>{autoEnabled=false;const armed=differEngineState.armed;differEngineState=new DifferEngine();differEngineState.arm(armed);void syncParallelControl();});
+renderParallel();
 loadAuthStatus();

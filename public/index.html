@@ -39,6 +39,15 @@
         <h2>Terminal-digit distribution</h2><p id="priceDigitCursor" class="priceDigitCursor">Live market price: waiting for price</p><div id="digits" class="digits"></div><p class="hint">The highlighted number is the final decimal digit of the live market price. Percentages use the same live tick sample as the entry filters.</p>
       </section>
       <section id="autoOrderPanel" class="panel">
+        <div id="parallelStrategies" aria-label="Parallel strategy controls">
+          <h3>Parallel strategies · one AutoBot</h3>
+          <p id="parallelMasterStatus" role="status">AUTOBOT OFF</p>
+          <button id="ouArm" type="button" aria-pressed="true">OVER/UNDER · ARMED</button>
+          <p id="ouEngineStatus" role="status">AUTOBOT OFF</p>
+          <button id="differArm" type="button" aria-pressed="false">DIFFER · DISARMED</button>
+          <p id="differStatus" role="status">DISARMED</p>
+          <small>DIFFER: exact 1.0%, then jump off. Both analyze independently. One unresolved contract per account; blocked signals expire, never execute late.</small>
+        </div>
         <h2>Quick execution</h2>
         <p>In Manual mode, select the same side that appears under Suggested entry. The order request is sent immediately; the contract settles on the next single market tick.</p>
         <div class="executionButtons"><button id="executeOver" disabled>Execute OVER 1</button><button id="executeUnder" disabled>Execute UNDER 8</button></div>

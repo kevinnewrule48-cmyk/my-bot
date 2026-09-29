@@ -100,7 +100,7 @@ const server = http.createServer(async (req, res) => {
       if(!Number.isSafeInteger(c.revision)||typeof c.running!=='boolean'||typeof c.overUnder!=='boolean'||typeof c.differ!=='boolean'||typeof c.runId!=='string')return json(res,400,{error:'Invalid Auto control'});
       if(c.revision<=(session.autoControl?.revision??-1))return json(res,409,{error:'Superseded Auto control'});
       if(c.running&&(!c.accountId||c.live!==true))return json(res,403,{error:'A live, intentionally started session is required'});
-      session.autoControl={...c,startedAt:Date.now()};return json(res,200,{ok:true,runId:c.runId});
+      session.autoControl={...c,startedAt:Date.now()};return json(res,200,{ok:true,runId:c.runId,serverTime:Date.now()});
     }catch{return json(res,400,{error:'Invalid Auto control'});}
   }
   if (url.pathname === '/api/auth/status') {

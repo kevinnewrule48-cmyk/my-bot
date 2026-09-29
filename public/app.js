@@ -27,34 +27,53 @@ const tradabilityState=()=>({engine:tradabilityEngine,markets:tradabilityMarkets
 const overUnderEngineState={armed:true,status:'ANALYZING'};
 let differEngineState=new DifferEngine();
 let parallelRunId='',parallelRevision=Date.now(),parallelAutoReady=false;
+let autoAuthorizationState='AUTO_OFF',autoControlPending=false,autoStatusPending=false;
 let serverClockOffsetMs=0;
 const executionNow=()=>Date.now()+serverClockOffsetMs;
 let executionPageId=null,executionReset=Promise.resolve();
 const revokeExecution=()=>{
   tradabilitySyncKey=null;tradabilityServer=null;
   autoEnabled=false;parallelAutoReady=false;parallelRunId='';
+  autoAuthorizationState='AUTO_OFF';
   differEngineState.candidate=null;differEngineState.signal=null;
   executionPageId=null;
   executionReset=executionReset.then(()=>fetch('/api/execution/reset',{method:'POST',keepalive:true})).then(r=>r.json()).then(r=>{executionPageId=r.pageId;}).catch(()=>{executionPageId=null;});
   return executionReset;
 };
-const syncParallelControl=async()=>{
-  parallelAutoReady=false;const runId=crypto.randomUUID();parallelRunId=runId;
+const syncParallelControl=async(recover=false)=>{
+  parallelAutoReady=false;const runId=recover?parallelRunId:crypto.randomUUID();parallelRunId=runId;
+  autoControlPending=true;autoAuthorizationState=recover?'AUTO_RECOVERING':'AUTO_REQUESTING';
   try{
     await executionReset;if(parallelRunId!==runId)return;
-    const response=await fetch('/api/auto/control',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,runId,revision:++parallelRevision,running:autoEnabled&&botMode==='auto'&&isRunning,live:isRunning&&socket?.readyState===1,accountId:selectedAccount()?.accountId,overUnder:overUnderEngineState.armed,differ:differEngineState.armed})});
-    if(!response.ok)throw Error('Auto control was not acknowledged');
+    const response=await fetch('/api/auto/control',{method:'POST',signal:globalThis.AbortSignal?.timeout?.(15000),headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,runId,recover,revision:++parallelRevision,running:autoEnabled&&botMode==='auto'&&isRunning,live:isRunning&&socket?.readyState===1,accountId:selectedAccount()?.accountId,overUnder:overUnderEngineState.armed,differ:differEngineState.armed})});
     const controlResult=await response.json();
+    if(!response.ok)throw Error(controlResult.error||`Auto acknowledgment failed (${response.status})`);
     if(Number.isFinite(controlResult.serverTime))serverClockOffsetMs=controlResult.serverTime-Date.now();
-    if(parallelRunId===runId)parallelAutoReady=autoEnabled&&isRunning;
-  }catch(error){if(parallelRunId===runId){parallelAutoReady=false;autoLastError=error.message;} }
+    if(parallelRunId===runId){parallelAutoReady=autoEnabled&&isRunning&&controlResult.runId===runId&&controlResult.authorization?.state==='AUTO_AUTHORIZED'&&controlResult.authorization?.pageId===executionPageId;autoAuthorizationState=parallelAutoReady?'AUTO_AUTHORIZED':autoEnabled?'AUTO_ERROR':'AUTO_OFF';autoLastError=parallelAutoReady?'':autoEnabled?'Server did not confirm this Auto session':'';auditStage('auto-acknowledgment',{browserState:autoAuthorizationState,server:controlResult.authorization});}
+  }catch(error){if(parallelRunId===runId){parallelAutoReady=false;autoAuthorizationState='AUTO_ERROR';autoLastError=error.message;auditStage('auto-control-error',{reason:error.message});} }
+  finally{if(parallelRunId===runId)autoControlPending=false;}
   renderParallel();
+};
+const verifyAutoAuthorization=async()=>{
+  if(!autoEnabled||autoControlPending||autoStatusPending||!parallelRunId)return;
+  autoStatusPending=true;const runId=parallelRunId,pageId=executionPageId;
+  try{
+    const response=await fetch('/api/auto/status',{cache:'no-store',signal:globalThis.AbortSignal?.timeout?.(5000)}),result=await response.json();
+    if(runId!==parallelRunId||pageId!==executionPageId||autoControlPending)return;
+    if(!response.ok)throw Error(result.error||'Auto status unavailable');
+    const a=result.authorization;
+    if(a?.runId!==runId||a?.pageId!==pageId||a?.state==='AUTO_OFF'){parallelAutoReady=false;autoEnabled=false;autoAuthorizationState='AUTO_ERROR';autoLastError=`Authorization revoked: ${a?.lastEvent?.event??'session mismatch'} — ${a?.lastEvent?.reason??'Start a fresh Auto session'}`;}
+    else if(a?.state==='AUTO_RECOVERING'){parallelAutoReady=false;autoAuthorizationState='AUTO_RECOVERING';tradabilitySyncKey=null;tradabilityServer=null;auditStage('AUTO AUTH LOST',{server:a,browserState:autoAuthorizationState});await syncParallelControl(true);if(parallelAutoReady)void syncTradability();}
+    else if(a?.state==='AUTO_AUTHORIZED'){parallelAutoReady=isRunning&&botMode==='auto';autoAuthorizationState=parallelAutoReady?'AUTO_AUTHORIZED':'AUTO_OFF';}
+    else throw Error('Unknown server Auto state');
+  }catch(error){if(runId===parallelRunId){parallelAutoReady=false;autoAuthorizationState='AUTO_ERROR';autoLastError=error.message;}}
+  finally{autoStatusPending=false;renderParallel();updateAutoState();}
 };
 const renderParallel=()=>{
   if(!$('differStatus'))return;
   $('ouArm').textContent=overUnderEngineState.armed?'OVER/UNDER · ARMED':'OVER/UNDER · DISARMED';
   $('differArm').textContent=differEngineState.armed?'DIFFER · ARMED':'DIFFER · DISARMED';
-  $('parallelMasterStatus').textContent=!autoEnabled?'AUTOBOT OFF':!parallelAutoReady?'WAITING FOR SERVER AUTHORIZATION':'AUTOBOT ON';
+  $('parallelMasterStatus').textContent=!autoEnabled?'AUTO OFF':!parallelAutoReady?autoAuthorizationState.replaceAll('_',' '):autoInFlight||autoContractIds.size?'AUTO EXECUTING':'AUTOBOT ON · SERVER CONFIRMED';
   $('ouEngineStatus').textContent=!overUnderEngineState.armed?'DISARMED':!autoEnabled?'AUTOBOT OFF':autoInFlight||autoContractIds.size?'CONTRACT OPEN':differEngineState.executionLock||executionBlocked()?'ANALYZING · ACCOUNT PURCHASE LOCK':autoAwaitingReset?'WAITING FOR MOMENTUM RESET':barrierSnapshot?.selected?'READY':'ANALYZING';
   $('differStatus').textContent=`${differEngineState.status}${differEngineState.candidate?' · digit '+differEngineState.candidate.digit:''}${differEngineState.cooldown?' · '+differEngineState.cooldown+' ticks':''}`;
 };
@@ -68,7 +87,7 @@ const maybeDifferOrder=async(signal)=>{
   if(!Number.isFinite(stake)||stake<=0||stake>Number($('maxStake').value)){engine.record('INVALID STAKE');renderParallel();return;}
   const attemptId=crypto.randomUUID();engine.pending(attemptId);liveDigitWheel.register(attemptId);
   try{
-    const response=await fetch('/api/order',{method:'POST',headers:{'content-type':'application/json'},signal:globalThis.AbortSignal?.timeout?.(45000),body:JSON.stringify({attemptId,tradabilityMode,executionSessionId:parallelRunId,decisionId:attemptId,signalAt:executionNow(),gatePassed:true,runId:parallelRunId,armed:true,mode:'auto',type:'DIGITDIFF',barrier:signal.barrier,symbol:$('symbol').value,stake,accountId:account.accountId,accountType:'demo',riskLimits:demoRiskLimits(),strategyEvidence:{...signal,jumpDigit:ticks.at(-1)?.digit}})});
+    const response=await fetch('/api/order',{method:'POST',headers:{'content-type':'application/json'},signal:globalThis.AbortSignal?.timeout?.(45000),body:JSON.stringify({attemptId,browserAutoState:autoAuthorizationState,tradabilityMode,executionSessionId:parallelRunId,decisionId:attemptId,signalAt:executionNow(),gatePassed:true,runId:parallelRunId,armed:true,mode:'auto',type:'DIGITDIFF',barrier:signal.barrier,symbol:$('symbol').value,stake,accountId:account.accountId,accountType:'demo',riskLimits:demoRiskLimits(),strategyEvidence:{...signal,jumpDigit:ticks.at(-1)?.digit}})});
     const result=await response.json();
     if(!response.ok){
       // Explicit pre-purchase rejections are safe; transport failures remain locked for reconciliation.
@@ -309,6 +328,7 @@ const updateAutoIndicator = () => {
   if (botMode !== 'auto' || !autoEnabled) {
     indicator.textContent = 'AUTO BOT OFF'; indicator.className = 'autoBotIndicator'; return;
   }
+  if(!parallelAutoReady){indicator.textContent=autoAuthorizationState.replaceAll('_',' ');indicator.className='autoBotIndicator negative';return;}
   if(executionBlocked()){indicator.textContent=`AUTO BOT · ${executionView.state.replaceAll('_',' ')}`;indicator.className='autoBotIndicator negative';return;}
   if (autoAwaitingReset && liveTickNumber - lastAutoSignalTick >= selectedAutoCooldown()) {
     indicator.textContent = `AUTO BOT PAUSED · RESET AT ${autoResetThreshold()}%`;
@@ -854,7 +874,7 @@ const maybeAutoOrder = async (signal) => {
   autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
   const trace=beginOrderAudit(signal.type==='OVER'?'DIGITOVER':'DIGITUNDER','auto',stake);
   try {
-    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),tradabilityMode,executionSessionId:parallelRunId,signalAt:executionNow(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
+    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),browserAutoState:autoAuthorizationState,tradabilityMode,executionSessionId:parallelRunId,signalAt:executionNow(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
     const result = await response.json();
     if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode});
     acceptedOrderAudit(trace,result);
@@ -894,7 +914,8 @@ updateAutoState = () => {
   else if (researchGuardPaused()) $('autoStatus').textContent = 'Auto bot is paused by the research guard.';
   else if (autoAwaitingReset) $('autoStatus').textContent = `Momentum run complete. Waiting for confidence to reset to ${autoResetThreshold()}% or lower before Auto Bot rearms.`;
   else if (autoInFlight) $('autoStatus').textContent = 'LIVE SUPPORT confirmed. Sending Auto Bot order…';
-  else if (autoLastError) $('autoStatus').textContent = `Auto switch ${autoEnabled?'ON':'OFF'} · server execution ${parallelAutoReady?'last request rejected':'not authorized'}. ${autoLastError}. See Execution engine for the verified outcome.`;
+  else if (!parallelAutoReady&&autoEnabled) $('autoStatus').textContent = `${autoAuthorizationState.replaceAll('_',' ')} · purchases paused. ${autoLastError||'Waiting for positive server acknowledgment.'}`;
+  else if (autoLastError) $('autoStatus').textContent = `${parallelAutoReady?'Server-authorized Auto · last request rejected':'Auto stopped'}. ${autoLastError}. See Execution engine for the verified outcome.`;
   else if (autoEnabled) $('autoStatus').textContent = `Auto Bot trades at or above your ${Number($('minimum').value || 65)}% minimum when LIVE SUPPORT appears, then pauses for the selected cooldown.`;
   else $('autoStatus').textContent = 'Auto bot is not active.';
   updateAutoIndicator();
@@ -930,7 +951,7 @@ $('exportBarrierAudit').onclick=()=>{auditStage('export-state',{risk:diagnosticR
 if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mountDashboard}) => {
   mountDashboard(() => ({ticks, sequence:liveTickNumber, analysis:barrierSnapshot,
     market:$('symbol').value, account:selectedAccount(), connected:demoConnected,
-    feedLive:socket?.readyState===1 && isRunning, botMode, autoEnabled,
+    feedLive:socket?.readyState===1 && isRunning, botMode, autoEnabled:autoEnabled&&parallelAutoReady,
     active:autoInFlight||manualOrderPending||autoContractIds.size>0,
     cooldown:Number.isFinite(lastAutoSignalTick)?Math.max(0,selectedAutoCooldown()-(liveTickNumber-lastAutoSignalTick)):0,
     awaitingReset:autoAwaitingReset, quotes, orders:accountOrderHistory,
@@ -947,6 +968,7 @@ $('ouArm').onclick=()=>{overUnderEngineState.armed=!overUnderEngineState.armed;$
 $('differArm').onclick=()=>{differEngineState.arm(!differEngineState.armed);$('differArm').setAttribute('aria-pressed',String(differEngineState.armed));void syncParallelControl();renderParallel();};
 $('accountSelector').addEventListener('change',()=>{void revokeExecution();autoEnabled=false;const armed=differEngineState.armed;differEngineState=new DifferEngine();differEngineState.arm(armed);void syncParallelControl();});
 renderParallel();
+setInterval(verifyAutoAuthorization,1500);
 setInterval(async()=>{if(tradabilityMode!=='auto-block'||!isRunning||!demoConnected)return;try{const key=tradabilitySyncKey;if(!key){void syncTradability();return;}const response=await fetch('/api/tradability/status',{cache:'no-store'});if(!response.ok)throw Error('Server guard unavailable');const result=await response.json();if(key===tradabilitySyncKey)tradabilityServer=result;}catch{tradabilityServer={allowed:false,reason:'Server guard unavailable'};}},2000);
 globalThis.addEventListener?.('pagehide',()=>{void revokeExecution();});
 loadAuthStatus();

@@ -3,6 +3,7 @@ import {existsSync,readFileSync,writeFileSync,renameSync,mkdirSync} from 'node:f
 import {dirname} from 'node:path';import {createHash,randomUUID} from 'node:crypto';
 import {proposalRequest,validateProposal,extractLastDigit} from './public/digit-barrier-engine.js';
 import {strategyProposal,strategyForType} from './public/strategy-proposal.js';
+import {reduceContract} from './public/contract-lifecycle.js';
 const terminal=a=>['SETTLED','REJECTED'].includes(a.state);
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});promise.catch(()=>{});return {promise,resolve,reject};};
 const safe=x=>{if(!x||typeof x!=='object')return x;if(Array.isArray(x))return x.map(safe);return Object.fromEntries(Object.entries(x).filter(([k])=>!/(token|authorize|otp|password|secret)/i.test(k)).map(([k,v])=>[k,typeof v==='object'?safe(v):v]));};
@@ -89,16 +90,19 @@ event(id,a,stage,details={}){const account=this.account(id);const e={timestamp:t
   if(meta.kind==='proposal'&&data.proposal){this.event(id,a,'PROPOSAL_RESPONSE_RECEIVED',{req_id:data.req_id});ch.requests.delete(data.req_id);if(a)this.proposal(id,ch,a,data.proposal);return;}
   if(meta.kind==='buy'&&data.buy){this.event(id,a,'BUY_RESPONSE_RECEIVED',{req_id:data.req_id});if(!a||terminal(a)||a.contractId)return;
    const idNumber=Number(data.buy.contract_id);if(!Number.isSafeInteger(idNumber)||idNumber<=0){this.unresolved(id,a,{code:'INVALID_BUY_RESPONSE',message:'BUY response has no valid contract ID'});return;}
-   a.contractId=idNumber;a.buyPrice=Number(data.buy.buy_price);a.transactionId=data.buy.transaction_id;a.entry={...a.request,attemptId:a.attemptId,contractId:idNumber,buyPrice:a.buyPrice,transactionId:a.transactionId,entryTick:null,purchaseTick:a.purchaseTick,buySubmittedAt:a.buySubmittedAt,buyConfirmedAt:this.now(),proposalValidation:a.proposalValidation};this.state(id,a,'CONTRACT_OPEN');this.event(id,a,'CONTRACT_ID_RECEIVED');this.callbacks(id,a).entry.resolve(a.entry);this.monitor(id,ch,a,true);return;
+   a.contractId=idNumber;a.buyPrice=Number(data.buy.buy_price);a.transactionId=data.buy.transaction_id;a.entry={...a.request,attemptId:a.attemptId,contractId:idNumber,buyPrice:a.buyPrice,transactionId:a.transactionId,entryTick:null,purchaseTick:a.purchaseTick,buySubmittedAt:a.buySubmittedAt,buyConfirmedAt:this.now(),proposalValidation:a.proposalValidation};a.lifecycle=reduceContract(null,{...a.entry,accountId:id,precision:a.purchaseTick?.pipSize});a.entry.lifecycle=a.lifecycle;this.state(id,a,'CONTRACT_OPEN');this.event(id,a,'CONTRACT_ID_RECEIVED');this.callbacks(id,a).entry.resolve(a.entry);this.monitor(id,ch,a,true);return;
   }
   if(meta.kind==='contract'&&data.proposal_open_contract){if(!a||terminal(a)){this.forget(id,ch,meta.subscription);ch.requests.delete(data.req_id);return;}const c=data.proposal_open_contract;
    if(String(c.contract_id)!==String(a.contractId)){this.event(id,a,'WRONG_CONTRACT_IGNORED',{receivedContractId:c.contract_id,req_id:data.req_id});return;}
    this.event(id,a,data.subscription?.id?'OPEN_CONTRACT_SUBSCRIPTION_ACTIVE':'CONTRACT_UPDATE',{req_id:data.req_id,subscriptionId:data.subscription?.id});
    const entryTick=c.entry_tick??c.entry_spot??null,exitTick=c.exit_tick??c.exit_spot??null;
    if(entryTick!==null&&a.entry?.entryTick==null){a.entry={...a.entry,entryTick,entryTickTime:c.entry_tick_time??c.date_start??null};this.save();}
+   const precision=c.pip_size??a.lifecycle?.precision??a.purchaseTick?.pipSize??ch.latestTicks.get(a.request.symbol)?.pipSize;
+   a.lifecycle=reduceContract(a.lifecycle,{...a.entry,...a.request,contractId:a.contractId,accountId:id,precision,lifecycle:undefined});
+   a.entry={...a.entry,lifecycle:a.lifecycle};
    if(c.is_sold===1||c.is_sold===true||['won','lost','sold'].includes(c.status)){
     if(c.profit==null||!Number.isFinite(Number(c.profit))||!['won','lost','sold'].includes(c.status)){this.unresolved(id,a,{code:'INVALID_SETTLEMENT',message:'Terminal contract lacks valid status/profit'});return;}
-    a.result={...a.entry,...a.request,contractId:a.contractId,entryTick:a.entry?.entryTick??entryTick,exitTick,exitTickTime:c.exit_tick_time??c.date_expiry??null,status:c.status,profit:Number(c.profit),payout:c.payout,attemptId:a.attemptId};this.event(id,a,'WIN_LOSS_DETECTED',{status:c.status,profit:Number(c.profit)});this.complete(id,a);
+    a.result={...a.entry,...a.request,contractId:a.contractId,entryTick:a.entry?.entryTick??entryTick,exitTick,exitTickTime:c.exit_tick_time??c.date_expiry??null,status:c.status,profit:Number(c.profit),payout:c.payout,attemptId:a.attemptId};a.lifecycle=reduceContract(a.lifecycle,{...a.result,lifecycle:undefined,precision});a.result={...a.result,lifecycle:a.lifecycle};this.event(id,a,'WIN_LOSS_DETECTED',{status:c.status,profit:Number(c.profit)});this.complete(id,a);
    }else{this.event(id,a,'CONTRACT_RUNNING');if(a.state!=='SETTLEMENT_PENDING'){this.state(id,a,'SETTLEMENT_PENDING');this.watch(id,a,'SETTLEMENT_PENDING');}}
    if(!meta.subscribe)ch.requests.delete(data.req_id);return;
   }

@@ -7,6 +7,7 @@ import {createPartTwoOrders} from './part-two-orders.mjs';
 import {DemoRiskLedger,guardedDemoOrder,RiskRejection} from './part-one-risk.mjs';
 import {PartOneExecution} from './part-one-execution.mjs';
 import {strategyForType} from './public/strategy-proposal.js';
+import {qualifiesDifferFrequency} from './public/differ-engine.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const demoRisk = new DemoRiskLedger({file:process.env.PART_ONE_RISK_PATH||path.join(root,'work','part-one-demo-risk.json')});
@@ -127,7 +128,7 @@ const server = http.createServer(async (req, res) => {
       const amount = Number(stake), maxStake = 5000;
       if (armed !== true) return json(res, 403, { error:'Demo trading is not armed.' });
       if (!['DIGITOVER', 'DIGITUNDER','DIGITDIFF'].includes(type) || !/^[A-Za-z0-9_]{2,30}$/.test(symbol ?? '') || !['demo','real'].includes(accountType)) return json(res, 400, { error:'Invalid account or contract request.' });
-      if(type==='DIGITDIFF'&&(mode!=='auto'||accountType!=='demo'||!Number.isInteger(barrier)||barrier<0||barrier>9||strategyEvidence?.count*100!==strategyEvidence?.sample||!Number.isInteger(strategyEvidence?.count)||strategyEvidence.count<=0||strategyEvidence?.jumpDigit===barrier||!Number.isInteger(strategyEvidence?.jumpDigit)||strategyEvidence.jumpDigit<0||strategyEvidence.jumpDigit>9))return json(res,400,{error:'Invalid exact 1.0% DIFFER jump-off evidence'});
+      if(type==='DIGITDIFF'&&(mode!=='auto'||accountType!=='demo'||!Number.isInteger(barrier)||barrier<0||barrier>9||!qualifiesDifferFrequency(strategyEvidence?.count,strategyEvidence?.sample)||strategyEvidence?.jumpDigit===barrier||!Number.isInteger(strategyEvidence?.jumpDigit)||strategyEvidence.jumpDigit<0||strategyEvidence.jumpDigit>9))return json(res,400,{error:'Invalid DIFFER jump-off evidence: landing digit must be at 6% or below'});
       if (!Number.isFinite(amount) || amount <= 0 || amount > maxStake) return json(res, 400, { error:`Stake must be between $0.01 and $${maxStake}.` });
       const accountResponse = await deriv('/trading/v1/options/accounts', session.accessToken,{signal:AbortSignal.timeout(10000)});
       const accounts = (await accountResponse.json())?.data ?? [];

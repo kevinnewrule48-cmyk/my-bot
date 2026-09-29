@@ -25,6 +25,8 @@ const tradabilityState=()=>({engine:tradabilityEngine,mode:tradabilityMode,serve
 const overUnderEngineState={armed:true,status:'ANALYZING'};
 let differEngineState=new DifferEngine();
 let parallelRunId='',parallelRevision=Date.now(),parallelAutoReady=false;
+let serverClockOffsetMs=0;
+const executionNow=()=>Date.now()+serverClockOffsetMs;
 let executionPageId=null,executionReset=Promise.resolve();
 const revokeExecution=()=>{
   tradabilitySyncKey=null;tradabilityServer=null;
@@ -40,6 +42,8 @@ const syncParallelControl=async()=>{
     await executionReset;if(parallelRunId!==runId)return;
     const response=await fetch('/api/auto/control',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,runId,revision:++parallelRevision,running:autoEnabled&&botMode==='auto'&&isRunning,live:isRunning&&socket?.readyState===1,accountId:selectedAccount()?.accountId,overUnder:overUnderEngineState.armed,differ:differEngineState.armed})});
     if(!response.ok)throw Error('Auto control was not acknowledged');
+    const controlResult=await response.json();
+    if(Number.isFinite(controlResult.serverTime))serverClockOffsetMs=controlResult.serverTime-Date.now();
     if(parallelRunId===runId)parallelAutoReady=autoEnabled&&isRunning;
   }catch(error){if(parallelRunId===runId){parallelAutoReady=false;autoLastError=error.message;} }
   renderParallel();
@@ -62,7 +66,7 @@ const maybeDifferOrder=async(signal)=>{
   if(!Number.isFinite(stake)||stake<=0||stake>Number($('maxStake').value)){engine.record('INVALID STAKE');renderParallel();return;}
   const attemptId=crypto.randomUUID();engine.pending(attemptId);liveDigitWheel.register(attemptId);
   try{
-    const response=await fetch('/api/order',{method:'POST',headers:{'content-type':'application/json'},signal:globalThis.AbortSignal?.timeout?.(45000),body:JSON.stringify({attemptId,tradabilityMode,executionSessionId:parallelRunId,decisionId:attemptId,signalAt:Date.now(),gatePassed:true,runId:parallelRunId,armed:true,mode:'auto',type:'DIGITDIFF',barrier:signal.barrier,symbol:$('symbol').value,stake,accountId:account.accountId,accountType:'demo',riskLimits:demoRiskLimits(),strategyEvidence:{...signal,jumpDigit:ticks.at(-1)?.digit}})});
+    const response=await fetch('/api/order',{method:'POST',headers:{'content-type':'application/json'},signal:globalThis.AbortSignal?.timeout?.(45000),body:JSON.stringify({attemptId,tradabilityMode,executionSessionId:parallelRunId,decisionId:attemptId,signalAt:executionNow(),gatePassed:true,runId:parallelRunId,armed:true,mode:'auto',type:'DIGITDIFF',barrier:signal.barrier,symbol:$('symbol').value,stake,accountId:account.accountId,accountType:'demo',riskLimits:demoRiskLimits(),strategyEvidence:{...signal,jumpDigit:ticks.at(-1)?.digit}})});
     const result=await response.json();
     if(!response.ok){
       // Explicit pre-purchase rejections are safe; transport failures remain locked for reconciliation.
@@ -663,11 +667,18 @@ const syncScannerTimer = () => {
   clearInterval(scannerTimer); scannerTimer = undefined;
   if (botMode === 'auto' && autoEnabled) scannerTimer = setInterval(scanMarkets, 30000);
 };
+let liveFeedSymbol = null;
 const startLive = () => {
-  tradabilityEngine.reset($('symbol').value,'new live connection');tradabilitySyncKey=null;tradabilityServer=null;
+  const symbol=$('symbol').value.trim();
+  // Mode/Start clicks must not replace an open (or connecting) subscription.
+  if(liveFeedSymbol===symbol&&socket&&(socket.readyState===0||socket.readyState===1))return;
+  // Preserve same-market history across short reconnects. push() still resets
+  // on an actual data gap, invalid quote, or change of market.
+  if(tradabilityEngine.symbol!==symbol)tradabilityEngine.reset(symbol,'symbol changed');
+  tradabilitySyncKey=null;tradabilityServer=null;
   strengthSample = null;
   if (botMode === 'manual') { autoEnabled = false; syncScannerTimer(); }
-  const symbol=$('symbol').value.trim(); isRunning=false; if(socket) socket.close();
+  liveFeedSymbol=symbol; isRunning=false; if(socket) socket.close();
   try { socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public'); const feedSocket=socket;socket.onopen=()=>{if(socket!==feedSocket)return;isRunning=true;void syncTradability();if(autoEnabled)void syncParallelControl(); socket.send(JSON.stringify({ticks:symbol,subscribe:1})); refreshPricing(); $('connection').textContent=`LIVE · ${symbol}`; $('connection').className='pill positive';}; socket.onmessage=e=>{if(socket!==feedSocket)return;const data=JSON.parse(e.data); if(data.error){logger(`<span class="negative">Feed error: ${data.error.message}</span>`); return;} if(data.tick&&data.tick.symbol===symbol)addTick(data.tick.quote,data.tick.epoch,data.tick.pip_size); if(data.proposal){const kind=data.echo_req?.contract_type === 'DIGITOVER' ? 'over' : 'under'; quotes[kind]={ask:Number(data.proposal.ask_price), payout:Number(data.proposal.payout)}; updatePricing();}}; socket.onerror=()=>{if(socket!==feedSocket)return;isRunning=false;void revokeExecution();$('connection').textContent='LIVE FEED ERROR';$('connection').className='pill negative';logger('<span class="negative">Could not connect to the live Deriv feed. No simulated prices will be shown.</span>');}; socket.onclose=()=>{if(socket!==feedSocket)return;if(socket?.readyState!==1){isRunning=false;void revokeExecution();}if(!isRunning){$('connection').textContent='DISCONNECTED';$('connection').className='pill negative';}};
   } catch { $('connection').textContent='LIVE FEED ERROR'; $('connection').className='pill negative'; }
 };
@@ -842,7 +853,7 @@ const maybeAutoOrder = async (signal) => {
   autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
   const trace=beginOrderAudit(signal.type==='OVER'?'DIGITOVER':'DIGITUNDER','auto',stake);
   try {
-    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),tradabilityMode,executionSessionId:parallelRunId,signalAt:Date.now(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
+    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),tradabilityMode,executionSessionId:parallelRunId,signalAt:executionNow(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
     const result = await response.json();
     if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode});
     acceptedOrderAudit(trace,result);

@@ -6,12 +6,21 @@ import {DifferEngine} from './differ-engine.js';
 const overUnderEngineState={armed:true,status:'ANALYZING'};
 let differEngineState=new DifferEngine();
 let parallelRunId='',parallelRevision=Date.now(),parallelAutoReady=false;
+let executionPageId=null,executionReset=Promise.resolve();
+const revokeExecution=()=>{
+  autoEnabled=false;parallelAutoReady=false;parallelRunId='';
+  differEngineState.candidate=null;differEngineState.signal=null;
+  executionPageId=null;
+  executionReset=executionReset.then(()=>fetch('/api/execution/reset',{method:'POST',keepalive:true})).then(r=>r.json()).then(r=>{executionPageId=r.pageId;}).catch(()=>{executionPageId=null;});
+  return executionReset;
+};
 const syncParallelControl=async()=>{
   parallelAutoReady=false;const runId=crypto.randomUUID();parallelRunId=runId;
   try{
-    const response=await fetch('/api/auto/control',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({runId,revision:++parallelRevision,running:autoEnabled&&botMode==='auto',overUnder:overUnderEngineState.armed,differ:differEngineState.armed})});
+    await executionReset;if(parallelRunId!==runId)return;
+    const response=await fetch('/api/auto/control',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,runId,revision:++parallelRevision,running:autoEnabled&&botMode==='auto'&&isRunning,live:isRunning&&socket?.readyState===1,accountId:selectedAccount()?.accountId,overUnder:overUnderEngineState.armed,differ:differEngineState.armed})});
     if(!response.ok)throw Error('Auto control was not acknowledged');
-    if(parallelRunId===runId)parallelAutoReady=true;
+    if(parallelRunId===runId)parallelAutoReady=autoEnabled&&isRunning;
   }catch(error){if(parallelRunId===runId){parallelAutoReady=false;autoLastError=error.message;} }
   renderParallel();
 };
@@ -32,7 +41,7 @@ const maybeDifferOrder=async(signal)=>{
   if(!Number.isFinite(stake)||stake<=0||stake>Number($('maxStake').value)){engine.record('INVALID STAKE');renderParallel();return;}
   const attemptId=crypto.randomUUID();engine.pending(attemptId);liveDigitWheel.register(attemptId);
   try{
-    const response=await fetch('/api/order',{method:'POST',headers:{'content-type':'application/json'},signal:globalThis.AbortSignal?.timeout?.(45000),body:JSON.stringify({attemptId,runId:parallelRunId,armed:true,mode:'auto',type:'DIGITDIFF',barrier:signal.barrier,symbol:$('symbol').value,stake,accountId:account.accountId,accountType:'demo',riskLimits:demoRiskLimits(),strategyEvidence:{...signal,jumpDigit:ticks.at(-1)?.digit}})});
+    const response=await fetch('/api/order',{method:'POST',headers:{'content-type':'application/json'},signal:globalThis.AbortSignal?.timeout?.(45000),body:JSON.stringify({attemptId,executionSessionId:parallelRunId,decisionId:attemptId,signalAt:Date.now(),gatePassed:true,runId:parallelRunId,armed:true,mode:'auto',type:'DIGITDIFF',barrier:signal.barrier,symbol:$('symbol').value,stake,accountId:account.accountId,accountType:'demo',riskLimits:demoRiskLimits(),strategyEvidence:{...signal,jumpDigit:ticks.at(-1)?.digit}})});
     const result=await response.json();
     if(!response.ok){
       // Explicit pre-purchase rejections are safe; transport failures remain locked for reconciliation.
@@ -216,7 +225,7 @@ const renderLastSettledOrder = (order) => {
   const settled = order.state === 'settled' || order.exitTick !== undefined && order.exitTick !== null;
   const won = order.won === true;
   $('actualEntryTick').textContent = order.entryDigit ?? '—';
-  $('actualEntryDigit').textContent = `Entry price: ${order.entryTick ?? '—'}`;
+  $('actualEntryDigit').textContent = order.entrySource==='purchase-time'?`Purchase-time price: ${order.purchaseQuote??'unavailable'} · Broker entry digit: ${order.brokerEntryDigit??'pending'}`:`Broker entry price: ${order.entryTick ?? '—'}`;
   $('actualExitTick').textContent = settled ? (order.settlementDigit ?? '—') : '—';
   $('actualExitDigit').textContent = `Settlement price: ${settled ? order.exitTick : 'waiting for the next tick'}`;
   $('actualOrderOutcome').textContent = settled ? (order.result ?? 'UNVERIFIED') : 'ORDER ENTERED';
@@ -636,7 +645,7 @@ const startLive = () => {
   strengthSample = null;
   if (botMode === 'manual') { autoEnabled = false; syncScannerTimer(); }
   const symbol=$('symbol').value.trim(); isRunning=false; if(socket) socket.close();
-  try { socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public'); socket.onopen=()=>{isRunning=true; socket.send(JSON.stringify({ticks:symbol,subscribe:1})); refreshPricing(); $('connection').textContent=`LIVE · ${symbol}`; $('connection').className='pill positive';}; socket.onmessage=e=>{const data=JSON.parse(e.data); if(data.error){logger(`<span class="negative">Feed error: ${data.error.message}</span>`); return;} if(data.tick)addTick(data.tick.quote,data.tick.epoch,data.tick.pip_size); if(data.proposal){const kind=data.echo_req?.contract_type === 'DIGITOVER' ? 'over' : 'under'; quotes[kind]={ask:Number(data.proposal.ask_price), payout:Number(data.proposal.payout)}; updatePricing();}}; socket.onerror=()=>{isRunning=false;$('connection').textContent='LIVE FEED ERROR';$('connection').className='pill negative';logger('<span class="negative">Could not connect to the live Deriv feed. No simulated prices will be shown.</span>');}; socket.onclose=()=>{if(isRunning){$('connection').textContent='DISCONNECTED';$('connection').className='pill negative';}};
+  try { socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public'); const feedSocket=socket;socket.onopen=()=>{if(socket!==feedSocket)return;isRunning=true;if(autoEnabled)void syncParallelControl(); socket.send(JSON.stringify({ticks:symbol,subscribe:1})); refreshPricing(); $('connection').textContent=`LIVE · ${symbol}`; $('connection').className='pill positive';}; socket.onmessage=e=>{if(socket!==feedSocket)return;const data=JSON.parse(e.data); if(data.error){logger(`<span class="negative">Feed error: ${data.error.message}</span>`); return;} if(data.tick)addTick(data.tick.quote,data.tick.epoch,data.tick.pip_size); if(data.proposal){const kind=data.echo_req?.contract_type === 'DIGITOVER' ? 'over' : 'under'; quotes[kind]={ask:Number(data.proposal.ask_price), payout:Number(data.proposal.payout)}; updatePricing();}}; socket.onerror=()=>{if(socket!==feedSocket)return;isRunning=false;void revokeExecution();$('connection').textContent='LIVE FEED ERROR';$('connection').className='pill negative';logger('<span class="negative">Could not connect to the live Deriv feed. No simulated prices will be shown.</span>');}; socket.onclose=()=>{if(socket!==feedSocket)return;if(socket?.readyState!==1){isRunning=false;void revokeExecution();}if(!isRunning){$('connection').textContent='DISCONNECTED';$('connection').className='pill negative';}};
   } catch { $('connection').textContent='LIVE FEED ERROR'; $('connection').className='pill negative'; }
 };
 const backtest = () => {
@@ -672,20 +681,10 @@ const loadAccounts = async ({ preserveSelection = false, refreshOnly = false } =
     if (availableAccounts.length && !lastSettledOrder) { $('entryExecutionStatus').textContent = 'NO ORDER PLACED YET'; $('entryExecutionStatus').className = 'entryExecutionStatus'; }
     $('accountHelp').textContent = availableAccounts.length ? (refreshOnly ? 'Account balance refreshed from Deriv after the completed order.' : 'Select the account you want to use. Real-money ordering is disabled unless you explicitly enable it on the server.') : 'No active Options account was returned by Deriv.';
   } catch (error) { $('accountHelp').textContent = `Account connection unavailable: ${error.message}`; }
-  updateDemoArmState(); prepareFastExecution();
+  updateDemoArmState();
 };
-const prepareFastExecution = async () => {
-  const account = selectedAccount();
-  if (!account || executionPreparing || (account.accountType === 'real' && !realTradingEnabled)) return;
-  executionPreparing = true; $('accountHelp').textContent = 'Preparing fast execution connection…';
-  try {
-    const response = await fetch('/api/order/prepare', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ accountId:account.accountId, accountType:account.accountType, symbol:$('symbol').value.trim(), stake:Number($('stake').value || 0),mode:botMode==='auto'?'auto':'manual',riskLimits:demoRiskLimits() }) });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Connection preparation failed.');
-    $('accountHelp').textContent = result.warmed ? `Connected ${account.accountType} account · fast purchase proposals ready.` : `Connected ${account.accountType} account · fast execution connection ready.`;
-  } catch { $('accountHelp').textContent = `Connected ${account.accountType} account · execution will prepare when you place an order.`; }
-  finally { executionPreparing = false; }
-};
+// Retain existing callers without permitting account/stake changes to warm proposals.
+const prepareFastExecution = async () => {};
 const scheduleFastPreparation = () => {
   clearTimeout(warmPrepareTimer);
   warmPrepareTimer = setTimeout(prepareFastExecution, 350);
@@ -732,6 +731,7 @@ const trackRecentOrder = () => {
 };
 const loadAuthStatus = async () => {
   try {
+    await revokeExecution();
     const status = await fetch('/api/auth/status', { cache:'no-store' }).then(r => r.json());
     const button = $('connect');
     if (status.connected) { demoConnected = true; button.textContent = 'Deriv account connected'; button.disabled = true; loadAccounts().then(trackRecentOrder); return; }
@@ -744,7 +744,7 @@ const loadAuthStatus = async () => {
   } catch { $('connect').textContent = 'Account sign-in unavailable'; }
 };
 $('connect').onclick=()=>{ window.location.assign('/api/auth/start'); };
-$('start').onclick=startLive; $('pricing').onclick=refreshPricing; $('backtest').onclick=backtest; $('stop').onclick=()=>{isRunning=false;clearTimeout(distributionTimer);distributionTimer=undefined;if(socket)socket.close();$('connection').textContent='STOPPED';$('connection').className='pill muted';};
+$('start').onclick=startLive; $('pricing').onclick=refreshPricing; $('backtest').onclick=backtest; $('stop').onclick=()=>{void revokeExecution();isRunning=false;clearTimeout(distributionTimer);distributionTimer=undefined;if(socket)socket.close();$('connection').textContent='STOPPED';$('connection').className='pill muted';};
 ['window','minimum','duration','cooldown'].forEach(id=>$(id).addEventListener('change',()=>{ update(); updateReport(); })); updateReport(); update();
 updateDemoArmState = () => {
   const stake = Number($('stake').value || 0), maximum = Number($('maxStake').value || 0);
@@ -765,6 +765,7 @@ updateDemoArmState = () => {
   if(executionBlocked())$('demoOrderStatus').textContent=`Execution: ${executionView.state.replaceAll('_',' ')}. ${executionView.last?.error?.message??executionView.errorSummary??'Monitoring the accepted request.'}`;
 };
 const executeOrder = async (type) => {
+  if(botMode!=='manual')return;
   if(manualOrderPending||manualHttpPending||executionBlocked()||differEngineState.executionLock){trackRecentOrder();return;}
   auditStage('manual-attempt',{type,risk:diagnosticRisk(),note:'Manual path uses existing guards, not automatic READY gate'});
   const digitGate = digitPercentageGate(type === 'DIGITOVER' ? 'OVER' : 'UNDER');
@@ -782,7 +783,9 @@ const executeOrder = async (type) => {
   const trace=beginOrderAudit(type,'manual',stake);
   manualHttpPending=true;
   try {
-    const submitted = fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked,mode:'manual',riskLimits:demoRiskLimits() }) });
+    const intentResponse=await fetch('/api/execution/manual-intent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,intent:'manual-click',attemptId:trace.attemptId,accountId:account.accountId,type})});
+    const intent=await intentResponse.json();if(!intentResponse.ok)throw Error(intent.error||'Manual authorization failed');
+    const submitted = fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),executionSessionId:intent.executionSessionId,armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked,mode:'manual',riskLimits:demoRiskLimits() }) });
     trackRecentOrder();
     const response = await submitted;
     const result = await response.json();
@@ -813,7 +816,7 @@ const maybeAutoOrder = async (signal) => {
   autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
   const trace=beginOrderAudit(signal.type==='OVER'?'DIGITOVER':'DIGITUNDER','auto',stake);
   try {
-    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),runId:parallelRunId,mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
+    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),executionSessionId:parallelRunId,signalAt:Date.now(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
     const result = await response.json();
     if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode});
     acceptedOrderAudit(trace,result);
@@ -900,10 +903,11 @@ if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mount
 // The main Start/Stop remains the only AutoBot switch. Arm switches do not start it.
 for(const id of ['startAuto','stopAuto','manualMode']){
   const previous=$(id).onclick;
-  $(id).onclick=(event)=>{parallelAutoReady=false;previous?.(event);differEngineState.candidate=null;differEngineState.signal=null;if(id==='startAuto'&&!isRunning)startLive();void syncParallelControl();};
+  $(id).onclick=(event)=>{if(id!=='startAuto')void revokeExecution();parallelAutoReady=false;previous?.(event);differEngineState.candidate=null;differEngineState.signal=null;if(id==='startAuto'&&!isRunning)startLive();void syncParallelControl();};
 }
 $('ouArm').onclick=()=>{overUnderEngineState.armed=!overUnderEngineState.armed;$('ouArm').setAttribute('aria-pressed',String(overUnderEngineState.armed));void syncParallelControl();renderParallel();};
 $('differArm').onclick=()=>{differEngineState.arm(!differEngineState.armed);$('differArm').setAttribute('aria-pressed',String(differEngineState.armed));void syncParallelControl();renderParallel();};
-$('accountSelector').addEventListener('change',()=>{autoEnabled=false;const armed=differEngineState.armed;differEngineState=new DifferEngine();differEngineState.arm(armed);void syncParallelControl();});
+$('accountSelector').addEventListener('change',()=>{void revokeExecution();autoEnabled=false;const armed=differEngineState.armed;differEngineState=new DifferEngine();differEngineState.arm(armed);void syncParallelControl();});
 renderParallel();
+globalThis.addEventListener?.('pagehide',()=>{void revokeExecution();});
 loadAuthStatus();

@@ -1,4 +1,4 @@
-// The only contract digit decoder. Live cursor/purchase observations are not entry events.
+// Purchase-time ENTRY and official broker entry are distinct. Neither uses the render-time cursor.
 import {extractLastDigit} from './digit-barrier-engine.js';
 export function contractDigit(price,precision){
   if(price===null||price===undefined||price==='')return null;
@@ -18,11 +18,17 @@ export function reduceContract(previous,receipt){
   const exitTick=previous?.exitTick??(settled?r.exitTick??null:null);
   const status=previous?.state==='settled'?previous.status:settled?r.status:'open';
   const validDigit=d=>Number.isInteger(d)&&d>=0&&d<=9?d:null;
-  const entryDigit=previous?.entryDigit??(r.schema===1?validDigit(r.entryDigit):contractDigit(entryTick,precision));
+  const purchase=r.purchaseTick;
+  const purchaseDigit=purchase&&Number.isFinite(purchase.epoch)&&contractDigit(purchase.price,purchase.pipSize)===validDigit(purchase.digit)?validDigit(purchase.digit):null;
+  const entrySource=previous?.entrySource??(previous?.schema===1?'broker-entry':null)??r.entrySource??(Object.hasOwn(r,'purchaseTick')?'purchase-time':'broker-entry');
+  const entryDigit=previous?.entryDigit??(r.schema===1?validDigit(r.entryDigit):entrySource==='purchase-time'?purchaseDigit:contractDigit(entryTick,precision));
+  const brokerEntryDigit=previous?.brokerEntryDigit??(r.schema===1?validDigit(r.brokerEntryDigit):contractDigit(entryTick,precision));
   const settlementDigit=previous?.settlementDigit??(r.schema===1?validDigit(r.settlementDigit):contractDigit(exitTick,precision));
   return Object.freeze({schema:1,contractId,strategy,attemptId:previous?.attemptId??r.attemptId??null,
     accountId:previous?.accountId??r.accountId??null,symbol:r.symbol??previous?.symbol??null,precision,
-    entryTick,entryDigit,entryTickTime:previous?.entryTickTime??r.entryTickTime??null,
+    entryTick,entryDigit,entrySource,brokerEntryDigit,entryTickTime:previous?.entryTickTime??r.entryTickTime??null,
+    purchaseQuote:previous?.purchaseQuote??r.purchaseQuote??purchase?.price??null,
+    purchaseTickTime:previous?.purchaseTickTime??r.purchaseTickTime??purchase?.epoch??null,
     exitTick,settlementDigit,exitTickTime:previous?.exitTickTime??r.exitTickTime??null,
     status,result:status==='won'?'WON':status==='lost'?'LOST':status==='sold'?'SOLD':'PENDING',state:settled?'settled':'entered'});
 }

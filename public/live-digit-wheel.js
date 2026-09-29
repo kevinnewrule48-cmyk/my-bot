@@ -51,8 +51,8 @@ export class DigitWheelState {
     attempt.contractId = id;
     const record=this.contracts.accept(receipt.lifecycle?receipt:{...receipt,precision:this.precisions.get(receipt.symbol)??receipt.purchaseTick?.pipSize});
     if(!record)return false;
-    this.entryDigit=record.entryDigit;this.entryTickTime=record.entryTickTime;
-    this.entrySource=record.entryDigit===null?null:'Deriv entry tick';
+    this.entryDigit=record.entryDigit;this.entryTickTime=record.entrySource==='purchase-time'?record.purchaseTickTime:record.entryTickTime;
+    this.entrySource=record.entrySource==='purchase-time'?'purchase-time market digit':'Deriv entry tick';
     this.emit(); return true;
   }
   settle(receipt) {

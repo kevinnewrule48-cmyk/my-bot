@@ -19,6 +19,7 @@ export class DigitWheelState {
     this.timer = null; this.tick = null;
     this.sequence = 0; this.displayAttemptId = null;
     this.precisions = new Map();
+    this.entryTickTime = null; this.exitTickTime = null; this.entrySource = null;
   }
   subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
   emit() { for (const listener of this.listeners) { try { listener(this); } catch(error) { console.error('Digit wheel presentation error',error); } } }
@@ -27,6 +28,7 @@ export class DigitWheelState {
     this.accountId = accountId; clearTimeout(this.timer); this.timer = null;
     this.attempts.clear(); this.highWater = -Infinity; this.displayAttemptId = null;
     this.activeContractId = null; this.entryDigit = null; this.resultDigit = null;
+    this.entryTickTime = null; this.exitTickTime = null; this.entrySource = null;
     this.contractStatus = 'IDLE'; this.expiresAt = null; this.emit();
   }
   setLive(tick, stats, symbol) {
@@ -52,10 +54,20 @@ export class DigitWheelState {
       this.activeContractId = id; this.highWater = attempt.rank;
       this.displayAttemptId = receipt.attemptId;
       this.entryDigit = null; this.resultDigit = null; this.contractStatus = 'OPEN';
+      this.entryTickTime = null; this.exitTickTime = null; this.entrySource = null;
     }
     attempt.contractId = id;
-    const digit = contractDigit(receipt.entryTick,this.precisions.get(receipt.symbol));
-    if (digit !== null) this.entryDigit = digit;
+    // Freeze entry once. Settlement data can never rewrite a displayed entry.
+    if (this.entryDigit === null) {
+      const observed=receipt.purchaseTick;
+      const validObserved=Number.isInteger(observed?.digit)&&observed.digit>=0&&observed.digit<=9;
+      const digit=validObserved?observed.digit:contractDigit(receipt.entryTick,this.precisions.get(receipt.symbol));
+      if (digit !== null) {
+        this.entryDigit=digit; this.entryTickTime=validObserved?observed.epoch:receipt.entryTickTime??null;
+        this.entrySource=validObserved?'purchase-time observation':'Deriv entry spot';
+        if(validObserved&&Number.isInteger(observed.pipSize))attempt.precision=observed.pipSize;
+      }
+    }
     this.emit(); return true;
   }
   settle(receipt) {
@@ -64,7 +76,8 @@ export class DigitWheelState {
     if (String(receipt.contractId) !== this.activeContractId) return false;
     if (!['won','lost','sold'].includes(receipt.status)) return false;
     // Same outcome convention as existing showContractResult; never use a live tick.
-    this.resultDigit = contractDigit(receipt.exitTick,this.precisions.get(receipt.symbol));
+    this.resultDigit = contractDigit(receipt.exitTick,attempt.precision??this.precisions.get(receipt.symbol));
+    this.exitTickTime = receipt.exitTickTime ?? null;
     this.contractStatus = receipt.status === 'won' || Number(receipt.profit) > 0 ? 'WON' : 'LOST';
     attempt.finished = true; this.expiresAt = this.now() + 2200;
     const id = this.activeContractId;
@@ -76,6 +89,7 @@ export class DigitWheelState {
     if (id !== this.activeContractId || this.expiresAt === null || this.now() < this.expiresAt) return;
     clearTimeout(this.timer); this.timer = null; this.expiresAt = null;
     this.entryDigit = null; this.resultDigit = null; this.activeContractId = null;
+    this.entryTickTime = null; this.exitTickTime = null; this.entrySource = null;
     this.contractStatus = 'IDLE'; this.emit();
   }
   observeExecution(execution) {
@@ -128,7 +142,7 @@ export function mountDigitWheel(host, model = liveDigitWheel) {
       }
       if(resultKey&&resultKey!==priorResult&&d===s.resultDigit)animate(cell.querySelector('.wheel-result'),[{opacity:.3,scale:'.8'},{opacity:1,scale:'1.1'},{opacity:1,scale:'1'}],420);
     }
-    host.querySelector('.wheel-status').textContent=s.contractStatus==='IDLE'?'Live tracking · no active contract':`Contract ${s.activeContractId} · ${s.contractStatus} · Entry ${s.entryDigit??'pending from Deriv'}${s.contractStatus==='OPEN'?'':` → Result ${s.resultDigit??'unavailable from Deriv'}`}`;
+    host.querySelector('.wheel-status').textContent=s.contractStatus==='IDLE'?'Live tracking · no active contract':`Contract ${s.activeContractId} · ${s.contractStatus} · Entry ${s.entryDigit??'pending from Deriv'}${s.entrySource?' ('+s.entrySource+')':''}${s.contractStatus==='OPEN'?'':` → Result ${s.resultDigit??'unavailable from Deriv'}`}`;
     priorTick=s.tick; priorResult=resultKey;
   };
   const unsubscribe=model.subscribe(render); render(model);

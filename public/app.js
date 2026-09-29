@@ -428,14 +428,13 @@ const update = () => {
   if (typeof updateDemoArmState === 'function') updateDemoArmState();
   updateCooldownMonitor();
   const c = counts(ticks), n = ticks.length, displayed = ticks.length, latest = ticks.at(-1);
-  liveDigitWheel.setLive(latest, heatMap(ticks), $('symbol').value);
   $('sample').textContent = n; $('sampleNote').textContent = n < 50 ? `Need ${50-n} more ticks` : `Rolling last ${n} ticks`;
   if(latest){ $('price').textContent = latest.price; $('tickTime').textContent = new Date(latest.time * 1000).toLocaleTimeString(); }
   if(latest) $('priceDigitCursor').textContent = `Live ${$('symbol').value.trim()} price: ${latest.price} · last digit ${latest.digit}`;
   $('digits').innerHTML = c.map((value,digit) => {
     return `<div class="digit"><b>${digit}</b><span>${displayed ? (value/displayed*100).toFixed(1) : '0.0'}%</span></div>`;
   }).join('');
-  if(n < 50) { showSignal(null); updateEntryStrength(); return; }
+  if(n < 50) { showSignal(null); updateEntryStrength(); liveDigitWheel.setLive(latest, heatMap(ticks), $('symbol').value); return; }
   const candidate = calculateSignal(ticks);
   const confidence = candidate.confidence;
   const threshold = Number($('minimum').value);
@@ -443,6 +442,8 @@ const update = () => {
   showSignal(selected ? {...selected,options:candidate.options} : null, candidate, confidence);
   if(!selected)$('signalNote').textContent='No candidate passes every analysis condition. See the two-candidate diagnostics for failed checks.';
   updatePricing();
+  // Strategy/authorization/request dispatch above must never wait for wheel rendering.
+  liveDigitWheel.setLive(latest, heatMap(ticks), $('symbol').value);
 };
 const showSignal = (signal, candidate, confidence) => {
   if(!signal){ $('signal').textContent = 'NO SIGNAL'; $('signal').className=''; $('signalNote').textContent = candidate ? `${candidate.type ? `${candidate.label} score ${confidence}% is below your threshold` : 'No stronger side'} · OVER 1 ${(candidate.options.over1.observed*100).toFixed(1)}% · UNDER 8 ${(candidate.options.under8.observed*100).toFixed(1)}% sample rates` : 'Collecting data'; $('executeOver').classList.remove('suggested'); $('executeUnder').classList.remove('suggested'); return; }
@@ -717,9 +718,11 @@ const executeOrder = async (type) => {
   if (account.accountType === 'real' && !window.confirm(`Place one ${title} real-money order for ${money(stake)}?`)) return;
   const button = type === 'DIGITOVER' ? $('executeOver') : $('executeUnder'); manualOrderPending = true; $('executeOver').disabled = true; $('executeUnder').disabled = true; $('demoOrderStatus').textContent = 'ORDER REQUEST SENT · Waiting for Deriv to accept it…';
   const trace=beginOrderAudit(type,'manual',stake);
-  manualHttpPending=true;trackRecentOrder();
+  manualHttpPending=true;
   try {
-    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked,mode:'manual',riskLimits:demoRiskLimits() }) });
+    const submitted = fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked,mode:'manual',riskLimits:demoRiskLimits() }) });
+    trackRecentOrder();
+    const response = await submitted;
     const result = await response.json();
     if (!response.ok) throw Object.assign(new Error(result.error || 'The order was not accepted.'),{riskCode:result.riskCode});
     acceptedOrderAudit(trace,result);

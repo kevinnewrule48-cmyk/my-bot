@@ -24,7 +24,7 @@ export class DemoRiskLedger {
     this.save();return this.status(accountId);
   }
   status(accountId){return structuredClone(this.state(accountId));}
-  check(accountId,{stake,mode='manual'}){
+  check(accountId,{stake,mode='manual',strategy='OVER_UNDER'}){
     const s=this.state(accountId),c=s.limits;
     if(!['manual','auto'].includes(mode))reject('MODE','Invalid execution mode');
     if(typeof stake!=='number'||!Number.isFinite(stake)||stake<.01||stake>c.maxStake)reject('STAKE','Stake exceeds the server demo limit or is invalid');
@@ -32,9 +32,10 @@ export class DemoRiskLedger {
     if(s.trades>=c.maxTrades)reject('TRADES','Maximum demo session trades reached');
     if(s.grossLoss+stake>c.maxSessionLoss+1e-9)reject('LOSS','Stake would exceed remaining demo session loss allowance');
     if(c.maxConsecutiveLosses>0&&s.consecutiveLosses>=c.maxConsecutiveLosses)reject('STREAK','Maximum consecutive losses reached');
-    if(mode==='auto'&&s.cooldown?.remaining>0)reject('COOLDOWN',`Server Auto cooldown: ${s.cooldown.remaining} ticks remaining on ${s.cooldown.symbol}`);
+    const cooldown=strategy==='DIFFER'?s.differCooldown:s.cooldown;
+    if(mode==='auto'&&cooldown?.remaining>0)reject('COOLDOWN',`Server ${strategy} cooldown: ${cooldown.remaining} ticks remaining on ${cooldown.symbol}`);
   }
-  reserve(accountId,request){this.check(accountId,request);const s=this.state(accountId),id=randomUUID();s.pending={id,attemptId:request.attemptId??null,stake:request.stake,mode:request.mode??'manual',symbol:request.symbol,accepted:false,uncertain:false};this.save();return id;}
+  reserve(accountId,request){this.check(accountId,request);const s=this.state(accountId),id=randomUUID();s.pending={id,attemptId:request.attemptId??null,strategy:request.strategy??'OVER_UNDER',stake:request.stake,mode:request.mode??'manual',symbol:request.symbol,accepted:false,uncertain:false};this.save();return id;}
   accepted(accountId,id){const s=this.state(accountId);if(s.pending?.id!==id)return;if(!s.pending.accepted){s.pending.accepted=true;s.trades++;this.save();}}
   uncertain(accountId,id){const s=this.state(accountId);if(s.pending?.id===id){s.pending.uncertain=true;this.save();}}
   rejected(accountId,id,error){const s=this.state(accountId);if(s.pending?.id!==id)return;if(error.orderNotSubmitted===true&&!s.pending.accepted){s.pending=null;this.save();}else this.uncertain(accountId,id);}
@@ -42,13 +43,14 @@ export class DemoRiskLedger {
     const s=this.state(accountId);if(s.pending?.id!==id)return;
     const profit=Number(result.profit);if(result.profit==null||!Number.isFinite(profit)||!['won','lost','sold'].includes(result.status)){this.uncertain(accountId,id);return;}
     this.accepted(accountId,id);s.grossLoss+=Math.max(0,-profit);s.consecutiveLosses=profit<0?s.consecutiveLosses+1:0;
-    if(s.pending.mode==='auto')s.cooldown={symbol:s.pending.symbol,remaining:s.limits.cooldownTicks};
+    if(s.pending.mode==='auto')s[s.pending.strategy==='DIFFER'?'differCooldown':'cooldown']={symbol:s.pending.symbol,remaining:s.limits.cooldownTicks};
     s.pending=null;this.save();
   }
   tick(accountId,{symbol,epoch,quote,pip_size}){
     if(!/^[A-Za-z0-9_]{2,30}$/.test(symbol??'')||!Number.isFinite(epoch)||typeof quote!=='number'||!Number.isFinite(quote)||quote<0||!Number.isInteger(pip_size)||pip_size<0||pip_size>10)return;
     const s=this.state(accountId);if(epoch<=(s.epochs[symbol]??-Infinity))return;s.epochs[symbol]=epoch;
     if(s.cooldown?.symbol===symbol&&s.cooldown.remaining>0){s.cooldown.remaining--;this.save();}
+    if(s.differCooldown?.symbol===symbol&&s.differCooldown.remaining>0){s.differCooldown.remaining--;this.save();}
   }
 }
 // Reservation happens synchronously before any proposal/buy operation or network await.

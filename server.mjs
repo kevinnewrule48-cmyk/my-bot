@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import {createPartTwoOrders} from './part-two-orders.mjs';
 import {DemoRiskLedger,guardedDemoOrder,RiskRejection} from './part-one-risk.mjs';
 import {PartOneExecution} from './part-one-execution.mjs';
+import {strategyForType} from './public/strategy-proposal.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const demoRisk = new DemoRiskLedger({file:process.env.PART_ONE_RISK_PATH||path.join(root,'work','part-one-demo-risk.json')});
@@ -54,6 +55,15 @@ const partTwoOrders = createPartTwoOrders({file:process.env.PART_TWO_LEDGER_PATH
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if(await partTwoOrders(req,res,url))return;
+  if(url.pathname==='/api/auto/control'&&req.method==='POST'){
+    const session=getSession(req);if(!session)return json(res,401,{error:'Connect your account first'});
+    try{
+      const c=await readJson(req);
+      if(!Number.isSafeInteger(c.revision)||typeof c.running!=='boolean'||typeof c.overUnder!=='boolean'||typeof c.differ!=='boolean'||typeof c.runId!=='string')return json(res,400,{error:'Invalid Auto control'});
+      if(c.revision<=(session.autoControl?.revision??-1))return json(res,409,{error:'Superseded Auto control'});
+      session.autoControl={...c};return json(res,200,{ok:true,runId:c.runId});
+    }catch{return json(res,400,{error:'Invalid Auto control'});}
+  }
   if (url.pathname === '/api/auth/status') {
     const session = getSession(req);
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
@@ -106,14 +116,18 @@ const server = http.createServer(async (req, res) => {
     const session = getSession(req);
     if (!session) return json(res, 401, { error:'Connect your Deriv demo account first.' });
     try {
-      const { armed, type, symbol, stake, accountId, accountType, realConfirmed,mode='manual',riskLimits,attemptId:clientAttemptId,decisionId,strategyEvidence } = await readJson(req);
+      const { armed, type, barrier, runId, symbol, stake, accountId, accountType, realConfirmed,mode='manual',riskLimits,attemptId:clientAttemptId,decisionId,strategyEvidence } = await readJson(req);
+      const strategy=strategyForType(type);
+      const authorizePurchase=()=>mode!=='auto'||(session.expiresAt>Date.now()&&session.autoControl?.running===true&&session.autoControl.runId===runId&&session.autoControl[strategy==='DIFFER'?'differ':'overUnder']===true);
+      if(!authorizePurchase())return json(res,403,{error:'AutoBot is stopped or this strategy is disarmed'});
       const attemptId=clientAttemptId||crypto.randomUUID();
       if(!/^[A-Za-z0-9_-]{8,100}$/.test(attemptId))return json(res,400,{error:'Invalid attempt ID'});
       if(!['manual','auto'].includes(mode))return json(res,400,{error:'Invalid execution mode.'});
       if(mode==='auto'&&accountType!=='demo')return json(res,403,{error:'Real-money Auto is disabled during barrier development.'});
       const amount = Number(stake), maxStake = 5000;
       if (armed !== true) return json(res, 403, { error:'Demo trading is not armed.' });
-      if (!['DIGITOVER', 'DIGITUNDER'].includes(type) || !/^[A-Za-z0-9_]{2,30}$/.test(symbol ?? '') || !['demo','real'].includes(accountType)) return json(res, 400, { error:'Invalid account or contract request.' });
+      if (!['DIGITOVER', 'DIGITUNDER','DIGITDIFF'].includes(type) || !/^[A-Za-z0-9_]{2,30}$/.test(symbol ?? '') || !['demo','real'].includes(accountType)) return json(res, 400, { error:'Invalid account or contract request.' });
+      if(type==='DIGITDIFF'&&(mode!=='auto'||accountType!=='demo'||!Number.isInteger(barrier)||barrier<0||barrier>9||strategyEvidence?.count*100!==strategyEvidence?.sample||!Number.isInteger(strategyEvidence?.count)||strategyEvidence.count<=0||strategyEvidence?.jumpDigit===barrier||!Number.isInteger(strategyEvidence?.jumpDigit)||strategyEvidence.jumpDigit<0||strategyEvidence.jumpDigit>9))return json(res,400,{error:'Invalid exact 1.0% DIFFER jump-off evidence'});
       if (!Number.isFinite(amount) || amount <= 0 || amount > maxStake) return json(res, 400, { error:`Stake must be between $0.01 and $${maxStake}.` });
       const accountResponse = await deriv('/trading/v1/options/accounts', session.accessToken,{signal:AbortSignal.timeout(10000)});
       const accounts = (await accountResponse.json())?.data ?? [];
@@ -123,9 +137,10 @@ const server = http.createServer(async (req, res) => {
       if (accountType === 'real' && realConfirmed !== true) return json(res, 403, { error:'A separate real-money confirmation is required.' });
       const sessionKey = cookieValue(req, 'deriv_session');
       const credentials={accountId:selectedAccount.account_id,accountType,token:session.accessToken};
-      const request={attemptId,decisionId,strategyEvidence,type,symbol,stake:amount,currency:selectedAccount.currency,mode,riskLimits};
+      const request={attemptId,decisionId,strategyEvidence,type,strategy,barrier,symbol,stake:amount,currency:selectedAccount.currency,mode,riskLimits,authorizePurchase};
       const existing=execution.find(accountId,attemptId);
       if(existing&&['type','symbol','stake','mode','currency'].some(k=>existing.request[k]!==request[k]))return json(res,409,{error:'Attempt ID already belongs to a different order'});
+      if(existing&&type==='DIGITDIFF'&&existing.request.barrier!==barrier)return json(res,409,{error:'Attempt barrier mismatch'});
       const place=()=>execution.execute(credentials,request);
       const orderFlow = existing?execution.flow(accountId,existing):accountType==='demo'?await guardedDemoOrder(demoRisk,accountId,request,place):place();
       const entry = await orderFlow.entry;

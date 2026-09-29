@@ -2,6 +2,7 @@
 import {existsSync,readFileSync,writeFileSync,renameSync,mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';import {createHash,randomUUID} from 'node:crypto';
 import {proposalRequest,validateProposal,extractLastDigit} from './public/digit-barrier-engine.js';
+import {strategyProposal,strategyForType} from './public/strategy-proposal.js';
 const terminal=a=>['SETTLED','REJECTED'].includes(a.state);
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});promise.catch(()=>{});return {promise,resolve,reject};};
 const safe=x=>{if(!x||typeof x!=='object')return x;if(Array.isArray(x))return x.map(safe);return Object.fromEntries(Object.entries(x).filter(([k])=>!/(token|authorize|otp|password|secret)/i.test(k)).map(([k,v])=>[k,typeof v==='object'?safe(v):v]));};
@@ -17,7 +18,7 @@ export class PartOneExecution {
  key(id){return createHash('sha256').update(String(id)).digest('hex');}
  account(id){const key=this.key(id);return this.data.accounts[key]??={sequence:0,attempts:[],events:[],seen:[]};}
  save(){if(this.file){mkdirSync(dirname(this.file),{recursive:true});writeFileSync(this.file+'.tmp',JSON.stringify(this.data));renameSync(this.file+'.tmp',this.file);}}
- event(id,a,stage,details={}){const account=this.account(id);const e={timestamp:this.now(),attemptId:a?.attemptId??null,tradeNumber:a?.number??null,state:a?.state??null,symbol:a?.request.symbol??null,contractType:a?.request.type??null,barrier:a?.request.type==='DIGITOVER'?'1':a?'8':null,stake:a?.request.stake??null,proposalId:a?.proposalId??null,contractId:a?.contractId??null,stage,...safe(details)};account.events.push(e);if(account.events.length>1000)account.events.shift();this.save();this.log(e);return e;}
+event(id,a,stage,details={}){const account=this.account(id);const e={timestamp:this.now(),attemptId:a?.attemptId??null,tradeNumber:a?.number??null,state:a?.state??null,symbol:a?.request.symbol??null,contractType:a?.request.type??null,strategy:a?.request.strategy??null,barrier:a?.request.barrier??null,stake:a?.request.stake??null,proposalId:a?.proposalId??null,contractId:a?.contractId??null,stage,...safe(details)};account.events.push(e);if(account.events.length>1000)account.events.shift();this.save();this.log(e);return e;}
  state(id,a,state,detail={}){a.state=state;a.stageAt=this.now();a.blocking=!terminal(a);this.event(id,a,state,detail);}
  current(id){return this.account(id).attempts.find(a=>!terminal(a))??null;}
  find(id,attemptId){return this.account(id).attempts.find(a=>a.attemptId===attemptId);}
@@ -48,15 +49,18 @@ export class PartOneExecution {
  ticks(id,ch,symbol){if(!/^[A-Za-z0-9_]{2,30}$/.test(symbol??'')||ch.tickSymbols.has(symbol))return;ch.tickSymbols.add(symbol);this.send(id,ch,{ticks:symbol,subscribe:1},{kind:'ticks',subscribe:true,symbol});}
  execute(credentials,request){const id=credentials.accountId;this.credentials.set(this.key(id),credentials);const attemptId=request.attemptId||randomUUID(),previous=this.find(id,attemptId);if(previous)return this.flow(id,previous);
   const account=this.account(id);if(account.seen.includes(attemptId))throw Error('Attempt already completed and archived; it will not be purchased again');if(this.current(id))throw Object.assign(Error('Execution is already active or requires reconciliation'),{code:'EXECUTION_BUSY'});if(account.seen.length>=10000)throw Error('Execution journal capacity reached; archive requires review');
-  const a={attemptId,number:++account.sequence,request:{type:request.type,symbol:request.symbol,stake:request.stake,currency:request.currency,mode:request.mode??'manual',accountType:credentials.accountType,decisionId:request.decisionId??null},state:'SIGNAL_READY',startedAt:this.now(),stageAt:this.now(),buySent:false,blocking:true,reconcileCount:0};account.attempts.push(a);account.seen.push(attemptId);while(account.attempts.length>50&&terminal(account.attempts[0])){const old=account.attempts.shift();this.flows.delete(this.key(id)+':'+old.attemptId);}this.save();this.event(id,a,'TRADE_AUTHORIZED',{source:'server account and risk checks',strategyEvidence:request.strategyEvidence??null});const flow=this.flow(id,a);
+  const a={attemptId,number:++account.sequence,request:{type:request.type,strategy:strategyForType(request.type),barrier:request.type==='DIGITDIFF'?request.barrier:request.type==='DIGITOVER'?1:8,symbol:request.symbol,stake:request.stake,currency:request.currency,mode:request.mode??'manual',accountType:credentials.accountType,decisionId:request.decisionId??null},state:'SIGNAL_READY',startedAt:this.now(),stageAt:this.now(),buySent:false,blocking:true,reconcileCount:0};account.attempts.push(a);account.seen.push(attemptId);while(account.attempts.length>50&&terminal(account.attempts[0])){const old=account.attempts.shift();this.flows.delete(this.key(id)+':'+old.attemptId);}this.save();this.event(id,a,'TRADE_AUTHORIZED',{source:'server account and risk checks',strategyEvidence:request.strategyEvidence??null});const flow=this.flow(id,a);
+  Object.defineProperty(a,'authorizePurchase',{value:request.authorizePurchase,configurable:true});
   void this.begin(credentials,a).catch(error=>{if(!a.buySent)this.reject(id,a,{code:error.code??'PRE_BUY_ERROR',message:error.message});else this.unresolved(id,a,{code:error.code??'POST_BUY_ERROR',message:error.message});});return flow;
  }
  async begin(credentials,a){const id=credentials.accountId,ch=await this.channel(credentials);if(terminal(a))return;this.ticks(id,ch,a.request.symbol);
   const warm=ch.warm.get(a.request.type);ch.warm.delete(a.request.type);
   if(warm&&this.now()-warm.at<=5000&&warm.config===[a.request.symbol,a.request.stake,a.request.currency].join(':')){this.event(id,a,'PROPOSAL_RESPONSE_RECEIVED',{cached:true,ageMs:this.now()-warm.at});this.proposal(id,ch,a,warm.proposal);}
-  else{if(warm)this.event(id,a,'STALE_PROPOSAL_IGNORED');this.state(id,a,'PROPOSAL_PENDING');this.watch(id,a,'PROPOSAL_PENDING');this.send(id,ch,proposalRequest(a.request),{kind:'proposal',attemptId:a.attemptId});}
+  else{if(warm)this.event(id,a,'STALE_PROPOSAL_IGNORED');this.state(id,a,'PROPOSAL_PENDING');this.watch(id,a,'PROPOSAL_PENDING');this.send(id,ch,strategyProposal(a.request),{kind:'proposal',attemptId:a.attemptId});}
  }
  proposal(id,ch,a,p){if(terminal(a)||a.buySent)return;let buy;try{buy=validateProposal(p,a.request.stake);}catch(error){return this.reject(id,a,{code:'INVALID_PROPOSAL',message:error.message});}
+  if(a.authorizePurchase&&!a.authorizePurchase())return this.reject(id,a,{code:'AUTO_STOPPED',message:'AutoBot stopped, strategy disarmed, or signal expired before purchase'});
+  delete a.authorizePurchase;
   a.proposalId=p.id;a.proposalValidation={validated:true,ask:buy.price,payout:Number(p.payout)};this.state(id,a,'PROPOSAL_READY');this.event(id,a,'PROPOSAL_ID_RECEIVED');
   // Persist the intent BEFORE sending. A crash here requires review, never a replacement BUY.
   const observed=ch.latestTicks.get(a.request.symbol);

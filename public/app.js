@@ -3,11 +3,31 @@ import {liveDigitWheel} from './live-digit-wheel.js';
 import {heatMap} from './premium-model.js';
 import {diagnoseSnapshot} from './part-one-diagnostics.js';
 import {DifferEngine} from './differ-engine.js';
+import {TradabilityEngine,tradabilityBlocks} from './tradability-engine.js';
+const tradabilityEvents=[];
+const tradabilityEngine=new TradabilityEngine({},event=>{tradabilityEvents.push(event);if(tradabilityEvents.length>200)tradabilityEvents.shift();auditStage('tradability-state',event);});
+let tradabilityMode='monitor',tradabilityServer=null,tradabilitySyncing=false,tradabilityRevision=Date.now(),tradabilitySyncKey=null;
+const syncTradability=async()=>{
+  const account=selectedAccount();if(!demoConnected||!account)return;
+  if(tradabilityMode==='auto-block'&&!isRunning)return;
+  await executionReset;
+  const pageId=executionPageId,mode=tradabilityMode,symbol=$('symbol').value,windowSize=tradabilityEngine.config.windowSize;
+  const key=[pageId,account.accountId,mode,symbol,windowSize].join(':');if(key===tradabilitySyncKey)return;
+  tradabilitySyncKey=key;tradabilitySyncing=true;
+  try{const response=await fetch('/api/tradability/control',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pageId,mode,symbol,windowSize,accountId:account.accountId,accountType:account.accountType,revision:++tradabilityRevision,live:isRunning})});const result=await response.json();if(!response.ok)throw Error(result.error||'Tradability settings rejected');if(tradabilitySyncKey===key)tradabilityServer=result;}
+  catch(error){if(tradabilitySyncKey===key){tradabilityServer={allowed:false,reason:error.message};tradabilitySyncKey=null;}}
+  finally{if(tradabilitySyncKey===key||tradabilitySyncKey===null)tradabilitySyncing=false;}
+};
+const tradabilityBlocked=()=>tradabilityMode==='auto-block'&&(tradabilitySyncing||!tradabilityServer?.allowed||tradabilityBlocks(tradabilityEngine.snapshot,'auto-block',tradabilityEngine.config.warmupPolicy));
+const tradabilityState=()=>({engine:tradabilityEngine,mode:tradabilityMode,server:tradabilityServer,syncing:tradabilitySyncing,events:tradabilityEvents,
+ selectWindow:size=>{tradabilityEngine.selectWindow(size);tradabilityServer=null;void syncTradability();},
+ setMode:mode=>{tradabilityMode=mode;tradabilityServer=null;void syncTradability();}});
 const overUnderEngineState={armed:true,status:'ANALYZING'};
 let differEngineState=new DifferEngine();
 let parallelRunId='',parallelRevision=Date.now(),parallelAutoReady=false;
 let executionPageId=null,executionReset=Promise.resolve();
 const revokeExecution=()=>{
+  tradabilitySyncKey=null;tradabilityServer=null;
   autoEnabled=false;parallelAutoReady=false;parallelRunId='';
   differEngineState.candidate=null;differEngineState.signal=null;
   executionPageId=null;
@@ -34,6 +54,7 @@ const renderParallel=()=>{
 };
 const maybeDifferOrder=async(signal)=>{
   if(!signal)return;
+  if(tradabilityBlocked()){auditStage('tradability-block',{strategy:'DIFFER',state:tradabilityEngine.snapshot?.state});return;}
   const engine=differEngineState;
   const account=selectedAccount(),stake=Number($('stake').value);
   if(!parallelAutoReady||!autoEnabled||botMode!=='auto'||!engine.armed||!demoConnected||account?.accountType!=='demo'){engine.record('NOT AUTHORIZED');renderParallel();return;}
@@ -41,7 +62,7 @@ const maybeDifferOrder=async(signal)=>{
   if(!Number.isFinite(stake)||stake<=0||stake>Number($('maxStake').value)){engine.record('INVALID STAKE');renderParallel();return;}
   const attemptId=crypto.randomUUID();engine.pending(attemptId);liveDigitWheel.register(attemptId);
   try{
-    const response=await fetch('/api/order',{method:'POST',headers:{'content-type':'application/json'},signal:globalThis.AbortSignal?.timeout?.(45000),body:JSON.stringify({attemptId,executionSessionId:parallelRunId,decisionId:attemptId,signalAt:Date.now(),gatePassed:true,runId:parallelRunId,armed:true,mode:'auto',type:'DIGITDIFF',barrier:signal.barrier,symbol:$('symbol').value,stake,accountId:account.accountId,accountType:'demo',riskLimits:demoRiskLimits(),strategyEvidence:{...signal,jumpDigit:ticks.at(-1)?.digit}})});
+    const response=await fetch('/api/order',{method:'POST',headers:{'content-type':'application/json'},signal:globalThis.AbortSignal?.timeout?.(45000),body:JSON.stringify({attemptId,tradabilityMode,executionSessionId:parallelRunId,decisionId:attemptId,signalAt:Date.now(),gatePassed:true,runId:parallelRunId,armed:true,mode:'auto',type:'DIGITDIFF',barrier:signal.barrier,symbol:$('symbol').value,stake,accountId:account.accountId,accountType:'demo',riskLimits:demoRiskLimits(),strategyEvidence:{...signal,jumpDigit:ticks.at(-1)?.digit}})});
     const result=await response.json();
     if(!response.ok){
       // Explicit pre-purchase rejections are safe; transport failures remain locked for reconciliation.
@@ -511,7 +532,8 @@ const showSignal = (signal, candidate, confidence) => {
 };
 const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
   let parsed;
-  try { parsed=extractLastDigit(price,pipSize); } catch(error) { auditStage('invalid-tick',{reason:error.message}); return; }
+  try { parsed=extractLastDigit(price,pipSize); } catch(error) { tradabilityEngine.reset($('symbol').value,'invalid quote');auditStage('invalid-tick',{reason:error.message}); return; }
+  if(!tradabilityEngine.push({digit:parsed.digit,epoch,symbol:$('symbol').value}).accepted)return;
   liveTickNumber++;
   const raw=parsed.quote,digit=parsed.digit;
   if(Number.isInteger(digit)){
@@ -642,10 +664,11 @@ const syncScannerTimer = () => {
   if (botMode === 'auto' && autoEnabled) scannerTimer = setInterval(scanMarkets, 30000);
 };
 const startLive = () => {
+  tradabilityEngine.reset($('symbol').value,'new live connection');tradabilitySyncKey=null;tradabilityServer=null;
   strengthSample = null;
   if (botMode === 'manual') { autoEnabled = false; syncScannerTimer(); }
   const symbol=$('symbol').value.trim(); isRunning=false; if(socket) socket.close();
-  try { socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public'); const feedSocket=socket;socket.onopen=()=>{if(socket!==feedSocket)return;isRunning=true;if(autoEnabled)void syncParallelControl(); socket.send(JSON.stringify({ticks:symbol,subscribe:1})); refreshPricing(); $('connection').textContent=`LIVE · ${symbol}`; $('connection').className='pill positive';}; socket.onmessage=e=>{if(socket!==feedSocket)return;const data=JSON.parse(e.data); if(data.error){logger(`<span class="negative">Feed error: ${data.error.message}</span>`); return;} if(data.tick)addTick(data.tick.quote,data.tick.epoch,data.tick.pip_size); if(data.proposal){const kind=data.echo_req?.contract_type === 'DIGITOVER' ? 'over' : 'under'; quotes[kind]={ask:Number(data.proposal.ask_price), payout:Number(data.proposal.payout)}; updatePricing();}}; socket.onerror=()=>{if(socket!==feedSocket)return;isRunning=false;void revokeExecution();$('connection').textContent='LIVE FEED ERROR';$('connection').className='pill negative';logger('<span class="negative">Could not connect to the live Deriv feed. No simulated prices will be shown.</span>');}; socket.onclose=()=>{if(socket!==feedSocket)return;if(socket?.readyState!==1){isRunning=false;void revokeExecution();}if(!isRunning){$('connection').textContent='DISCONNECTED';$('connection').className='pill negative';}};
+  try { socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public'); const feedSocket=socket;socket.onopen=()=>{if(socket!==feedSocket)return;isRunning=true;void syncTradability();if(autoEnabled)void syncParallelControl(); socket.send(JSON.stringify({ticks:symbol,subscribe:1})); refreshPricing(); $('connection').textContent=`LIVE · ${symbol}`; $('connection').className='pill positive';}; socket.onmessage=e=>{if(socket!==feedSocket)return;const data=JSON.parse(e.data); if(data.error){logger(`<span class="negative">Feed error: ${data.error.message}</span>`); return;} if(data.tick&&data.tick.symbol===symbol)addTick(data.tick.quote,data.tick.epoch,data.tick.pip_size); if(data.proposal){const kind=data.echo_req?.contract_type === 'DIGITOVER' ? 'over' : 'under'; quotes[kind]={ask:Number(data.proposal.ask_price), payout:Number(data.proposal.payout)}; updatePricing();}}; socket.onerror=()=>{if(socket!==feedSocket)return;isRunning=false;void revokeExecution();$('connection').textContent='LIVE FEED ERROR';$('connection').className='pill negative';logger('<span class="negative">Could not connect to the live Deriv feed. No simulated prices will be shown.</span>');}; socket.onclose=()=>{if(socket!==feedSocket)return;if(socket?.readyState!==1){isRunning=false;void revokeExecution();}if(!isRunning){$('connection').textContent='DISCONNECTED';$('connection').className='pill negative';}};
   } catch { $('connection').textContent='LIVE FEED ERROR'; $('connection').className='pill negative'; }
 };
 const backtest = () => {
@@ -682,9 +705,10 @@ const loadAccounts = async ({ preserveSelection = false, refreshOnly = false } =
     $('accountHelp').textContent = availableAccounts.length ? (refreshOnly ? 'Account balance refreshed from Deriv after the completed order.' : 'Select the account you want to use. Real-money ordering is disabled unless you explicitly enable it on the server.') : 'No active Options account was returned by Deriv.';
   } catch (error) { $('accountHelp').textContent = `Account connection unavailable: ${error.message}`; }
   updateDemoArmState();
+  if(isRunning)void syncTradability();
 };
 // Retain existing callers without permitting account/stake changes to warm proposals.
-const prepareFastExecution = async () => {};
+const prepareFastExecution = async () => { if(isRunning)void syncTradability(); };
 const scheduleFastPreparation = () => {
   clearTimeout(warmPrepareTimer);
   warmPrepareTimer = setTimeout(prepareFastExecution, 350);
@@ -765,6 +789,7 @@ updateDemoArmState = () => {
   if(executionBlocked())$('demoOrderStatus').textContent=`Execution: ${executionView.state.replaceAll('_',' ')}. ${executionView.last?.error?.message??executionView.errorSummary??'Monitoring the accepted request.'}`;
 };
 const executeOrder = async (type) => {
+  if(tradabilityBlocked()){$('demoOrderStatus').textContent='NEW ENTRY BLOCKED · '+(tradabilityServer?.reason??tradabilityEngine.snapshot?.state??'COLLECTING DATA');auditStage('tradability-block',{mode:'manual',type});return;}
   if(botMode!=='manual')return;
   if(manualOrderPending||manualHttpPending||executionBlocked()||differEngineState.executionLock){trackRecentOrder();return;}
   auditStage('manual-attempt',{type,risk:diagnosticRisk(),note:'Manual path uses existing guards, not automatic READY gate'});
@@ -785,7 +810,7 @@ const executeOrder = async (type) => {
   try {
     const intentResponse=await fetch('/api/execution/manual-intent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,intent:'manual-click',attemptId:trace.attemptId,accountId:account.accountId,type})});
     const intent=await intentResponse.json();if(!intentResponse.ok)throw Error(intent.error||'Manual authorization failed');
-    const submitted = fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),executionSessionId:intent.executionSessionId,armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked,mode:'manual',riskLimits:demoRiskLimits() }) });
+    const submitted = fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),tradabilityMode,executionSessionId:intent.executionSessionId,armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked,mode:'manual',riskLimits:demoRiskLimits() }) });
     trackRecentOrder();
     const response = await submitted;
     const result = await response.json();
@@ -797,6 +822,7 @@ const executeOrder = async (type) => {
   finally{manualHttpPending=false;}
 };
 const maybeAutoOrder = async (signal) => {
+  if(tradabilityBlocked()){auditStage('tradability-block',{strategy:'OVER_UNDER',state:tradabilityEngine.snapshot?.state});return;}
   if(!overUnderEngineState.armed||!parallelAutoReady)return;
   if(differEngineState.executionLock){if(overUnderEngineState.blockedSequence!==liveTickNumber){overUnderEngineState.blockedSequence=liveTickNumber;auditStage('account-purchase-lock',{strategy:'OVER_UNDER',reason:'DIFFER execution unresolved; analysis continues, no delayed purchase'});}return;}
   if(analyzeBoth().selected?.type!==signal.type)return;
@@ -816,7 +842,7 @@ const maybeAutoOrder = async (signal) => {
   autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
   const trace=beginOrderAudit(signal.type==='OVER'?'DIGITOVER':'DIGITUNDER','auto',stake);
   try {
-    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),executionSessionId:parallelRunId,signalAt:Date.now(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
+    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),tradabilityMode,executionSessionId:parallelRunId,signalAt:Date.now(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
     const result = await response.json();
     if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode});
     acceptedOrderAudit(trace,result);
@@ -856,7 +882,7 @@ updateAutoState = () => {
   else if (researchGuardPaused()) $('autoStatus').textContent = 'Auto bot is paused by the research guard.';
   else if (autoAwaitingReset) $('autoStatus').textContent = `Momentum run complete. Waiting for confidence to reset to ${autoResetThreshold()}% or lower before Auto Bot rearms.`;
   else if (autoInFlight) $('autoStatus').textContent = 'LIVE SUPPORT confirmed. Sending Auto Bot order…';
-  else if (autoLastError) $('autoStatus').textContent = `Auto Bot is still ON. Last request error: ${autoLastError}. See Execution engine for the verified outcome.`;
+  else if (autoLastError) $('autoStatus').textContent = `Auto switch ${autoEnabled?'ON':'OFF'} · server execution ${parallelAutoReady?'last request rejected':'not authorized'}. ${autoLastError}. See Execution engine for the verified outcome.`;
   else if (autoEnabled) $('autoStatus').textContent = `Auto Bot trades at or above your ${Number($('minimum').value || 65)}% minimum when LIVE SUPPORT appears, then pauses for the selected cooldown.`;
   else $('autoStatus').textContent = 'Auto bot is not active.';
   updateAutoIndicator();
@@ -898,7 +924,7 @@ if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mount
     awaitingReset:autoAwaitingReset, quotes, orders:accountOrderHistory,
     lastOrder:lastSettledOrder, flash:digitFlash, audit:barrierAudit,execution:executionView,executionTransportError,recheckExecution:()=>loadRecentOrder(true),
     minimum:Number($('minimum').value), persistence:Number($('barrierPersistence').value),
-    stake:Number($('stake').value)}));
+    stake:Number($('stake').value),tradability:tradabilityState()}));
 }).catch(error => console.error('Dashboard presentation could not load',error));
 // The main Start/Stop remains the only AutoBot switch. Arm switches do not start it.
 for(const id of ['startAuto','stopAuto','manualMode']){
@@ -909,5 +935,6 @@ $('ouArm').onclick=()=>{overUnderEngineState.armed=!overUnderEngineState.armed;$
 $('differArm').onclick=()=>{differEngineState.arm(!differEngineState.armed);$('differArm').setAttribute('aria-pressed',String(differEngineState.armed));void syncParallelControl();renderParallel();};
 $('accountSelector').addEventListener('change',()=>{void revokeExecution();autoEnabled=false;const armed=differEngineState.armed;differEngineState=new DifferEngine();differEngineState.arm(armed);void syncParallelControl();});
 renderParallel();
+setInterval(async()=>{if(tradabilityMode!=='auto-block'||!isRunning||!demoConnected)return;try{const key=tradabilitySyncKey;if(!key){void syncTradability();return;}const response=await fetch('/api/tradability/status',{cache:'no-store'});if(!response.ok)throw Error('Server guard unavailable');const result=await response.json();if(key===tradabilitySyncKey)tradabilityServer=result;}catch{tradabilityServer={allowed:false,reason:'Server guard unavailable'};}},2000);
 globalThis.addEventListener?.('pagehide',()=>{void revokeExecution();});
 loadAuthStatus();

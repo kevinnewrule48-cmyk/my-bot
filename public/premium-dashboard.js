@@ -2,6 +2,7 @@ import {dashboardStatus,heatMap,summarizeOrders,barrierView} from './premium-mod
 import {diagnoseSnapshot} from './part-one-diagnostics.js';
 import {DEFAULTS} from './digit-barrier-engine.js';
 import {liveDigitWheel,mountDigitWheel} from './live-digit-wheel.js';
+import {mountTradabilityPanel} from './tradability-panel.js';
 const byId=id=>document.getElementById(id);
 const put=(id,value)=>{const n=byId(id);if(n&&n.textContent!==String(value))n.textContent=value;};
 const fmt=n=>Number.isFinite(n)?n.toFixed(2):'—';
@@ -30,6 +31,8 @@ export function mountDashboard(readState){
   byId('executionColumn').prepend(enginePanel);byId('recheckExecution').onclick=()=>readState().recheckExecution();
   const move=(selector,target)=>{const el=document.querySelector(selector);if(el)byId(target).append(el);};
   move('.controls','marketColumn');move('.scannerPanel','marketColumn');
+  const tradabilityPanel=document.createElement('section');tradabilityPanel.className='panel';byId('marketColumn').append(tradabilityPanel);
+  const renderTradability=mountTradabilityPanel(tradabilityPanel,()=>readState().tradability);
   move('.entryDeck','analysisColumn');
   byId('analysisColumn').prepend(document.querySelector('.suggestedEntryPanel'));
   byId('executionColumn').append(document.querySelector('.cooldownPanel'));
@@ -52,6 +55,7 @@ export function mountDashboard(readState){
   settings.querySelector('.automation').textContent='Demo server session limits apply to this bot, across tabs: loss allowance reserves the next stake, trade count and pending-order limit are enforced. Limits only tighten during a server ledger session; refreshing does not reset them. Auto cooldown uses server-observed ticks; manual has no cooldown. These are not account-wide daily limits. Real-money Auto is disabled.';
   const series=[];let previousSequence=-1,previousContext='',lastRenderKey='';
   function render(){
+    renderTradability();
     const s=readState(),context=s.analysis?.context||s.market;
     if(previousContext!==context){series.length=0;previousSequence=-1;previousContext=context;}
     if(s.sequence!==previousSequence&&s.analysis){series.push(s.analysis.candidates);if(series.length>120)series.shift();previousSequence=s.sequence;}

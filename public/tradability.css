@@ -1,2 +1,17 @@
 .tradability-panel{--tradability-accent:#f4bf54;background:linear-gradient(135deg,#253143e8,#101925f2 55%,#26324aeb)!important;border:1px solid #7ba2c955!important;box-shadow:inset 0 1px #e2f5ff44,0 12px 26px #0006!important;min-width:0}.tradability-panel[data-state=green]{--tradability-accent:#44efb0}.tradability-panel[data-state=red]{--tradability-accent:#ff667b}.tradability-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}.tradability-score{display:grid;grid-template-columns:1fr 1.2fr;gap:12px;align-items:center;margin:14px 0;padding:14px;border-radius:16px;background:linear-gradient(145deg,#ffffff12,#06152280);border:1px solid #ffffff22;box-shadow:inset 0 2px #ffffff15}.tradability-score>div{display:grid;gap:6px}.tradability-score strong{color:var(--tradability-accent);text-shadow:0 0 18px color-mix(in srgb,var(--tradability-accent),transparent 65%)}#tradabilityChaos{font-size:2.2rem;font-variant-numeric:tabular-nums;min-height:44px}#tradabilityState{font-size:1rem;min-height:36px}#tradabilityGuard{font-size:.77rem;min-height:45px;color:#e4effa}.tradability-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0}.tradability-metrics>div{padding:7px;border-radius:9px;background:#07142077;border:1px solid #ffffff0d}.tradability-metrics dt{font-size:.65rem;color:#bfd0e3}.tradability-metrics dd{margin:4px 0 0;font-size:.82rem;font-weight:650;font-variant-numeric:tabular-nums}#tradabilityReasons{font-size:.76rem;line-height:1.55;min-height:74px}.tradability-windows{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:12px 0}.tradability-windows>div{display:grid;gap:6px;padding:9px 4px;text-align:center;background:#09121ca0;border-radius:10px;border:1px solid #ffffff19}.tradability-windows b{font-size:.6rem}.tradability-windows strong{font-size:.88rem}.tradability-windows small{font-size:.54rem;overflow-wrap:anywhere}.tradability-windows [data-state=green]{color:#44efb0}.tradability-windows [data-state=amber]{color:#f4bf54}.tradability-windows [data-state=red]{color:#ff667b}.tradability-panel pre{max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.7rem}.tradability-panel details{border-top:1px solid #ffffff18;padding:9px 0}.tradability-panel summary{font-size:.77rem;cursor:pointer}@media(max-width:400px){.tradability-controls{grid-template-columns:1fr}.tradability-score{padding:10px}.tradability-windows{grid-template-columns:repeat(2,1fr)}}
 .premium .tradability-panel{order:15}
+/* Desktop flattens the dashboard columns into a 12-column grid. Give this
+   new card its own full-width row instead of an implicit one-column cell. */
+@media(min-width:1180px){
+ .premium .terminal .tradability-panel{grid-column:1/-1;grid-row:7;align-self:start}
+ .premium .terminal .entryAnalyzerPanel,.premium .terminal .cooldownPanel,.premium .terminal #executionColumn>section:has(#sessionStats){grid-row:8}
+ .premium .terminal #manualOrderPanel,.premium .terminal #executionColumn>section:has(#stake){grid-row:9}
+ .premium .terminal .decision-details,.premium .terminal>details{grid-row:10}
+ .premium .terminal .lower-panels{grid-row:11}
+ .tradability-metrics{grid-template-columns:repeat(5,minmax(0,1fr))}
+ .tradability-controls{max-width:600px}
+ .tradability-score{margin:8px 0;padding:10px}
+ #tradabilityGuard,#tradabilityReasons{min-height:0;margin:8px 0}
+}
+.tradability-panel{height:auto;max-height:none;overflow:visible;min-width:0}
+.tradability-metrics>div,.tradability-score>div{min-width:0;overflow-wrap:anywhere}

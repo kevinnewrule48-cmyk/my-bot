@@ -4,8 +4,10 @@ import {heatMap} from './premium-model.js';
 import {diagnoseSnapshot} from './part-one-diagnostics.js';
 import {DifferEngine} from './differ-engine.js';
 import {TradabilityEngine,tradabilityBlocks} from './tradability-engine.js';
+import {TradabilityMarkets} from './tradability-markets.js';
 const tradabilityEvents=[];
-const tradabilityEngine=new TradabilityEngine({},event=>{tradabilityEvents.push(event);if(tradabilityEvents.length>200)tradabilityEvents.shift();auditStage('tradability-state',event);});
+const tradabilityMarkets=new TradabilityMarkets({onEvent:event=>{tradabilityEvents.push(event);if(tradabilityEvents.length>200)tradabilityEvents.shift();auditStage('tradability-state',event);}});
+const tradabilityEngine=new Proxy({}, {get:(_,key)=>{const engine=tradabilityMarkets.engine(document.getElementById('symbol')?.value||'R_100');const value=engine[key];return typeof value==='function'?value.bind(engine):value;}});
 let tradabilityMode='monitor',tradabilityServer=null,tradabilitySyncing=false,tradabilityRevision=Date.now(),tradabilitySyncKey=null;
 const syncTradability=async()=>{
   const account=selectedAccount();if(!demoConnected||!account)return;
@@ -19,8 +21,8 @@ const syncTradability=async()=>{
   finally{if(tradabilitySyncKey===key||tradabilitySyncKey===null)tradabilitySyncing=false;}
 };
 const tradabilityBlocked=()=>tradabilityMode==='auto-block'&&(tradabilitySyncing||!tradabilityServer?.allowed||tradabilityBlocks(tradabilityEngine.snapshot,'auto-block',tradabilityEngine.config.warmupPolicy));
-const tradabilityState=()=>({engine:tradabilityEngine,mode:tradabilityMode,server:tradabilityServer,syncing:tradabilitySyncing,events:tradabilityEvents,
- selectWindow:size=>{tradabilityEngine.selectWindow(size);tradabilityServer=null;void syncTradability();},
+const tradabilityState=()=>({engine:tradabilityEngine,markets:tradabilityMarkets.snapshots(),connection:tradabilityMarkets.connection,mode:tradabilityMode,server:tradabilityServer,syncing:tradabilitySyncing,events:tradabilityEvents,
+ selectWindow:size=>{tradabilityMarkets.selectWindow(size);tradabilityServer=null;void syncTradability();},
  setMode:mode=>{tradabilityMode=mode;tradabilityServer=null;void syncTradability();}});
 const overUnderEngineState={armed:true,status:'ANALYZING'};
 let differEngineState=new DifferEngine();
@@ -536,8 +538,7 @@ const showSignal = (signal, candidate, confidence) => {
 };
 const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
   let parsed;
-  try { parsed=extractLastDigit(price,pipSize); } catch(error) { tradabilityEngine.reset($('symbol').value,'invalid quote');auditStage('invalid-tick',{reason:error.message}); return; }
-  if(!tradabilityEngine.push({digit:parsed.digit,epoch,symbol:$('symbol').value}).accepted)return;
+  try { parsed=extractLastDigit(price,pipSize); } catch(error) { auditStage('invalid-tick',{reason:error.message}); return; }
   liveTickNumber++;
   const raw=parsed.quote,digit=parsed.digit;
   if(Number.isInteger(digit)){
@@ -674,7 +675,7 @@ const startLive = () => {
   if(liveFeedSymbol===symbol&&socket&&(socket.readyState===0||socket.readyState===1))return;
   // Preserve same-market history across short reconnects. push() still resets
   // on an actual data gap, invalid quote, or change of market.
-  if(tradabilityEngine.symbol!==symbol)tradabilityEngine.reset(symbol,'symbol changed');
+  tradabilityMarkets.start();
   tradabilitySyncKey=null;tradabilityServer=null;
   strengthSample = null;
   if (botMode === 'manual') { autoEnabled = false; syncScannerTimer(); }
@@ -949,3 +950,4 @@ renderParallel();
 setInterval(async()=>{if(tradabilityMode!=='auto-block'||!isRunning||!demoConnected)return;try{const key=tradabilitySyncKey;if(!key){void syncTradability();return;}const response=await fetch('/api/tradability/status',{cache:'no-store'});if(!response.ok)throw Error('Server guard unavailable');const result=await response.json();if(key===tradabilitySyncKey)tradabilityServer=result;}catch{tradabilityServer={allowed:false,reason:'Server guard unavailable'};}},2000);
 globalThis.addEventListener?.('pagehide',()=>{void revokeExecution();});
 loadAuthStatus();
+tradabilityMarkets.start();

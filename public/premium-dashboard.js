@@ -46,6 +46,12 @@ export function mountDashboard(readState){
   stackPanels('entry-execution-stack',['.entryAnalyzerPanel','#autoOrderPanel']);
   stackPanels('heat-scanner-stack',['section:has(#premiumHeat)','.scannerPanel']);
   stackPanels('controls-chart-stack',['.controls','.chart-panel']);
+  const compactWorkspace=document.createElement('div');compactWorkspace.className='compact-workspace';layout.append(compactWorkspace);
+  for(const selectors of [
+    ['.suggestedEntryPanel','.entry-execution-stack','.heat-scanner-stack'],
+    ['.gate-card','.cooldownPanel','.controls-chart-stack'],
+    ['.modePanel','.live-wheel-panel','.barrier-card']
+  ]){const column=document.createElement('div');column.className='compact-column';compactWorkspace.append(column);for(const selector of selectors)column.append(layout.querySelector(selector));}
   move('.orderPerformancePanel','lowerPanels');move('.movedMetrics','lowerPanels');
   const diagnostic=byId('barrierDiagnostics').closest('section');byId('lowerPanels').append(diagnostic);
   document.querySelector('.entryDeck').classList.add('compact-entry');

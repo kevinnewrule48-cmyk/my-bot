@@ -8,6 +8,7 @@ import {DemoRiskLedger,guardedDemoOrder,RiskRejection} from './part-one-risk.mjs
 import {PartOneExecution} from './part-one-execution.mjs';
 import {strategyForType} from './public/strategy-proposal.js';
 import {qualifiesDifferFrequency} from './public/differ-engine.js';
+import {resetExecution,purchasePermission} from './execution-permission.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const demoRisk = new DemoRiskLedger({file:process.env.PART_ONE_RISK_PATH||path.join(root,'work','part-one-demo-risk.json')});
@@ -40,6 +41,7 @@ const connectExecution=async({token,accountId,accountType})=>{
   await new Promise((resolve,reject)=>{const cleanup=()=>{clearTimeout(timer);ws.removeEventListener('open',opened);ws.removeEventListener('error',failed);ws.removeEventListener('close',failed);};const opened=()=>{cleanup();resolve();};const failed=()=>{cleanup();reject(Error('Trading socket connection failed'));};const timer=setTimeout(()=>{cleanup();ws.close();reject(Error('Trading socket connection timeout'));},10000);ws.addEventListener('open',opened);ws.addEventListener('error',failed);ws.addEventListener('close',failed);});return ws;
 };
 const execution=new PartOneExecution({connect:connectExecution,file:process.env.PART_ONE_EXECUTION_PATH||path.join(root,'work','part-one-execution.json'),
+  onDisconnect:id=>{for(const session of sessions.values())if(session.autoControl?.accountId===id||session.manualIntent?.accountId===id)resetExecution(session);},
   onTick:(id,tick)=>demoRisk.tick(id,tick),
   onSettled:(id,attempt,result)=>{const pending=demoRisk.status(id).pending;if(pending?.attemptId===attempt.attemptId)demoRisk.settle(id,pending.id,result);},
   onRejected:(id,attempt)=>{const pending=demoRisk.status(id).pending;if(pending?.attemptId===attempt.attemptId)demoRisk.rejected(id,pending.id,{orderNotSubmitted:true});},
@@ -56,13 +58,25 @@ const partTwoOrders = createPartTwoOrders({file:process.env.PART_TWO_LEDGER_PATH
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if(await partTwoOrders(req,res,url))return;
+  if(url.pathname==='/api/execution/reset'&&req.method==='POST'){
+    const session=getSession(req);if(session)resetExecution(session);
+    return json(res,200,{stopped:true,pageId:session?.executionPageId??null});
+  }
+  if(url.pathname==='/api/execution/manual-intent'&&req.method==='POST'){
+    const session=getSession(req);if(!session)return json(res,401,{error:'Connect account first'});
+    try{const body=await readJson(req);if(!session.executionPageId||body.pageId!==session.executionPageId||body.intent!=='manual-click'||!body.attemptId||!body.accountId||!['DIGITOVER','DIGITUNDER'].includes(body.type))throw Error('Explicit current-page manual intent required');
+      const id=crypto.randomUUID();session.manualIntent={id,attemptId:body.attemptId,accountId:body.accountId,type:body.type,expiresAt:Date.now()+5000};return json(res,200,{executionSessionId:id});
+    }catch(error){return json(res,400,{error:error.message});}
+  }
   if(url.pathname==='/api/auto/control'&&req.method==='POST'){
     const session=getSession(req);if(!session)return json(res,401,{error:'Connect your account first'});
     try{
       const c=await readJson(req);
+      if(!session.executionPageId||c.pageId!==session.executionPageId)return json(res,403,{error:'Stale page. Reload and explicitly start a new session.'});
       if(!Number.isSafeInteger(c.revision)||typeof c.running!=='boolean'||typeof c.overUnder!=='boolean'||typeof c.differ!=='boolean'||typeof c.runId!=='string')return json(res,400,{error:'Invalid Auto control'});
       if(c.revision<=(session.autoControl?.revision??-1))return json(res,409,{error:'Superseded Auto control'});
-      session.autoControl={...c};return json(res,200,{ok:true,runId:c.runId});
+      if(c.running&&(!c.accountId||c.live!==true))return json(res,403,{error:'A live, intentionally started session is required'});
+      session.autoControl={...c,startedAt:Date.now()};return json(res,200,{ok:true,runId:c.runId});
     }catch{return json(res,400,{error:'Invalid Auto control'});}
   }
   if (url.pathname === '/api/auth/status') {
@@ -94,33 +108,18 @@ const server = http.createServer(async (req, res) => {
     }catch(error){return json(res,502,{error:error.message});}
   }
   if (url.pathname === '/api/order/prepare' && req.method === 'POST') {
-    const session = getSession(req);
-    if (!session) return json(res, 401, { error:'Connect your Deriv account first.' });
-    try {
-      const { accountId, accountType, symbol, stake, riskLimits, mode='manual' } = await readJson(req);
-      if (!['demo','real'].includes(accountType)) return json(res, 400, { error:'Choose a valid account type.' });
-      if (accountType === 'real' && !realTradingEnabled) return json(res, 403, { error:'Real-money orders are disabled by the server setting.' });
-      const response = await deriv('/trading/v1/options/accounts', session.accessToken,{signal:AbortSignal.timeout(10000)}), accounts = (await response.json())?.data ?? [];
-      const selected = accounts.find((account) => account.account_id === accountId && account.account_type === accountType && account.status === 'active');
-      if (!selected) return json(res, 403, { error:'The selected account is not available.' });
-      const amount = Number(stake);
-      if(accountType==='demo')demoRisk.configure(accountId,riskLimits);
-      const credentials={accountId,accountType,token:session.accessToken};
-      await execution.resume(credentials);
-      // Recovery is read-only and may run even while a risk reservation blocks new orders.
-      if(accountType==='demo')demoRisk.check(accountId,{stake:amount,mode});
-      const prepared=await execution.prepare(credentials,{symbol,stake:amount,currency:selected.currency});
-      return json(res, 200, { ...prepared, accountType });
-    } catch (error) { return json(res, error instanceof RiskRejection?409:502, { error:error.message || 'Fast execution connection could not be prepared.',riskCode:error.code }); }
+    return json(res,200,{ready:false,warmed:false,passive:true});
   }
   if ((url.pathname === '/api/order' || url.pathname === '/api/demo/order') && req.method === 'POST') {
     const session = getSession(req);
     if (!session) return json(res, 401, { error:'Connect your Deriv demo account first.' });
     try {
-      const { armed, type, barrier, runId, symbol, stake, accountId, accountType, realConfirmed,mode='manual',riskLimits,attemptId:clientAttemptId,decisionId,strategyEvidence } = await readJson(req);
+      const { armed, type, barrier, runId, executionSessionId, signalAt, gatePassed, symbol, stake, accountId, accountType, realConfirmed,mode='manual',riskLimits,attemptId:clientAttemptId,decisionId,strategyEvidence } = await readJson(req);
       const strategy=strategyForType(type);
-      const authorizePurchase=()=>mode!=='auto'||(session.expiresAt>Date.now()&&session.autoControl?.running===true&&session.autoControl.runId===runId&&session.autoControl[strategy==='DIFFER'?'differ':'overUnder']===true);
-      if(!authorizePurchase())return json(res,403,{error:'AutoBot is stopped or this strategy is disarmed'});
+      const requiredChecks=['Barrier','Momentum','Zone','Stability','Score','Persistence','Confidence','Quality'];
+      const verifiedGate=gatePassed===true&&(type==='DIGITDIFF'||(strategyEvidence?.selected===(type==='DIGITOVER'?'OVER':'UNDER')&&requiredChecks.every(name=>strategyEvidence?.checks?.some(c=>c.name===name&&c.pass===true))));
+      const authorizePurchase=purchasePermission(session,{mode,executionSessionId,attemptId:clientAttemptId,accountId,type,strategy,decisionId,signalAt,gatePassed:verifiedGate});
+      if(!authorizePurchase()){console.warn(JSON.stringify({stage:'PURCHASE BLOCKED',reason:'No fresh current-session execution permission',botState:session.autoControl?.running??false,autoTrading:mode==='auto',live:session.autoControl?.live??false,signalId:decisionId??null,proposalId:null,executionSessionId:executionSessionId??null,timestamp:Date.now()}));return json(res,403,{error:'PURCHASE BLOCKED: Start a new Auto session or explicitly click a manual order.'});}
       const attemptId=clientAttemptId||crypto.randomUUID();
       if(!/^[A-Za-z0-9_-]{8,100}$/.test(attemptId))return json(res,400,{error:'Invalid attempt ID'});
       if(!['manual','auto'].includes(mode))return json(res,400,{error:'Invalid execution mode.'});
@@ -138,7 +137,7 @@ const server = http.createServer(async (req, res) => {
       if (accountType === 'real' && realConfirmed !== true) return json(res, 403, { error:'A separate real-money confirmation is required.' });
       const sessionKey = cookieValue(req, 'deriv_session');
       const credentials={accountId:selectedAccount.account_id,accountType,token:session.accessToken};
-      const request={attemptId,decisionId,strategyEvidence,type,strategy,barrier,symbol,stake:amount,currency:selectedAccount.currency,mode,riskLimits,authorizePurchase};
+      const request={attemptId,decisionId,executionSessionId,strategyEvidence,type,strategy,barrier,symbol,stake:amount,currency:selectedAccount.currency,mode,riskLimits,authorizePurchase};
       const existing=execution.find(accountId,attemptId);
       if(existing&&['type','symbol','stake','mode','currency'].some(k=>existing.request[k]!==request[k]))return json(res,409,{error:'Attempt ID already belongs to a different order'});
       if(existing&&type==='DIGITDIFF'&&existing.request.barrier!==barrier)return json(res,409,{error:'Attempt barrier mismatch'});
@@ -157,6 +156,7 @@ const server = http.createServer(async (req, res) => {
     } catch (error) { return json(res, error instanceof RiskRejection?409:502, { error:error.message || 'Order could not be completed.',riskCode:error instanceof RiskRejection?error.code:undefined,executionCode:error.code,attemptId:error.attemptId,uncertain:!!error.uncertain }); }
   }
   if (url.pathname === '/api/auth/start') {
+    const previousSession=getSession(req);if(previousSession)resetExecution(previousSession);
     if (!oauthReady) { res.writeHead(409, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'OAuth is not configured. Set DERIV_CLIENT_ID and an HTTPS DERIV_REDIRECT_URI first.' })); }
     const state = base64url(crypto.randomBytes(32));
     const verifier = base64url(crypto.randomBytes(48));

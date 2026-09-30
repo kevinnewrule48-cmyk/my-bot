@@ -10,7 +10,7 @@ export function mountDashboard(readState){
   document.body.classList.add('premium');
   const main=document.querySelector('main');
   const layout=document.createElement('div');layout.className='terminal';
-  layout.innerHTML=`<div class="workspace-heading"><div><p class="eyebrow">CONSTANT ATM / PART ONE</p><h2>Digit workspace<span class="quiet-dot"></span></h2><p>Independent analysis. Clear decisions.</p></div><div class="session-tag">LIVE DATA ONLY <span>•</span> 1 TICK CONTRACTS</div></div>
+  layout.innerHTML=`<div class="workspace-heading"><div><p class="eyebrow">CONSENT ATM / PART ONE</p><h2>Digit workspace<span class="quiet-dot"></span></h2><p>Independent analysis. Clear decisions.</p></div><div class="session-tag">LIVE DATA ONLY <span>•</span> 1 TICK CONTRACTS</div></div>
   <div class="terminal-grid"><div id="marketColumn" class="column">
   <section class="panel digit-hero"><div class="card-heading"><span>LIVE MARKET</span><span id="heroMarket">—</span></div><p class="eyebrow">LAST DIGIT</p><div id="heroDigit">—</div><p id="heroPrice">Waiting for a verified price</p><div id="recentStream" aria-label="Most recent digits, newest first"></div><small>Newest first · actual market ticks</small></section>
   <section class="panel"><div class="card-heading"><h2>Digit heat map</h2><span>ROLLING SAMPLE</span></div><div id="premiumHeat" class="heat-grid"></div><p class="hint">HOT &gt;12% · COLD &lt;8% · descriptive frequency only</p></section></div>
@@ -56,7 +56,7 @@ export function mountDashboard(readState){
   const diagnostic=byId('barrierDiagnostics').closest('section');byId('lowerPanels').append(diagnostic);
   document.querySelector('.entryDeck').classList.add('compact-entry');
   document.querySelector('header h1').innerHTML='<span class="brandVaultTitle">D Vault</span> <span class="brandMoneyBag" role="img" aria-label="Money bag">💰</span>';
-  document.querySelector('header .eyebrow').textContent='CONSTANT ATM';
+  document.querySelector('header .eyebrow').textContent='CONSENT ATM';
   const headerStrip=document.createElement('div');headerStrip.className='header-strip';
   headerStrip.innerHTML='<span id="premiumConnection">DISCONNECTED</span><span id="premiumAccount">NO ACCOUNT</span><span id="premiumMarket">—</span><span id="premiumStatus">STOPPED</span><button id="headerStop" class="danger">Stop bot</button>';
   document.querySelector('header').append(headerStrip);

@@ -96,3 +96,9 @@
  transform:rotate(-6deg); margin:2px 5px 7px 3px;
 }
 @media(max-width:480px){.brandLockup .brandMoneyBag{width:46px;height:46px;font-size:36px}}
+.premium .brandLockup{gap:5px;min-height:66px}
+.premium .brandLockup>div{padding-right:66px}
+.premium .brandLockup .eyebrow{margin:0 0 1px;line-height:1.1;letter-spacing:.08em}
+.premium .brandLockup h1{position:relative;display:block;margin:0;line-height:1.15}
+.brandVaultTitle{color:#ffd875;background:linear-gradient(180deg,#fff6cf 0%,#ffe19a 25%,#b77b19 51%,#ffe6a0 72%,#d49b36 100%);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 1px 0 #69440d) drop-shadow(0 0 4px #ffd45a55)}
+.premium .brandLockup .brandMoneyBag{position:absolute;left:100%;top:50%;margin:0 0 0 9px;transform:translateY(-50%) rotate(-6deg)}

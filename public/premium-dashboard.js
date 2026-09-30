@@ -55,7 +55,7 @@ export function mountDashboard(readState){
   move('.orderPerformancePanel','lowerPanels');move('.movedMetrics','lowerPanels');
   const diagnostic=byId('barrierDiagnostics').closest('section');byId('lowerPanels').append(diagnostic);
   document.querySelector('.entryDeck').classList.add('compact-entry');
-  document.querySelector('header h1').innerHTML='D Vault <span class="brandMoneyBag" role="img" aria-label="Money bag">💰</span>';
+  document.querySelector('header h1').innerHTML='<span class="brandVaultTitle">D Vault</span> <span class="brandMoneyBag" role="img" aria-label="Money bag">💰</span>';
   document.querySelector('header .eyebrow').textContent='CONSTANT ATM';
   const headerStrip=document.createElement('div');headerStrip.className='header-strip';
   headerStrip.innerHTML='<span id="premiumConnection">DISCONNECTED</span><span id="premiumAccount">NO ACCOUNT</span><span id="premiumMarket">—</span><span id="premiumStatus">STOPPED</span><button id="headerStop" class="danger">Stop bot</button>';

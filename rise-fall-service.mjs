@@ -4,6 +4,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {RiseFallEngine,configuration} from './public/rise-fall/engine.js';
 import {availableContracts,proposalRequest,validateProposal,supports} from './public/rise-fall/contracts.js';
 import {RpcSocket} from './rise-fall-transport.mjs';
+import {brokerBalance} from './public/rise-fall/balance.js';
 export const fingerprint=c=>createHash('sha256').update(JSON.stringify(configuration(c))).digest('hex');
 export function reduceSettlement(order,c){
  if(String(c.contract_id)!==String(order.contractId))return order;
@@ -16,6 +17,14 @@ export class RiseFallService{
  constructor({connect,accounts,file,validationFile,now=Date.now,otherBusy=()=>false}){Object.assign(this,{connect,accounts,file,validationFile,otherBusy,now});this.contexts=new Map();this.preparing=new Set();this.journal=file&&existsSync(file)?JSON.parse(readFileSync(file,'utf8')):[];for(const o of this.journal)if(!['SETTLED','REJECTED'].includes(o.state)){o.state=o.buySent?'UNKNOWN':'REJECTED';o.error='Server restarted; no automatic purchase retry';}}
  save(){if(!this.file)return;mkdirSync(dirname(this.file),{recursive:true});writeFileSync(this.file+'.tmp',JSON.stringify(this.journal,null,2));renameSync(this.file+'.tmp',this.file);}
  busy(accountId){return this.journal.some(o=>o.accountId===accountId&&!['SETTLED','REJECTED'].includes(o.state));}
+ verifiedDurations(config,symbol){try{const v=JSON.parse(readFileSync(this.validationFile,'utf8')),p=v.profiles.find(p=>fingerprint(p.config)===fingerprint(config));return v.results.filter(r=>r.symbol===symbol&&r.profile===p?.name&&r.partition==='validation'&&this.validation(config,symbol,r.duration,r.unit)).map(r=>({duration:r.duration,unit:r.unit}));}catch{return [];}}
+ async balance(owner,session,accountId){
+  const list=await this.accounts(session),account=list.find(a=>a.account_id===accountId&&a.account_type==='demo'&&a.status==='active');
+  if(!account)throw Error('Select a demo options account belonging to your connected Deriv login');
+  const ctx=this.contexts.get(owner),shared=ctx?.session===session&&ctx.account.account_id===accountId&&!ctx.rpc.closed;
+  const rpc=shared?ctx.rpc:new RpcSocket(await this.connect({token:session.accessToken,accountId,accountType:'demo'}));
+  try{return {...brokerBalance(await rpc.request({balance:1}),account),updatedAt:this.now()};}finally{if(!shared)rpc.close();}
+ }
  validation(config,symbol=null,duration=null,unit=null){try{const v=JSON.parse(readFileSync(this.validationFile,'utf8')),profile=v.profiles.find(p=>fingerprint(p.config)===fingerprint(config));return v.realData===true&&v.replayCompleted===true&&!!profile&&v.symbols.length>=2&&v.validationTicks>=2000&&(!symbol||v.results.some(r=>r.symbol===symbol&&r.profile===profile.name&&r.partition==='validation'&&(duration===null||r.duration===duration&&r.unit===unit)));}catch{return false;}}
  async prepare(owner,session,body){
   if(this.preparing.has(owner))throw Error('Connection setup in progress');this.preparing.add(owner);
@@ -41,7 +50,7 @@ export class RiseFallService{
    return this.status(owner);
   }catch(e){const ctx=this.contexts.get(owner);if(ctx){ctx.running=false;ctx.error=e.message;ctx.rpc.close();}throw e;}finally{this.preparing.delete(owner);}
  }
- status(owner){const c=this.contexts.get(owner);if(!c)return {connected:false,running:false,realEnabled:false,orders:[]};if(this.now()-c.heartbeat>20000||c.session.expiresAt<=this.now())c.running=false;return {connected:!c.rpc.closed,sessionId:c.id,running:c.running,realEnabled:false,demoReplayVerified:this.validation(c.config),symbol:c.symbol,accountId:c.account.account_id,currency:c.account.currency,analysis:c.engine.snapshot(this.now()+(c.clockOffset??0)),contracts:c.contracts,error:c.error,orders:this.journal.filter(o=>o.accountId===c.account.account_id).slice(-100),blocked:this.busy(c.account.account_id)};}
+ status(owner){const c=this.contexts.get(owner);if(!c)return {connected:false,running:false,realEnabled:false,orders:[]};if(this.now()-c.heartbeat>20000||c.session.expiresAt<=this.now())c.running=false;return {connected:!c.rpc.closed,sessionId:c.id,running:c.running,realEnabled:false,demoReplayVerified:this.validation(c.config,c.symbol),verifiedDurations:this.verifiedDurations(c.config,c.symbol),symbol:c.symbol,accountId:c.account.account_id,currency:c.account.currency,analysis:c.engine.snapshot(this.now()+(c.clockOffset??0)),contracts:c.contracts,error:c.error,orders:this.journal.filter(o=>o.accountId===c.account.account_id).slice(-100),blocked:this.busy(c.account.account_id)};}
  start(owner,body){const c=this.contexts.get(owner);if(!c||c.id!==body.sessionId||c.rpc.closed||c.session.expiresAt<=this.now())throw Error('Connect the current demo session first');if(!this.validation(c.config,c.symbol,body.duration,body.unit))throw Error('Historical replay must be completed for this symbol, duration and settings before Auto is enabled');
   if(!Number.isFinite(body.stake)||body.stake<=0||body.stake>50)throw Error('Demo verification stake must be between 0 and 50');
   if(!['CALL','PUT'].every(t=>supports(c.contracts,t,body.duration,body.unit)))throw Error('Select a Deriv-supported duration for both Rise and Fall');
@@ -74,7 +83,8 @@ export class RiseFallService{
 }
 export function riseFallRoutes(service,{getSession,cookieValue,json,readJson}){return async(req,res,url)=>{
  if(!url.pathname.startsWith('/api/rise-fall/'))return false;const session=getSession(req);if(!session){json(res,401,{error:'Connect your Deriv account first'});return true;}const owner=cookieValue(req,'deriv_session');
- try{if(req.method==='GET'&&url.pathname==='/api/rise-fall/status'){await service.refresh(owner);json(res,200,service.status(owner));return true;}
+ try{if(req.method==='GET'&&url.pathname==='/api/rise-fall/balance'){json(res,200,await service.balance(owner,session,url.searchParams.get('accountId')));return true;}
+  if(req.method==='GET'&&url.pathname==='/api/rise-fall/status'){await service.refresh(owner);json(res,200,service.status(owner));return true;}
   if(req.method!=='POST')throw Error('Unsupported request');if(req.headers.origin&&!['http://'+req.headers.host,'https://'+req.headers.host].includes(req.headers.origin))throw Error('Invalid request origin');const body=await readJson(req);let result;
   switch(url.pathname){case '/api/rise-fall/connect':result=await service.prepare(owner,session,body);break;case '/api/rise-fall/start':result=service.start(owner,body);break;case '/api/rise-fall/stop':result=service.stop(owner);break;case '/api/rise-fall/heartbeat':result=service.heartbeat(owner,body);break;default:throw Error('Unknown route');}json(res,200,result);
  }catch(e){json(res,409,{error:e.message});}return true;

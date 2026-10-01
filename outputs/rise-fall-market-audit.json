@@ -1,0 +1,6685 @@
+{
+  "checkedAt": "2026-10-01T15:45:24.474Z",
+  "rows": [
+    {
+      "symbol": "1HZ100V",
+      "name": "Volatility 100 (1s) Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1081.44",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ100V"
+        },
+        {
+          "barrier": "1081.44",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ100V"
+        },
+        {
+          "barrier": "+0.60",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ100V"
+        },
+        {
+          "barrier": "+0.60",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ100V"
+        },
+        {
+          "barrier": "+0.15",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ100V"
+        },
+        {
+          "barrier": "+0.15",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ100V"
+        }
+      ]
+    },
+    {
+      "symbol": "1HZ10V",
+      "name": "Volatility 10 (1s) Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "9684.83",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ10V"
+        },
+        {
+          "barrier": "9684.83",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ10V"
+        },
+        {
+          "barrier": "+0.56",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ10V"
+        },
+        {
+          "barrier": "+0.56",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ10V"
+        },
+        {
+          "barrier": "+0.14",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ10V"
+        },
+        {
+          "barrier": "+0.14",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ10V"
+        }
+      ]
+    },
+    {
+      "symbol": "1HZ15V",
+      "name": "Volatility 15 (1s) Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "13519.604",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ15V"
+        },
+        {
+          "barrier": "13519.604",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ15V"
+        },
+        {
+          "barrier": "+1.169",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ15V"
+        },
+        {
+          "barrier": "+1.169",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ15V"
+        },
+        {
+          "barrier": "+0.302",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ15V"
+        },
+        {
+          "barrier": "+0.302",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ15V"
+        }
+      ]
+    },
+    {
+      "symbol": "1HZ25V",
+      "name": "Volatility 25 (1s) Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "877543.83",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ25V"
+        },
+        {
+          "barrier": "877543.83",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ25V"
+        },
+        {
+          "barrier": "+125.96",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ25V"
+        },
+        {
+          "barrier": "+125.96",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ25V"
+        },
+        {
+          "barrier": "+32.52",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ25V"
+        },
+        {
+          "barrier": "+32.52",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ25V"
+        }
+      ]
+    },
+    {
+      "symbol": "1HZ30V",
+      "name": "Volatility 30 (1s) Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "6323.835",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ30V"
+        },
+        {
+          "barrier": "6323.835",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ30V"
+        },
+        {
+          "barrier": "+1.087",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ30V"
+        },
+        {
+          "barrier": "+1.087",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ30V"
+        },
+        {
+          "barrier": "+0.281",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ30V"
+        },
+        {
+          "barrier": "+0.281",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ30V"
+        }
+      ]
+    },
+    {
+      "symbol": "1HZ50V",
+      "name": "Volatility 50 (1s) Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "190711.93",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ50V"
+        },
+        {
+          "barrier": "190711.93",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ50V"
+        },
+        {
+          "barrier": "+54.14",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ50V"
+        },
+        {
+          "barrier": "+54.14",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ50V"
+        },
+        {
+          "barrier": "+13.98",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ50V"
+        },
+        {
+          "barrier": "+13.98",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ50V"
+        }
+      ]
+    },
+    {
+      "symbol": "1HZ75V",
+      "name": "Volatility 75 (1s) Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "5471.59",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ75V"
+        },
+        {
+          "barrier": "5471.59",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ75V"
+        },
+        {
+          "barrier": "+2.30",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ75V"
+        },
+        {
+          "barrier": "+2.30",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ75V"
+        },
+        {
+          "barrier": "+0.59",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ75V"
+        },
+        {
+          "barrier": "+0.59",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ75V"
+        }
+      ]
+    },
+    {
+      "symbol": "1HZ90V",
+      "name": "Volatility 90 (1s) Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "21136.022",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ90V"
+        },
+        {
+          "barrier": "21136.022",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ90V"
+        },
+        {
+          "barrier": "+10.607",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ90V"
+        },
+        {
+          "barrier": "+10.607",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ90V"
+        },
+        {
+          "barrier": "+2.737",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ90V"
+        },
+        {
+          "barrier": "+2.737",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "1HZ90V"
+        }
+      ]
+    },
+    {
+      "symbol": "BOOM1000",
+      "name": "Boom 1000 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "BOOM150N",
+      "name": "Boom 150 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "BOOM300N",
+      "name": "Boom 300 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "BOOM50",
+      "name": "Boom 50 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "BOOM500",
+      "name": "Boom 500 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "BOOM600",
+      "name": "Boom 600 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "BOOM900",
+      "name": "Boom 900 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "CRASH1000",
+      "name": "Crash 1000 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "CRASH150N",
+      "name": "Crash 150 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "CRASH300N",
+      "name": "Crash 300 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "CRASH50",
+      "name": "Crash 50 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "CRASH500",
+      "name": "Crash 500 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "CRASH600",
+      "name": "Crash 600 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "CRASH900",
+      "name": "Crash 900 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "JD10",
+      "name": "Jump 10 Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "93446.95",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD10"
+        },
+        {
+          "barrier": "93446.95",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD10"
+        },
+        {
+          "barrier": "+7.13",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD10"
+        },
+        {
+          "barrier": "+7.13",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD10"
+        },
+        {
+          "barrier": "+1.84",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD10"
+        },
+        {
+          "barrier": "+1.84",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD10"
+        }
+      ]
+    },
+    {
+      "symbol": "JD100",
+      "name": "Jump 100 Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "118.69",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD100"
+        },
+        {
+          "barrier": "118.69",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD100"
+        },
+        {
+          "barrier": "+0.09",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD100"
+        },
+        {
+          "barrier": "+0.09",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD100"
+        },
+        {
+          "barrier": "+0.02",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD100"
+        },
+        {
+          "barrier": "+0.02",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD100"
+        }
+      ]
+    },
+    {
+      "symbol": "JD25",
+      "name": "Jump 25 Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "126636.49",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD25"
+        },
+        {
+          "barrier": "126636.49",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD25"
+        },
+        {
+          "barrier": "+23.96",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD25"
+        },
+        {
+          "barrier": "+23.96",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD25"
+        },
+        {
+          "barrier": "+6.19",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD25"
+        },
+        {
+          "barrier": "+6.19",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD25"
+        }
+      ]
+    },
+    {
+      "symbol": "JD50",
+      "name": "Jump 50 Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "69343.91",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD50"
+        },
+        {
+          "barrier": "69343.91",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD50"
+        },
+        {
+          "barrier": "+25.85",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD50"
+        },
+        {
+          "barrier": "+25.85",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD50"
+        },
+        {
+          "barrier": "+6.67",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD50"
+        },
+        {
+          "barrier": "+6.67",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD50"
+        }
+      ]
+    },
+    {
+      "symbol": "JD75",
+      "name": "Jump 75 Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "6683.55",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD75"
+        },
+        {
+          "barrier": "6683.55",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD75"
+        },
+        {
+          "barrier": "+3.68",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD75"
+        },
+        {
+          "barrier": "+3.68",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD75"
+        },
+        {
+          "barrier": "+0.95",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD75"
+        },
+        {
+          "barrier": "+0.95",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "jump_index",
+          "underlying_symbol": "JD75"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_AEX",
+      "name": "Netherlands 25",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1141",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_AEX"
+        },
+        {
+          "barrier": "1141",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_AEX"
+        },
+        {
+          "barrier": "0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_AEX"
+        },
+        {
+          "barrier": "0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_AEX"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_AS51",
+      "name": "Australia 200",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "8686",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_AS51"
+        },
+        {
+          "barrier": "8686",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_AS51"
+        },
+        {
+          "barrier": "4",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_AS51"
+        },
+        {
+          "barrier": "4",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_AS51"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_DJI",
+      "name": "Wall Street 30",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "51158",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_DJI"
+        },
+        {
+          "barrier": "51158",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_DJI"
+        },
+        {
+          "barrier": "30",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_DJI"
+        },
+        {
+          "barrier": "30",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_DJI"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_FCHI",
+      "name": "France 40",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "7927",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_FCHI"
+        },
+        {
+          "barrier": "7927",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_FCHI"
+        },
+        {
+          "barrier": "9",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_FCHI"
+        },
+        {
+          "barrier": "9",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_FCHI"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_FTSE",
+      "name": "UK 100",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "10511",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_FTSE"
+        },
+        {
+          "barrier": "10511",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_FTSE"
+        },
+        {
+          "barrier": "7",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_FTSE"
+        },
+        {
+          "barrier": "7",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_FTSE"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_GDAXI",
+      "name": "Germany 40",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "25158",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_GDAXI"
+        },
+        {
+          "barrier": "25158",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_GDAXI"
+        },
+        {
+          "barrier": "20",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_GDAXI"
+        },
+        {
+          "barrier": "20",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_GDAXI"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_HSI",
+      "name": "Hong Kong 50",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "24767",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_HSI"
+        },
+        {
+          "barrier": "24767",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_HSI"
+        },
+        {
+          "barrier": "15",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_HSI"
+        },
+        {
+          "barrier": "15",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_HSI"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_N225",
+      "name": "Japan 225",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "68687",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_N225"
+        },
+        {
+          "barrier": "68687",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_N225"
+        },
+        {
+          "barrier": "76",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_N225"
+        },
+        {
+          "barrier": "76",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "asia_oceania_OTC",
+          "underlying_symbol": "OTC_N225"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_NDX",
+      "name": "US Tech 100",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "30632",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_NDX"
+        },
+        {
+          "barrier": "30632",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_NDX"
+        },
+        {
+          "barrier": "25",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_NDX"
+        },
+        {
+          "barrier": "25",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_NDX"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_SPC",
+      "name": "US 500",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "7692",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_SPC"
+        },
+        {
+          "barrier": "7692",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_SPC"
+        },
+        {
+          "barrier": "4",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_SPC"
+        },
+        {
+          "barrier": "4",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "americas_OTC",
+          "underlying_symbol": "OTC_SPC"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_SSMI",
+      "name": "Swiss 20",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "13735",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_SSMI"
+        },
+        {
+          "barrier": "13735",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_SSMI"
+        },
+        {
+          "barrier": "9",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_SSMI"
+        },
+        {
+          "barrier": "9",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_SSMI"
+        }
+      ]
+    },
+    {
+      "symbol": "OTC_SX5E",
+      "name": "Euro 50",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "6226",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_SX5E"
+        },
+        {
+          "barrier": "6226",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "indices",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_SX5E"
+        },
+        {
+          "barrier": "5",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_SX5E"
+        },
+        {
+          "barrier": "5",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "indices",
+          "max_contract_duration": "1h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "europe_OTC",
+          "underlying_symbol": "OTC_SX5E"
+        }
+      ]
+    },
+    {
+      "symbol": "RB100",
+      "name": "Range Break 100 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "RB200",
+      "name": "Range Break 200 Index",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "RDBEAR",
+      "name": "Bear Market Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "+0.8621",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_daily",
+          "underlying_symbol": "RDBEAR"
+        },
+        {
+          "barrier": "+0.8621",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_daily",
+          "underlying_symbol": "RDBEAR"
+        },
+        {
+          "barrier": "+0.2224",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_daily",
+          "underlying_symbol": "RDBEAR"
+        },
+        {
+          "barrier": "+0.2224",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_daily",
+          "underlying_symbol": "RDBEAR"
+        }
+      ]
+    },
+    {
+      "symbol": "RDBULL",
+      "name": "Bull Market Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "+1.0395",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_daily",
+          "underlying_symbol": "RDBULL"
+        },
+        {
+          "barrier": "+1.0395",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_daily",
+          "underlying_symbol": "RDBULL"
+        },
+        {
+          "barrier": "+0.2681",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_daily",
+          "underlying_symbol": "RDBULL"
+        },
+        {
+          "barrier": "+0.2681",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_daily",
+          "underlying_symbol": "RDBULL"
+        }
+      ]
+    },
+    {
+      "symbol": "R_10",
+      "name": "Volatility 10 Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "4940.375",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_10"
+        },
+        {
+          "barrier": "4940.375",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_10"
+        },
+        {
+          "barrier": "+0.286",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_10"
+        },
+        {
+          "barrier": "+0.286",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_10"
+        },
+        {
+          "barrier": "+0.074",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_10"
+        },
+        {
+          "barrier": "+0.074",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_10"
+        }
+      ]
+    },
+    {
+      "symbol": "R_100",
+      "name": "Volatility 100 Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "634.34",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_100"
+        },
+        {
+          "barrier": "634.34",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_100"
+        },
+        {
+          "barrier": "+0.35",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_100"
+        },
+        {
+          "barrier": "+0.35",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_100"
+        },
+        {
+          "barrier": "+0.09",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_100"
+        },
+        {
+          "barrier": "+0.09",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_100"
+        }
+      ]
+    },
+    {
+      "symbol": "R_25",
+      "name": "Volatility 25 Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "2609.796",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_25"
+        },
+        {
+          "barrier": "2609.796",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_25"
+        },
+        {
+          "barrier": "+0.375",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_25"
+        },
+        {
+          "barrier": "+0.375",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_25"
+        },
+        {
+          "barrier": "+0.097",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_25"
+        },
+        {
+          "barrier": "+0.097",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_25"
+        }
+      ]
+    },
+    {
+      "symbol": "R_50",
+      "name": "Volatility 50 Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "86.8518",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_50"
+        },
+        {
+          "barrier": "86.8518",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_50"
+        },
+        {
+          "barrier": "+0.0247",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_50"
+        },
+        {
+          "barrier": "+0.0247",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_50"
+        },
+        {
+          "barrier": "+0.0064",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_50"
+        },
+        {
+          "barrier": "+0.0064",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_50"
+        }
+      ]
+    },
+    {
+      "symbol": "R_75",
+      "name": "Volatility 75 Index",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "47847.2645",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_75"
+        },
+        {
+          "barrier": "47847.2645",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_75"
+        },
+        {
+          "barrier": "+20.1475",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_75"
+        },
+        {
+          "barrier": "+20.1475",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_75"
+        },
+        {
+          "barrier": "+5.2000",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "random_index",
+          "underlying_symbol": "R_75"
+        },
+        {
+          "barrier": "+5.2000",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "random_index",
+          "underlying_symbol": "R_75"
+        }
+      ]
+    },
+    {
+      "symbol": "WLDAUD",
+      "name": "AUD Basket",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "10h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "10h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "+0.421",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "10h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "forex_basket",
+          "underlying_symbol": "WLDAUD"
+        },
+        {
+          "barrier": "+0.421",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "10h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "forex_basket",
+          "underlying_symbol": "WLDAUD"
+        }
+      ]
+    },
+    {
+      "symbol": "WLDEUR",
+      "name": "EUR Basket",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "10h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "10h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "+0.475",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "10h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "forex_basket",
+          "underlying_symbol": "WLDEUR"
+        },
+        {
+          "barrier": "+0.475",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "10h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "forex_basket",
+          "underlying_symbol": "WLDEUR"
+        }
+      ]
+    },
+    {
+      "symbol": "WLDGBP",
+      "name": "GBP Basket",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "10h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "10h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "+0.450",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "10h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "forex_basket",
+          "underlying_symbol": "WLDGBP"
+        },
+        {
+          "barrier": "+0.450",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "10h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "forex_basket",
+          "underlying_symbol": "WLDGBP"
+        }
+      ]
+    },
+    {
+      "symbol": "WLDUSD",
+      "name": "USD Basket",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "10h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "10h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "+0.559",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "10h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "forex_basket",
+          "underlying_symbol": "WLDUSD"
+        },
+        {
+          "barrier": "+0.559",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "10h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "forex_basket",
+          "underlying_symbol": "WLDUSD"
+        }
+      ]
+    },
+    {
+      "symbol": "WLDXAU",
+      "name": "Gold Basket",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "10h"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "10h"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "+1089.350",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "10h",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "commodity_basket",
+          "underlying_symbol": "WLDXAU"
+        },
+        {
+          "barrier": "+1089.350",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "10h",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "commodity_basket",
+          "underlying_symbol": "WLDXAU"
+        }
+      ]
+    },
+    {
+      "symbol": "cryBTCUSD",
+      "name": "BTC/USD",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "cryETHUSD",
+      "name": "ETH/USD",
+      "contracts": [],
+      "rawCallPut": []
+    },
+    {
+      "symbol": "frxAUDCAD",
+      "name": "AUD/CAD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "0.98908",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDCAD"
+        },
+        {
+          "barrier": "0.98908",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDCAD"
+        },
+        {
+          "barrier": "+0.00038",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDCAD"
+        },
+        {
+          "barrier": "+0.00038",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDCAD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxAUDCHF",
+      "name": "AUD/CHF",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "0.57833",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDCHF"
+        },
+        {
+          "barrier": "0.57833",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDCHF"
+        },
+        {
+          "barrier": "+0.00029",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDCHF"
+        },
+        {
+          "barrier": "+0.00029",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDCHF"
+        }
+      ]
+    },
+    {
+      "symbol": "frxAUDJPY",
+      "name": "AUD/JPY",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "109.765",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxAUDJPY"
+        },
+        {
+          "barrier": "109.765",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxAUDJPY"
+        },
+        {
+          "barrier": "+0.066",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxAUDJPY"
+        },
+        {
+          "barrier": "+0.066",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxAUDJPY"
+        }
+      ]
+    },
+    {
+      "symbol": "frxAUDNZD",
+      "name": "AUD/NZD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1.23838",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDNZD"
+        },
+        {
+          "barrier": "1.23838",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDNZD"
+        },
+        {
+          "barrier": "+0.00036",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDNZD"
+        },
+        {
+          "barrier": "+0.00036",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxAUDNZD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxAUDUSD",
+      "name": "AUD/USD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "0.69553",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxAUDUSD"
+        },
+        {
+          "barrier": "0.69553",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxAUDUSD"
+        },
+        {
+          "barrier": "+0.00041",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxAUDUSD"
+        },
+        {
+          "barrier": "+0.00041",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxAUDUSD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxEURAUD",
+      "name": "EUR/AUD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1.62957",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURAUD"
+        },
+        {
+          "barrier": "1.62957",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURAUD"
+        },
+        {
+          "barrier": "+0.00063",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURAUD"
+        },
+        {
+          "barrier": "+0.00063",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURAUD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxEURCAD",
+      "name": "EUR/CAD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1.60435",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURCAD"
+        },
+        {
+          "barrier": "1.60435",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURCAD"
+        },
+        {
+          "barrier": "+0.00048",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURCAD"
+        },
+        {
+          "barrier": "+0.00048",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURCAD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxEURCHF",
+      "name": "EUR/CHF",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "0.93817",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURCHF"
+        },
+        {
+          "barrier": "0.93817",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURCHF"
+        },
+        {
+          "barrier": "+0.00039",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURCHF"
+        },
+        {
+          "barrier": "+0.00039",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURCHF"
+        }
+      ]
+    },
+    {
+      "symbol": "frxEURGBP",
+      "name": "EUR/GBP",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "0.85305",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURGBP"
+        },
+        {
+          "barrier": "0.85305",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURGBP"
+        },
+        {
+          "barrier": "+0.00020",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURGBP"
+        },
+        {
+          "barrier": "+0.00020",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURGBP"
+        }
+      ]
+    },
+    {
+      "symbol": "frxEURJPY",
+      "name": "EUR/JPY",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "178.111",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURJPY"
+        },
+        {
+          "barrier": "178.111",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURJPY"
+        },
+        {
+          "barrier": "+0.098",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURJPY"
+        },
+        {
+          "barrier": "+0.098",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURJPY"
+        }
+      ]
+    },
+    {
+      "symbol": "frxEURNZD",
+      "name": "EUR/NZD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "2.01271",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxEURNZD"
+        },
+        {
+          "barrier": "2.01271",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxEURNZD"
+        },
+        {
+          "barrier": "+0.00082",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxEURNZD"
+        },
+        {
+          "barrier": "+0.00082",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxEURNZD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxEURUSD",
+      "name": "EUR/USD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1.12846",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURUSD"
+        },
+        {
+          "barrier": "1.12846",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURUSD"
+        },
+        {
+          "barrier": "+0.00060",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURUSD"
+        },
+        {
+          "barrier": "+0.00060",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxEURUSD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxGBPAUD",
+      "name": "GBP/AUD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1.91365",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPAUD"
+        },
+        {
+          "barrier": "1.91365",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPAUD"
+        },
+        {
+          "barrier": "+0.00064",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPAUD"
+        },
+        {
+          "barrier": "+0.00064",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPAUD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxGBPCAD",
+      "name": "GBP/CAD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1.88527",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPCAD"
+        },
+        {
+          "barrier": "1.88527",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPCAD"
+        },
+        {
+          "barrier": "+0.00060",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPCAD"
+        },
+        {
+          "barrier": "+0.00060",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPCAD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxGBPCHF",
+      "name": "GBP/CHF",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1.10246",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPCHF"
+        },
+        {
+          "barrier": "1.10246",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPCHF"
+        },
+        {
+          "barrier": "+0.00047",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPCHF"
+        },
+        {
+          "barrier": "+0.00047",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPCHF"
+        }
+      ]
+    },
+    {
+      "symbol": "frxGBPJPY",
+      "name": "GBP/JPY",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "209.314",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPJPY"
+        },
+        {
+          "barrier": "209.314",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPJPY"
+        },
+        {
+          "barrier": "+0.119",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPJPY"
+        },
+        {
+          "barrier": "+0.119",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPJPY"
+        }
+      ]
+    },
+    {
+      "symbol": "frxGBPNZD",
+      "name": "GBP/NZD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "2.36379",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPNZD"
+        },
+        {
+          "barrier": "2.36379",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPNZD"
+        },
+        {
+          "barrier": "+0.00086",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPNZD"
+        },
+        {
+          "barrier": "+0.00086",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxGBPNZD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxGBPUSD",
+      "name": "GBP/USD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1.32529",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPUSD"
+        },
+        {
+          "barrier": "1.32529",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPUSD"
+        },
+        {
+          "barrier": "+0.00065",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPUSD"
+        },
+        {
+          "barrier": "+0.00065",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxGBPUSD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxNZDJPY",
+      "name": "NZD/JPY",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "88.886",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxNZDJPY"
+        },
+        {
+          "barrier": "88.886",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxNZDJPY"
+        },
+        {
+          "barrier": "+0.052",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxNZDJPY"
+        },
+        {
+          "barrier": "+0.052",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxNZDJPY"
+        }
+      ]
+    },
+    {
+      "symbol": "frxNZDUSD",
+      "name": "NZD/USD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "0.56344",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxNZDUSD"
+        },
+        {
+          "barrier": "0.56344",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxNZDUSD"
+        },
+        {
+          "barrier": "+0.00035",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxNZDUSD"
+        },
+        {
+          "barrier": "+0.00035",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxNZDUSD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxUSDCAD",
+      "name": "USD/CAD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1.42919",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDCAD"
+        },
+        {
+          "barrier": "1.42919",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDCAD"
+        },
+        {
+          "barrier": "+0.00041",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDCAD"
+        },
+        {
+          "barrier": "+0.00041",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDCAD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxUSDCHF",
+      "name": "USD/CHF",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "0.83702",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDCHF"
+        },
+        {
+          "barrier": "0.83702",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDCHF"
+        },
+        {
+          "barrier": "+0.00048",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDCHF"
+        },
+        {
+          "barrier": "+0.00048",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDCHF"
+        }
+      ]
+    },
+    {
+      "symbol": "frxUSDJPY",
+      "name": "USD/JPY",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "158.821",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDJPY"
+        },
+        {
+          "barrier": "158.821",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDJPY"
+        },
+        {
+          "barrier": "+0.103",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDJPY"
+        },
+        {
+          "barrier": "+0.103",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "major_pairs",
+          "underlying_symbol": "frxUSDJPY"
+        }
+      ]
+    },
+    {
+      "symbol": "frxUSDMXN",
+      "name": "USD/MXN",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "18.5626",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxUSDMXN"
+        },
+        {
+          "barrier": "18.5626",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxUSDMXN"
+        },
+        {
+          "barrier": "+0.0191",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxUSDMXN"
+        },
+        {
+          "barrier": "+0.0191",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxUSDMXN"
+        }
+      ]
+    },
+    {
+      "symbol": "frxUSDPLN",
+      "name": "USD/PLN",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "3.9149",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxUSDPLN"
+        },
+        {
+          "barrier": "3.9149",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "forex",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxUSDPLN"
+        },
+        {
+          "barrier": "+0.0022",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "up",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxUSDPLN"
+        },
+        {
+          "barrier": "+0.0022",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "forex",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15m",
+          "sentiment": "down",
+          "submarket": "minor_pairs",
+          "underlying_symbol": "frxUSDPLN"
+        }
+      ]
+    },
+    {
+      "symbol": "frxXAGUSD",
+      "name": "Silver/USD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "5m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "5m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "61.5346",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "commodities",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "metals",
+          "underlying_symbol": "frxXAGUSD"
+        },
+        {
+          "barrier": "61.5346",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "commodities",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "metals",
+          "underlying_symbol": "frxXAGUSD"
+        },
+        {
+          "barrier": "+0.0563",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "commodities",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "5m",
+          "sentiment": "up",
+          "submarket": "metals",
+          "underlying_symbol": "frxXAGUSD"
+        },
+        {
+          "barrier": "+0.0563",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "commodities",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "5m",
+          "sentiment": "down",
+          "submarket": "metals",
+          "underlying_symbol": "frxXAGUSD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxXAUUSD",
+      "name": "Gold/USD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "5m",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "5m",
+          "max": "1d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "4204.29",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "commodities",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "metals",
+          "underlying_symbol": "frxXAUUSD"
+        },
+        {
+          "barrier": "4204.29",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "commodities",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "metals",
+          "underlying_symbol": "frxXAUUSD"
+        },
+        {
+          "barrier": "+2.30",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "commodities",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "5m",
+          "sentiment": "up",
+          "submarket": "metals",
+          "underlying_symbol": "frxXAUUSD"
+        },
+        {
+          "barrier": "+2.30",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "commodities",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "5m",
+          "sentiment": "down",
+          "submarket": "metals",
+          "underlying_symbol": "frxXAUUSD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxXPDUSD",
+      "name": "Palladium/USD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1199.25",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "commodities",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "metals",
+          "underlying_symbol": "frxXPDUSD"
+        },
+        {
+          "barrier": "1199.25",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "commodities",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "metals",
+          "underlying_symbol": "frxXPDUSD"
+        }
+      ]
+    },
+    {
+      "symbol": "frxXPTUSD",
+      "name": "Platinum/USD",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "1737.21",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "commodities",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "metals",
+          "underlying_symbol": "frxXPTUSD"
+        },
+        {
+          "barrier": "1737.21",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "commodities",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "metals",
+          "underlying_symbol": "frxXPTUSD"
+        }
+      ]
+    },
+    {
+      "symbol": "stpRNG",
+      "name": "Step Index 100",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "7332.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG"
+        },
+        {
+          "barrier": "7332.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG"
+        }
+      ]
+    },
+    {
+      "symbol": "stpRNG2",
+      "name": "Step Index 200",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "10644.8",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG2"
+        },
+        {
+          "barrier": "10644.8",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG2"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG2"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG2"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG2"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG2"
+        }
+      ]
+    },
+    {
+      "symbol": "stpRNG3",
+      "name": "Step Index 300",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "13581.4",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG3"
+        },
+        {
+          "barrier": "13581.4",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG3"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG3"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG3"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG3"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG3"
+        }
+      ]
+    },
+    {
+      "symbol": "stpRNG4",
+      "name": "Step Index 400",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "8491.2",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG4"
+        },
+        {
+          "barrier": "8491.2",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG4"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG4"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG4"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG4"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG4"
+        }
+      ]
+    },
+    {
+      "symbol": "stpRNG5",
+      "name": "Step Index 500",
+      "contracts": [
+        {
+          "type": "CALL",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "PUT",
+          "min": "1d",
+          "max": "365d"
+        },
+        {
+          "type": "CALL",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "PUT",
+          "min": "15s",
+          "max": "1d"
+        },
+        {
+          "type": "CALL",
+          "min": "1t",
+          "max": "10t"
+        },
+        {
+          "type": "PUT",
+          "min": "1t",
+          "max": "10t"
+        }
+      ],
+      "rawCallPut": [
+        {
+          "barrier": "3463.5",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG5"
+        },
+        {
+          "barrier": "3463.5",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "daily",
+          "market": "synthetic_index",
+          "max_contract_duration": "365d",
+          "min_contract_duration": "1d",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG5"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG5"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "intraday",
+          "market": "synthetic_index",
+          "max_contract_duration": "1d",
+          "min_contract_duration": "15s",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG5"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "CALL",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "up",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG5"
+        },
+        {
+          "barrier": "+0.0",
+          "barriers": 1,
+          "contract_category": "callput",
+          "contract_type": "PUT",
+          "default_stake": 2,
+          "expiry_type": "tick",
+          "market": "synthetic_index",
+          "max_contract_duration": "10t",
+          "min_contract_duration": "1t",
+          "sentiment": "down",
+          "submarket": "step_index",
+          "underlying_symbol": "stpRNG5"
+        }
+      ]
+    }
+  ]
+}

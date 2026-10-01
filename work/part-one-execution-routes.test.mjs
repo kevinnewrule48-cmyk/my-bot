@@ -1,7 +1,7 @@
 import {TradabilityAuthority} from '../part-one-tradability.mjs';
 const tradability=new TradabilityAuthority();
 import {strategyForType} from '../public/strategy-proposal.js';
-import {resetExecution,purchasePermission} from '../execution-permission.mjs';
+import {resetExecution,purchasePermission,autoAuthorization,authEvent,suspendExecution} from '../execution-permission.mjs';
 import {qualifiesDifferFrequency} from '../public/differ-engine.js';
 import {test} from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import crypto from 'node:crypto';import {readFile} from 'node:fs/promises';
 import {PartOneExecution} from '../part-one-execution.mjs';import {DemoRiskLedger,guardedDemoOrder,RiskRejection} from '../part-one-risk.mjs';
@@ -14,7 +14,8 @@ test('actual HTTP handler + execution manager + demo ledger: 25 purchases/settle
   if(response)queueMicrotask(()=>{for(const fn of handlers.message||[])fn({data:JSON.stringify({req_id:req.req_id,echo_req:req,...response})});});
  }};
  const demoRisk=new DemoRiskLedger(),execution=new PartOneExecution({connect:async()=>socket,onSettled:(id,a,r)=>{const p=demoRisk.status(id).pending;if(p?.attemptId===a.attemptId)demoRisk.settle(id,p.id,r);}});
- const session={accessToken:'mock',expiresAt:Date.now()+60000,executionPageId:'test-page'},context=vm.createContext({tradability,resetExecution,purchasePermission,console,strategyForType,qualifiesDifferFrequency,http:{createServer:handler=>({handler})},URL,Date,Number,Boolean,JSON,Error,crypto,AbortSignal,execution,demoRisk,guardedDemoOrder,RiskRejection,recentOrders:new Map(),realTradingEnabled:false,oauthReady:false,partTwoOrders:async()=>false,getSession:()=>session,cookieValue:()=> 'session',readJson:async req=>req.body,json:(res,status,body)=>{res.status=status;res.body=body;},deriv:async()=>({ok:true,json:async()=>({data:[{account_id:'demo',account_type:'demo',status:'active',currency:'USD'}]})})});
+ const session={accessToken:'mock',expiresAt:Date.now()+60000,executionPageId:'test-page'},context=vm.createContext({autoAuthorization,authEvent,tradability,resetExecution,purchasePermission,console,strategyForType,qualifiesDifferFrequency,http:{createServer:handler=>({handler})},URL,Date,Number,Boolean,JSON,Error,crypto,AbortSignal,execution,demoRisk,guardedDemoOrder,RiskRejection,recentOrders:new Map(),realTradingEnabled:false,oauthReady:false,partTwoOrders:async()=>false,getSession:()=>session,cookieValue:()=> 'session',readJson:async req=>req.body,json:(res,status,body)=>{res.status=status;res.body=body;},deriv:async()=>({ok:true,json:async()=>({data:[{account_id:'demo',account_type:'demo',status:'active',currency:'USD'}]})})});
+ context.riseFallRoute=async()=>false;context.riseFall={busy:()=>false};
  vm.runInContext(source.slice(source.indexOf('const server = http.createServer'),source.indexOf('const port ='))+'\nglobalThis.handler=server.handler;',context);
  const call=async(url,body)=>{const res={};if(body){body={...body};if(url==='/api/auto/control')Object.assign(body,{pageId:session.executionPageId,live:true,accountId:'demo'});if(url==='/api/order'){if(body.mode==='manual'){const intent=await call('/api/execution/manual-intent',{pageId:session.executionPageId,intent:'manual-click',attemptId:body.attemptId,accountId:body.accountId,type:body.type});body.executionSessionId=intent.body.executionSessionId;}else Object.assign(body,{executionSessionId:body.runId,signalAt:Date.now(),decisionId:body.attemptId,gatePassed:true,strategyEvidence:{...body.strategyEvidence,selected:'OVER',checks:['Barrier','Momentum','Zone','Stability','Score','Persistence','Confidence','Quality'].map(name=>({name,pass:true}))}});}}await context.handler({url,headers:{host:'mock'},method:body?'POST':'GET',body},res);await new Promise(setImmediate);return res;};
  const config={pageId:session.executionPageId,accountId:'demo',accountType:'demo',symbol:'R_100',windowSize:100,revision:1,mode:'auto-block',live:true};
@@ -51,4 +52,15 @@ test('actual HTTP handler + execution manager + demo ledger: 25 purchases/settle
  const before=buyCount;
  for(const type of ['DIGITOVER','DIGITDIFF'])assert.equal((await call('/api/order',{attemptId:'stop-'+type,runId:'stop',armed:true,mode:'auto',type,barrier:3,symbol:'R_100',stake:1,accountId:'demo',accountType:'demo'})).status,403);
  assert.equal(buyCount,before);
+ const runId='endurance';
+ assert.equal((await call('/api/auto/control',{runId,revision:++revision,running:true,overUnder:true,differ:false})).status,200);
+ for(let i=1;i<=150;i++){
+  if(i%20===0){suspendExecution(session);assert.equal((await call('/api/auto/status')).body.authorization.state,'AUTO_RECOVERING');
+   assert.equal((await call('/api/order',{attemptId:'blocked-'+i,runId,armed:true,mode:'auto',type:'DIGITOVER',symbol:'R_100',stake:1,accountId:'demo',accountType:'demo'})).status,403);
+   assert.equal((await call('/api/auto/control',{runId,revision:++revision,recover:true,running:true,overUnder:true,differ:false})).status,200);
+  }
+  const response=await call('/api/order',{attemptId:'endurance-'+i,runId,armed:true,mode:'auto',type:'DIGITOVER',symbol:'R_100',stake:1,accountId:'demo',accountType:'demo',riskLimits:{cooldownTicks:0}});
+  assert.equal(response.status,200,JSON.stringify(response.body));assert.equal(execution.snapshot('demo').blocking,false);assert.equal(demoRisk.status('demo').pending,null);assert.equal(autoAuthorization(session).state,'AUTO_AUTHORIZED');
+ }
+ assert.equal(buyCount,before+150);
 });

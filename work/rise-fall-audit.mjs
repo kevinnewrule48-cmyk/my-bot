@@ -1,0 +1,4 @@
+import {readFile,writeFile} from 'node:fs/promises';
+let orders=[];try{orders=JSON.parse(await readFile('work/rise-fall-orders.json','utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}
+const settled=orders.filter(o=>o.state==='SETTLED'),report={generatedAt:new Date().toISOString(),source:'Rise/Fall server execution journal',realEnabled:false,actualDemoPurchases:orders.filter(o=>o.contractId).length,settled:settled.length,wins:settled.filter(o=>o.result==='won').length,losses:settled.filter(o=>o.result==='lost').length,unresolved:orders.filter(o=>o.buySent&&!['SETTLED','REJECTED'].includes(o.state)).length,status:orders.length?'Review recorded Deriv lifecycles':'PENDING_AUTHENTICATED_DEMO_SESSION',orders:orders.map(({accountId,...o})=>o)};
+await writeFile('outputs/rise-fall-demo-audit.json',JSON.stringify(report,null,2));console.log(JSON.stringify({...report,orders:undefined},null,2));

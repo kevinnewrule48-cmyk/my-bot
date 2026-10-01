@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import {createPartTwoOrders} from './part-two-orders.mjs';
+import {RiseFallService,riseFallRoutes} from './rise-fall-service.mjs';
 import {DemoRiskLedger,guardedDemoOrder,RiskRejection} from './part-one-risk.mjs';
 import {PartOneExecution} from './part-one-execution.mjs';
 import {strategyForType} from './public/strategy-proposal.js';
@@ -57,10 +57,13 @@ async function exchangeCode(code, verifier) {
   return response.json();
 }
 
-const partTwoOrders = createPartTwoOrders({file:process.env.PART_TWO_LEDGER_PATH||path.join(root,'work','part-two-orders.json'),modelFile:process.env.PART_TWO_CALIBRATION_PATH,experimentalDemo:true,deriv,getSession,cookieValue,json,readJson});
+const riseFall=new RiseFallService({connect:connectExecution,accounts:async session=>{const r=await deriv('/trading/v1/options/accounts',session.accessToken,{signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('Account verification failed');return (await r.json()).data??[];},file:path.join(root,'work','rise-fall-orders.json'),validationFile:path.join(root,'outputs','rise-fall-replay-report.json'),otherBusy:id=>!!execution.current(id)});
+const riseFallRoute=riseFallRoutes(riseFall,{getSession,cookieValue,json,readJson});
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  if(await partTwoOrders(req,res,url))return;
+  if(await riseFallRoute(req,res,url))return;
+  if(url.pathname.startsWith('/api/part-two/'))return json(res,410,{error:'Part Two has been replaced by Rise/Fall.'});
+  if(url.pathname.startsWith('/part-two/')){res.writeHead(302,{location:'/rise-fall/index.html'});return res.end();}
   if(url.pathname==='/api/tradability/status'&&req.method==='GET'){
     const session=getSession(req);if(!session)return json(res,401,{error:'Connect account first'});const c=session.tradabilityControl;
     return json(res,200,tradability.status(session,c?.accountId,c?.symbol));
@@ -165,7 +168,7 @@ const server = http.createServer(async (req, res) => {
       const verifiedGate=gatePassed===true&&(type==='DIGITDIFF'||(strategyEvidence?.selected===(type==='DIGITOVER'?'OVER':'UNDER')&&requiredChecks.every(name=>strategyEvidence?.checks?.some(c=>c.name===name&&c.pass===true))));
       const permission=purchasePermission(session,{mode,executionSessionId,attemptId:clientAttemptId,accountId,type,strategy,decisionId,signalAt,gatePassed:verifiedGate});
       const gate=()=>tradability.status(session,accountId,symbol,tradabilityMode);
-      const authorizePurchase=()=>permission()&&gate().allowed;
+      const authorizePurchase=()=>permission()&&gate().allowed&&!riseFall.busy(accountId);
       authorizePurchase.snapshot=()=>({...permission.snapshot(),tradability:gate()});
       if(!gate().allowed){const status=gate();console.warn(JSON.stringify({stage:'TRADABILITY BLOCKED',timestamp:Date.now(),signalId:decisionId,executionSessionId,...status}));return json(res,409,{error:status.reason,riskCode:'TRADABILITY_BLOCKED'});}
       if(!authorizePurchase()){const reason=permission.failureReason();console.warn(JSON.stringify({stage:'PURCHASE BLOCKED',reason,...permission.snapshot(),timestamp:Date.now()}));return json(res,403,{error:'PURCHASE BLOCKED: '+reason,executionCode:'PURCHASE_BLOCKED'});}
@@ -210,7 +213,7 @@ const server = http.createServer(async (req, res) => {
     const state = base64url(crypto.randomBytes(32));
     const verifier = base64url(crypto.randomBytes(48));
     const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
-    oauthStates.set(state, { verifier, expires: Date.now() + 10 * 60 * 1000, returnTo:url.searchParams.get('returnTo')==='part-two'?'/part-two/index.html':'/' });
+    oauthStates.set(state, { verifier, expires: Date.now() + 10 * 60 * 1000, returnTo:['part-two','rise-fall'].includes(url.searchParams.get('returnTo'))?'/rise-fall/index.html':'/' });
     const authorize = new URL('https://auth.deriv.com/oauth2/auth');
     authorize.search = new URLSearchParams({ response_type: 'code', client_id: clientId, redirect_uri: redirectUri, scope: 'trade', state, code_challenge: challenge, code_challenge_method: 'S256' }).toString();
     res.writeHead(302, { location: authorize.toString(), 'cache-control': 'no-store' }); return res.end();

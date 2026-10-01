@@ -1,5 +1,10 @@
 const scales={s:1,m:60,h:3600,d:86400};
 export function durationValue(value){const m=/^(\d+)([tsmhd])$/.exec(String(value));return m?{value:Number(m[1]),unit:m[2]}:null;}
+export function defaultDuration(contracts){
+ const durations=contracts.map(c=>c.min).filter(Boolean).sort((a,b)=>(a.unit==='t'?-1:a.value*scales[a.unit])-(b.unit==='t'?-1:b.value*scales[b.unit]));
+ for(const d of durations)if(['CALL','PUT'].every(t=>supports(contracts,t,d.value,d.unit)))return d;
+ return null;
+}
 // New Deriv CALL/PUT metadata may include a suggested barrier. Never copy it:
 // Rise/Fall proposals omit barrier, leaving the strike at the contract entry spot.
 export function availableContracts(data,symbol){return (data?.available??[]).filter(c=>['CALL','PUT'].includes(c.contract_type)&&(c.contract_category==='callput'||!c.contract_category&&Number(c.barriers)===0)&&(!c.underlying_symbol||c.underlying_symbol===symbol)&&(!c.start_type||c.start_type==='spot')).map(c=>({...c,min:durationValue(c.min_contract_duration),max:durationValue(c.max_contract_duration)}));}

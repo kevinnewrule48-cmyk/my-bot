@@ -1,7 +1,30 @@
 import {RiseFallEngine,DEFAULTS,configuration} from './engine.js';
 import {availableContracts,supports} from './contracts.js';
+import {MarketScanner,rankMarkets} from './scanner.js';
+import {selectedBalance,formatBalance} from './balance.js';
 const $=id=>document.getElementById(id),pct=x=>Number.isFinite(x)?x.toFixed(1)+'%':'—';
 let socket,engine,config={...DEFAULTS},server=null,orders=[],busy=false,generation=0,meta=[],clockOffset=0;
+let scanner,marketList=[];
+let balancePending=false;
+async function refreshBalance(){
+ const accountId=$('account').value;
+ if(!accountId){$('accountBalance').textContent='Connect and select a demo account';$('balanceUpdated').textContent='';return;}
+ if(balancePending)return;balancePending=true;
+ try{const data=await api('accounts');if($('account').value!==accountId)return;
+ const value=selectedBalance(data.accounts??[],accountId);$('accountBalance').textContent=formatBalance(value);
+ $('balanceUpdated').textContent=value?`${accountId} · Updated ${new Date().toLocaleTimeString()} · refreshes every 5 seconds`:'Deriv has not supplied a balance for this account';
+ }catch(e){if($('account').value===accountId){$('accountBalance').textContent='Balance unavailable';$('balanceUpdated').textContent='Reconnect your Deriv account to refresh the balance';}}
+ finally{balancePending=false;}
+}
+function renderScanner(status){
+ if(status)$('scanStatus').textContent=status;
+ const rows=rankMarkets([...(scanner?.rows.values()??[])],config,Number($('duration').value),$('unit').value,Date.now()+(scanner?.offset??0));
+ const best=rows.find(r=>r.eligible);$('scanBest').textContent=best?`Best qualifying market: ${best.name} · ${best.candidate.name} · score ${pct(best.candidate.confidence)}`:'No qualifying market right now';
+ $('scanRows').replaceChildren();for(const r of rows){const item=document.createElement('div');item.className='scan-row';const text=document.createElement('span');text.textContent=`${r.name} · ${r.analysis?.marketState??'UNAVAILABLE'} · ${r.eligible?r.candidate.name+' READY · '+pct(r.candidate.confidence):r.reason}`;const button=document.createElement('button');button.textContent=r.symbol===$('symbol').value?'Selected':'Use this market';button.disabled=!r.eligible||busy||r.symbol===$('symbol').value;button.onclick=async()=>{
+ const fresh=rankMarkets([scanner.rows.get(r.symbol)],config,Number($('duration').value),$('unit').value,Date.now()+scanner.offset)[0];if(!fresh.eligible){renderScanner();return;}
+ $('symbol').value=r.symbol;await connect();renderScanner();};item.append(text,button);$('scanRows').append(item);}
+}
+function startScanner(){scanner?.stop();scanner=new MarketScanner({markets:marketList,config,onUpdate:renderScanner});scanner.start();renderScanner('Checking available contracts and market conditions…');}
 const labels={fast:'Fast EMA',medium:'Medium EMA',slow:'Slow EMA',micro:'Micro window',short:'Short window',mediumWindow:'Medium window',structural:'Structural window',pressure:'Min pressure %',confidence:'Min confidence %',maxChop:'Max chop %',minEfficiency:'Min efficiency %',minStrength:'Min trend strength %',minPersistence:'Min persistence %',maxDeceleration:'Max deceleration ratio',minVolatility:'Min volatility ratio',maxVolatility:'Max volatility ratio',candleTicks:'Ticks per candle'};
 for(const [k,label]of Object.entries(labels)){const l=document.createElement('label');l.textContent=label;const i=document.createElement('input');i.type='number';i.step='any';i.value=config[k];i.dataset.key=k;l.append(i);$('settings').append(l);}
 async function api(route,body){const r=await fetch('/api/'+route,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error??'Request failed');return d;}
@@ -18,9 +41,11 @@ async function publicFeed(){const gen=++generation;socket?.close();engine=new Ri
 async function stop(){try{await api('rise-fall/stop',{});}catch{}if(server)server.running=false;$('auto').textContent='AUTO OFF';}
 async function connect(){if(busy)return;busy=true;try{await stop();await publicFeed();if(!$('account').value){message('Live analysis active. Connect a Deriv demo account for execution.');return;}const s=await api('rise-fall/connect',{accountId:$('account').value,symbol:$('symbol').value,config});meta=s.contracts;showLimits();updateServer(s);message('Demo connected · '+s.accountId+' · '+s.currency);}catch(e){message(e);}finally{busy=false;}}
  $('connect').onclick=connect;$('stop').onclick=stop;$('start').onclick=async()=>{try{updateServer(await api('rise-fall/start',{sessionId:server?.sessionId,stake:Number($('stake').value),duration:Number($('duration').value),unit:$('unit').value}));}catch(e){message(e);}};
- $('apply').onclick=async()=>{try{const next={...config};for(const i of $('settings').querySelectorAll('input'))next[i.dataset.key]=Number(i.value);config=configuration(next);await connect();}catch(e){message(e);}};
- for(const id of ['symbol','account'])$(id).onchange=connect;for(const id of ['stake','duration','unit'])$(id).onchange=async()=>{await stop();if(server)updateServer({...server,running:false});};
+ $('apply').onclick=async()=>{try{const next={...config};for(const i of $('settings').querySelectorAll('input'))next[i.dataset.key]=Number(i.value);config=configuration(next);startScanner();await connect();}catch(e){message(e);}};
+ $('symbol').onchange=connect;$('account').onchange=()=>{$('accountBalance').textContent=$('account').value?'Loading balance…':'Connect and select a demo account';$('balanceUpdated').textContent='';void refreshBalance();void connect();};for(const id of ['stake','duration','unit'])$(id).onchange=async()=>{await stop();if(server)updateServer({...server,running:false});};
+ setInterval(refreshBalance,5000);
  $('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify({strategy:'RISE_FALL',realEnabled:false,exportedAt:new Date().toISOString(),orders},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='rise-fall-execution-audit.json';a.click();URL.revokeObjectURL(url);};
  let polling=false;setInterval(async()=>{if(polling||busy||!server?.sessionId){if(engine&&!server?.connected)render(engine.snapshot(Date.now()+clockOffset));return;}polling=true;try{if(server.running)await api('rise-fall/heartbeat',{sessionId:server.sessionId});updateServer(await api('rise-fall/status'));}catch(e){message(e);$('start').disabled=true;$('auto').textContent='AUTO UNAVAILABLE';server.running=false;}finally{polling=false;}},2000);
- window.addEventListener('pagehide',()=>{navigator.sendBeacon('/api/rise-fall/stop',new Blob(['{}'],{type:'application/json'}));});
- async function init(){try{const s=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');s.onopen=()=>s.send(JSON.stringify({active_symbols:'brief'}));s.onmessage=async e=>{const d=JSON.parse(e.data);if(!d.active_symbols)return;s.close();for(const m of d.active_symbols){const symbol=m.underlying_symbol??m.symbol;if(!symbol)continue;const o=document.createElement('option');o.value=symbol;o.textContent=m.underlying_symbol_name??m.display_name??symbol;$('symbol').append(o);}$('symbol').value='R_100';if(!$('symbol').value)$('symbol').selectedIndex=0;await publicFeed();message('Public analysis active. Auto is off.');};s.onerror=()=>message('Could not load Deriv markets');try{const data=await api('accounts');const accounts=data.accounts??[];for(const a of accounts.filter(a=>a.accountType==='demo')){const o=document.createElement('option');o.value=a.accountId;o.textContent=`${a.accountId} · ${a.currency}`;$('account').append(o);}await stop();}catch{}}catch(e){message(e);}}init();
+ $('scanRefresh').onclick=startScanner;setInterval(()=>renderScanner(),2000);
+ window.addEventListener('pagehide',()=>{scanner?.stop();navigator.sendBeacon('/api/rise-fall/stop',new Blob(['{}'],{type:'application/json'}));});
+ async function init(){try{const s=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');s.onopen=()=>s.send(JSON.stringify({active_symbols:'brief'}));s.onmessage=async e=>{const d=JSON.parse(e.data);if(!d.active_symbols)return;s.close();for(const m of d.active_symbols){const symbol=m.underlying_symbol??m.symbol;if(!symbol)continue;const o=document.createElement('option');o.value=symbol;o.textContent=m.underlying_symbol_name??m.display_name??symbol;marketList.push({symbol,name:o.textContent});$('symbol').append(o);}$('symbol').value='R_100';if(!$('symbol').value)$('symbol').selectedIndex=0;startScanner();await publicFeed();message('Public analysis active. Auto is off.');};s.onerror=()=>message('Could not load Deriv markets');try{const data=await api('accounts');const accounts=data.accounts??[];for(const a of accounts.filter(a=>a.accountType==='demo')){const o=document.createElement('option');o.value=a.accountId;o.textContent=`${a.accountId} · ${a.currency}`;$('account').append(o);}await stop();}catch{}}catch(e){message(e);}}init();

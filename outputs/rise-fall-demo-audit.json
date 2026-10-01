@@ -1,0 +1,12 @@
+{
+  "generatedAt": "2026-10-01T14:21:14.473Z",
+  "source": "Rise/Fall server execution journal",
+  "realEnabled": false,
+  "actualDemoPurchases": 0,
+  "settled": 0,
+  "wins": 0,
+  "losses": 0,
+  "unresolved": 0,
+  "status": "PENDING_AUTHENTICATED_DEMO_SESSION",
+  "orders": []
+}

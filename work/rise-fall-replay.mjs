@@ -1,0 +1,12 @@
+import {readFile,writeFile,readdir} from 'node:fs/promises';
+import {DEFAULTS} from '../public/rise-fall/engine.js';
+import {replay,replaySnapshots} from '../public/rise-fall/replay.js';
+import {supports} from '../public/rise-fall/contracts.js';
+import {fingerprint} from '../rise-fall-service.mjs';
+const configs=[{name:'baseline',config:{...DEFAULTS}},{name:'longer-ema',config:{...DEFAULTS,fast:15,medium:40,slow:100}},{name:'strict-chop',config:{...DEFAULTS,maxChop:25,minEfficiency:65,minStrength:65,confidence:85}},{name:'longer-pressure',config:{...DEFAULTS,micro:20,short:60,mediumWindow:120,structural:250}}];
+const results=[],symbols=[];let validationTicks=0,realData=true;
+for(const file of (await readdir('outputs/rise-fall')).filter(x=>/^R_\d+\.json$/.test(x))){const r=JSON.parse(await readFile('outputs/rise-fall/'+file,'utf8'));symbols.push(r.symbol);realData&&=r.source==='Deriv public ticks_history';const split=Math.floor(r.ticks.length*.6);validationTicks+=r.ticks.length-split;
+ for(const profile of configs){const snapshots=replaySnapshots(r,profile.config);for(const duration of [1,5,10]){if(!['CALL','PUT'].every(t=>supports(r.contracts,t,duration,'t')))continue;for(const partition of ['training','validation']){const recording=partition==='training'?{...r,ticks:r.ticks.slice(0,split)}:r;const result=replay(recording,{config:profile.config,duration,snapshots,offset:partition==='validation'?split:0});results.push({...result,records:undefined,profile:profile.name,partition});}}}console.log('Completed',r.symbol);
+}
+const report={generatedAt:new Date().toISOString(),realData,replayCompleted:results.length>0,symbols,validationTicks,configFingerprints:configs.map(x=>fingerprint(x.config)),profiles:configs,method:'Chronological 60% training / 40% held-out validation. Fixed profiles, no winner selected. Warm-up uses past-only history. One purchase per signal episode, one contract at a time, one-tick entry latency.',limitations:['Replay outcomes are hypothetical, not broker-confirmed settlements.','No historical proposal payouts: no profitability/expected-value conclusion.','A recent contiguous sample is insufficient to establish out-of-sample profitability.','Demo contract audit still required; real trading is disabled unconditionally.'],results};
+await writeFile('outputs/rise-fall-replay-report.json',JSON.stringify(report,null,2));console.log(JSON.stringify({symbols,validationTicks,profiles:configs.length,runs:results.length,baselineValidation:results.filter(x=>x.profile==='baseline'&&x.partition==='validation')},null,2));

@@ -31,7 +31,8 @@ export function candidateDetails(a,side,now=Date.now()){
  add('momentum','Directional velocity',number(a.velocity,8),dir===1?'> 0':'< 0',!warm&&Number.isFinite(a.velocity)&&dir*a.velocity>0);
  add('momentum','Momentum',percent(side.momentum),`≥ ${c.pressure}%`,!warm&&side.momentum>=c.pressure);
  add('persistence','Directional persistence',percent(side.persistence),`≥ ${c.minPersistence}%`);
- add('chop','Chop score',percent(a.chop),`≤ ${c.maxChop}%`);
+ add('chop','Chop score',percent(a.chop),c.chopFilter===false?'OFF — observed, not blocking':`≤ ${c.maxChop}%`);
+ if(c.chopFilter===false){rows.at(-1).disabled=true;rows.at(-1).reason='Chop filter off; measurement and confidence contribution remain active';}
  add('efficiency','Short-window efficiency',percent(a.efficiency),`≥ ${c.minEfficiency}%`);
  add('volatility','Relative volatility',number(a.volatility,4),`${c.minVolatility} to ${c.maxVolatility}`);
  add('deceleration','Deceleration',`current ${number(dir*a.velocity,8)} / prior ${number(dir*a.oldVelocity,8)}`,`If prior directional velocity > 0, current ≥ ${(1-c.maxDeceleration).toFixed(2)} × prior`);
@@ -39,7 +40,7 @@ export function candidateDetails(a,side,now=Date.now()){
  add('confidence','Confidence score',percent(side.confidence),`≥ ${c.confidence}%`);
  const eligible=a.candidates?.filter(x=>x.ready).length??0;
  add('selection','Unique qualifying direction',String(eligible),'Exactly one READY candidate',eligible===1&&side.ready);
- return {name:side.name,type:side.type,ready:side.ready===true,passed:GATES.filter(k=>side.checks?.[k]===true).length,total:GATES.length,rows,
+ return {name:side.name,type:side.type,ready:side.ready===true,passed:GATES.filter(k=>!(k==='chop'&&c.chopFilter===false)&&side.checks?.[k]===true).length,total:GATES.length-(c.chopFilter===false?1:0),rows,
   components:{candleDirection:a.lastCandle?(a.lastCandle.close>a.lastCandle.open?'UP':a.lastCandle.close<a.lastCandle.open?'DOWN':'FLAT'):'Unavailable',bodyStrength:side.bodyStrength,continuation:side.continuation,reversalPressure:side.reversalPressure,tickAlternation:a.tickAlternation,candleAlternation:a.candleAlternation,emaCompression:a.emaCompression,rangeCompression:a.rangeCompression,failedBreakouts:a.failedBreakouts}};
 }
 export function explain(a,now=Date.now()){
@@ -48,7 +49,10 @@ export function explain(a,now=Date.now()){
 export function strategyStatus(a){
  if(a.sample<a.need)return 'ANALYZING';
  if(a.winner)return a.winner.name+' READY';
- if(a.marketState==='CHOPPY')return 'CHOPPY MARKET';
+ const direction=directionState(a);
+ if(direction==='DEVELOPING UP')return 'RISE DEVELOPING';
+ if(direction==='DEVELOPING DOWN')return 'FALL DEVELOPING';
+ if(a.marketState==='CHOPPY'&&a.config.chopFilter!==false)return 'CHOPPY MARKET';
  const sides=[...(a.candidates??[])].sort((x,y)=>Object.values(y.checks).filter(Boolean).length-Object.values(x.checks).filter(Boolean).length);
  const best=sides[0];
  if(!best)return 'ANALYZING';
@@ -77,7 +81,7 @@ export class DiagnosticLog{
   }
   if(a.winner&&newTick&&a.signalId!==this.lastQualifiedSignal){this.lastQualifiedAt=now;this.lastQualifiedSignal=a.signalId;}
   for(const side of explain(a,now)){const rejected=side.rows.filter(r=>!r.pass);for(const gate of new Set(rejected.map(r=>r.gate)))this.rejections[side.name+':'+gate]=(this.rejections[side.name+':'+gate]??0)+1;
-   this.records.push({source:this.source,evaluatedAt:now,symbol:a.symbol,sequence:a.sequence,epoch:a.epoch,quote:a.quote,tick:a.tickTrace,side:side.name,ready:side.ready,passed:side.passed,total:side.total,rows:side.rows,components:side.components,chop:{score:a.chop,threshold:a.config.maxChop,inputs:chopBreakdown(a)},executionBlockers:[...execution.blockers],health:{...health}});this.total++;
+   this.records.push({source:this.source,evaluatedAt:now,symbol:a.symbol,sequence:a.sequence,epoch:a.epoch,quote:a.quote,tick:a.tickTrace,side:side.name,ready:side.ready,passed:side.passed,total:side.total,rows:side.rows,components:side.components,chop:{score:a.chop,threshold:a.config.maxChop,blocking:a.config.chopFilter!==false,inputs:chopBreakdown(a)},executionBlockers:[...execution.blockers],health:{...health}});this.total++;
   }
   if(this.records.length>this.limit)this.records.splice(0,this.records.length-this.limit);
  }

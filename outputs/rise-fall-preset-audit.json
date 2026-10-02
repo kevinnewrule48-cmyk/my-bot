@@ -1,0 +1,2710 @@
+{
+  "generatedAt": "2026-10-02T09:38:45.306Z",
+  "profiles": [
+    {
+      "name": "original-chop-off",
+      "config": {
+        "fast": 10,
+        "medium": 30,
+        "slow": 80,
+        "micro": 20,
+        "short": 50,
+        "mediumWindow": 100,
+        "structural": 200,
+        "macro": false,
+        "pressure": 65,
+        "confidence": 80,
+        "maxChop": 35,
+        "chopFilter": false,
+        "minEfficiency": 60,
+        "minStrength": 60,
+        "minPersistence": 65,
+        "maxDeceleration": 0.65,
+        "minVolatility": 0.05,
+        "maxVolatility": 4,
+        "staleMs": 10000,
+        "candleTicks": 10
+      }
+    },
+    {
+      "name": "demo-exploration",
+      "config": {
+        "fast": 10,
+        "medium": 30,
+        "slow": 80,
+        "micro": 20,
+        "short": 50,
+        "mediumWindow": 100,
+        "structural": 200,
+        "macro": false,
+        "pressure": 55,
+        "confidence": 60,
+        "maxChop": 35,
+        "chopFilter": true,
+        "minEfficiency": 20,
+        "minStrength": 20,
+        "minPersistence": 60,
+        "maxDeceleration": 0.65,
+        "minVolatility": 0.05,
+        "maxVolatility": 4,
+        "staleMs": 10000,
+        "candleTicks": 10
+      }
+    },
+    {
+      "name": "demo-exploration-chop-off",
+      "config": {
+        "fast": 10,
+        "medium": 30,
+        "slow": 80,
+        "micro": 20,
+        "short": 50,
+        "mediumWindow": 100,
+        "structural": 200,
+        "macro": false,
+        "pressure": 55,
+        "confidence": 60,
+        "maxChop": 35,
+        "chopFilter": false,
+        "minEfficiency": 20,
+        "minStrength": 20,
+        "minPersistence": 60,
+        "maxDeceleration": 0.65,
+        "minVolatility": 0.05,
+        "maxVolatility": 4,
+        "staleMs": 10000,
+        "candleTicks": 10
+      }
+    }
+  ],
+  "outcomes": [
+    {
+      "symbol": "1HZ100V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ100V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 13,
+      "trades": 8,
+      "wins": 6,
+      "losses": 2,
+      "winRate": 0.75,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "CALL": {
+          "trades": 5,
+          "wins": 4,
+          "losses": 1,
+          "winRate": 0.8
+        },
+        "PUT": {
+          "trades": 3,
+          "wins": 2,
+          "losses": 1,
+          "winRate": 0.6666666666666666
+        }
+      },
+      "byMarketState": {
+        "UPTREND": {
+          "trades": 5,
+          "wins": 4,
+          "losses": 1,
+          "winRate": 0.8
+        },
+        "DOWNTREND": {
+          "trades": 3,
+          "wins": 2,
+          "losses": 1,
+          "winRate": 0.6666666666666666
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 8,
+          "wins": 6,
+          "losses": 2,
+          "winRate": 0.75
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ100V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 8,
+      "trades": 7,
+      "wins": 6,
+      "losses": 1,
+      "winRate": 0.8571428571428571,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "CALL": {
+          "trades": 4,
+          "wins": 4,
+          "losses": 0,
+          "winRate": 1
+        },
+        "PUT": {
+          "trades": 3,
+          "wins": 2,
+          "losses": 1,
+          "winRate": 0.6666666666666666
+        }
+      },
+      "byMarketState": {
+        "UPTREND": {
+          "trades": 4,
+          "wins": 4,
+          "losses": 0,
+          "winRate": 1
+        },
+        "DOWNTREND": {
+          "trades": 3,
+          "wins": 2,
+          "losses": 1,
+          "winRate": 0.6666666666666666
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 7,
+          "wins": 6,
+          "losses": 1,
+          "winRate": 0.8571428571428571
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ10V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ10V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 5,
+      "trades": 4,
+      "wins": 1,
+      "losses": 3,
+      "winRate": 0.25,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "CALL": {
+          "trades": 2,
+          "wins": 0,
+          "losses": 2,
+          "winRate": 0
+        },
+        "PUT": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byMarketState": {
+        "UPTREND": {
+          "trades": 2,
+          "wins": 0,
+          "losses": 2,
+          "winRate": 0
+        },
+        "DOWNTREND": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 3,
+          "wins": 1,
+          "losses": 2,
+          "winRate": 0.3333333333333333
+        },
+        "70": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ10V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 7,
+      "trades": 6,
+      "wins": 2,
+      "losses": 4,
+      "winRate": 0.3333333333333333,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "CALL": {
+          "trades": 3,
+          "wins": 1,
+          "losses": 2,
+          "winRate": 0.3333333333333333
+        },
+        "PUT": {
+          "trades": 3,
+          "wins": 1,
+          "losses": 2,
+          "winRate": 0.3333333333333333
+        }
+      },
+      "byMarketState": {
+        "CHOPPY": {
+          "trades": 4,
+          "wins": 1,
+          "losses": 3,
+          "winRate": 0.25
+        },
+        "DOWNTREND": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        },
+        "70": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ15V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ15V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 3,
+      "trades": 2,
+      "wins": 0,
+      "losses": 2,
+      "winRate": 0,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "PUT": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        },
+        "CALL": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        },
+        "UPTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 2,
+          "wins": 0,
+          "losses": 2,
+          "winRate": 0
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ15V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 3,
+      "trades": 2,
+      "wins": 0,
+      "losses": 2,
+      "winRate": 0,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "PUT": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        },
+        "CALL": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        },
+        "UPTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 2,
+          "wins": 0,
+          "losses": 2,
+          "winRate": 0
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ25V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ25V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 8,
+      "trades": 5,
+      "wins": 2,
+      "losses": 3,
+      "winRate": 0.4,
+      "maxConsecutiveLosses": 3,
+      "bySide": {
+        "CALL": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        }
+      },
+      "byMarketState": {
+        "UPTREND": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ25V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 9,
+      "trades": 6,
+      "wins": 3,
+      "losses": 3,
+      "winRate": 0.5,
+      "maxConsecutiveLosses": 3,
+      "bySide": {
+        "CALL": {
+          "trades": 6,
+          "wins": 3,
+          "losses": 3,
+          "winRate": 0.5
+        }
+      },
+      "byMarketState": {
+        "CHOPPY": {
+          "trades": 3,
+          "wins": 2,
+          "losses": 1,
+          "winRate": 0.6666666666666666
+        },
+        "UPTREND": {
+          "trades": 3,
+          "wins": 1,
+          "losses": 2,
+          "winRate": 0.3333333333333333
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 6,
+          "wins": 3,
+          "losses": 3,
+          "winRate": 0.5
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ30V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ30V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 4,
+      "trades": 3,
+      "wins": 2,
+      "losses": 1,
+      "winRate": 0.6666666666666666,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "PUT": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        },
+        "CALL": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        },
+        "UPTREND": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 3,
+          "wins": 2,
+          "losses": 1,
+          "winRate": 0.6666666666666666
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ30V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 8,
+      "trades": 5,
+      "wins": 3,
+      "losses": 2,
+      "winRate": 0.6,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "PUT": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        },
+        "CALL": {
+          "trades": 4,
+          "wins": 2,
+          "losses": 2,
+          "winRate": 0.5
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        },
+        "UPTREND": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        },
+        "CHOPPY": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 5,
+          "wins": 3,
+          "losses": 2,
+          "winRate": 0.6
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ50V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ50V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 13,
+      "trades": 8,
+      "wins": 3,
+      "losses": 5,
+      "winRate": 0.375,
+      "maxConsecutiveLosses": 5,
+      "bySide": {
+        "PUT": {
+          "trades": 8,
+          "wins": 3,
+          "losses": 5,
+          "winRate": 0.375
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 8,
+          "wins": 3,
+          "losses": 5,
+          "winRate": 0.375
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 8,
+          "wins": 3,
+          "losses": 5,
+          "winRate": 0.375
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ50V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 17,
+      "trades": 11,
+      "wins": 3,
+      "losses": 8,
+      "winRate": 0.2727272727272727,
+      "maxConsecutiveLosses": 6,
+      "bySide": {
+        "PUT": {
+          "trades": 10,
+          "wins": 3,
+          "losses": 7,
+          "winRate": 0.3
+        },
+        "CALL": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byMarketState": {
+        "CHOPPY": {
+          "trades": 6,
+          "wins": 2,
+          "losses": 4,
+          "winRate": 0.3333333333333333
+        },
+        "DOWNTREND": {
+          "trades": 5,
+          "wins": 1,
+          "losses": 4,
+          "winRate": 0.2
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 11,
+          "wins": 3,
+          "losses": 8,
+          "winRate": 0.2727272727272727
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ75V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ75V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 7,
+      "trades": 6,
+      "wins": 2,
+      "losses": 4,
+      "winRate": 0.3333333333333333,
+      "maxConsecutiveLosses": 3,
+      "bySide": {
+        "CALL": {
+          "trades": 6,
+          "wins": 2,
+          "losses": 4,
+          "winRate": 0.3333333333333333
+        }
+      },
+      "byMarketState": {
+        "UPTREND": {
+          "trades": 6,
+          "wins": 2,
+          "losses": 4,
+          "winRate": 0.3333333333333333
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 6,
+          "wins": 2,
+          "losses": 4,
+          "winRate": 0.3333333333333333
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ75V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 16,
+      "trades": 12,
+      "wins": 3,
+      "losses": 9,
+      "winRate": 0.25,
+      "maxConsecutiveLosses": 3,
+      "bySide": {
+        "CALL": {
+          "trades": 12,
+          "wins": 3,
+          "losses": 9,
+          "winRate": 0.25
+        }
+      },
+      "byMarketState": {
+        "UPTREND": {
+          "trades": 5,
+          "wins": 1,
+          "losses": 4,
+          "winRate": 0.2
+        },
+        "CHOPPY": {
+          "trades": 7,
+          "wins": 2,
+          "losses": 5,
+          "winRate": 0.2857142857142857
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 12,
+          "wins": 3,
+          "losses": 9,
+          "winRate": 0.25
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ90V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ90V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 6,
+      "trades": 5,
+      "wins": 2,
+      "losses": 3,
+      "winRate": 0.4,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "PUT": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "1HZ90V",
+      "duration": 5,
+      "unit": "t",
+      "signals": 9,
+      "trades": 7,
+      "wins": 5,
+      "losses": 2,
+      "winRate": 0.7142857142857143,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "PUT": {
+          "trades": 6,
+          "wins": 4,
+          "losses": 2,
+          "winRate": 0.6666666666666666
+        },
+        "CALL": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "byMarketState": {
+        "CHOPPY": {
+          "trades": 4,
+          "wins": 4,
+          "losses": 0,
+          "winRate": 1
+        },
+        "DOWNTREND": {
+          "trades": 3,
+          "wins": 1,
+          "losses": 2,
+          "winRate": 0.3333333333333333
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 7,
+          "wins": 5,
+          "losses": 2,
+          "winRate": 0.7142857142857143
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD10",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD10",
+      "duration": 5,
+      "unit": "t",
+      "signals": 3,
+      "trades": 3,
+      "wins": 1,
+      "losses": 2,
+      "winRate": 0.3333333333333333,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "PUT": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        },
+        "CALL": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        },
+        "UPTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        },
+        "70": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD10",
+      "duration": 5,
+      "unit": "t",
+      "signals": 8,
+      "trades": 6,
+      "wins": 2,
+      "losses": 4,
+      "winRate": 0.3333333333333333,
+      "maxConsecutiveLosses": 3,
+      "bySide": {
+        "PUT": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        },
+        "CALL": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byMarketState": {
+        "CHOPPY": {
+          "trades": 4,
+          "wins": 2,
+          "losses": 2,
+          "winRate": 0.5
+        },
+        "DOWNTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        },
+        "UPTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        },
+        "70": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD100",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD100",
+      "duration": 5,
+      "unit": "t",
+      "signals": 8,
+      "trades": 6,
+      "wins": 1,
+      "losses": 5,
+      "winRate": 0.16666666666666666,
+      "maxConsecutiveLosses": 5,
+      "bySide": {
+        "PUT": {
+          "trades": 5,
+          "wins": 1,
+          "losses": 4,
+          "winRate": 0.2
+        },
+        "CALL": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 5,
+          "wins": 1,
+          "losses": 4,
+          "winRate": 0.2
+        },
+        "UPTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 6,
+          "wins": 1,
+          "losses": 5,
+          "winRate": 0.16666666666666666
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD100",
+      "duration": 5,
+      "unit": "t",
+      "signals": 11,
+      "trades": 8,
+      "wins": 5,
+      "losses": 3,
+      "winRate": 0.625,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "PUT": {
+          "trades": 7,
+          "wins": 4,
+          "losses": 3,
+          "winRate": 0.5714285714285714
+        },
+        "CALL": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 4,
+          "wins": 1,
+          "losses": 3,
+          "winRate": 0.25
+        },
+        "CHOPPY": {
+          "trades": 4,
+          "wins": 4,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 8,
+          "wins": 5,
+          "losses": 3,
+          "winRate": 0.625
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD25",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD25",
+      "duration": 5,
+      "unit": "t",
+      "signals": 3,
+      "trades": 2,
+      "wins": 1,
+      "losses": 1,
+      "winRate": 0.5,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "PUT": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD25",
+      "duration": 5,
+      "unit": "t",
+      "signals": 3,
+      "trades": 2,
+      "wins": 1,
+      "losses": 1,
+      "winRate": 0.5,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "PUT": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD50",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD50",
+      "duration": 5,
+      "unit": "t",
+      "signals": 3,
+      "trades": 2,
+      "wins": 0,
+      "losses": 2,
+      "winRate": 0,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "PUT": {
+          "trades": 2,
+          "wins": 0,
+          "losses": 2,
+          "winRate": 0
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 2,
+          "wins": 0,
+          "losses": 2,
+          "winRate": 0
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 2,
+          "wins": 0,
+          "losses": 2,
+          "winRate": 0
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD50",
+      "duration": 5,
+      "unit": "t",
+      "signals": 6,
+      "trades": 5,
+      "wins": 1,
+      "losses": 4,
+      "winRate": 0.2,
+      "maxConsecutiveLosses": 3,
+      "bySide": {
+        "PUT": {
+          "trades": 5,
+          "wins": 1,
+          "losses": 4,
+          "winRate": 0.2
+        }
+      },
+      "byMarketState": {
+        "CHOPPY": {
+          "trades": 4,
+          "wins": 1,
+          "losses": 3,
+          "winRate": 0.25
+        },
+        "DOWNTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 5,
+          "wins": 1,
+          "losses": 4,
+          "winRate": 0.2
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD75",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD75",
+      "duration": 5,
+      "unit": "t",
+      "signals": 26,
+      "trades": 16,
+      "wins": 10,
+      "losses": 6,
+      "winRate": 0.625,
+      "maxConsecutiveLosses": 3,
+      "bySide": {
+        "PUT": {
+          "trades": 12,
+          "wins": 7,
+          "losses": 5,
+          "winRate": 0.5833333333333334
+        },
+        "CALL": {
+          "trades": 4,
+          "wins": 3,
+          "losses": 1,
+          "winRate": 0.75
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 12,
+          "wins": 7,
+          "losses": 5,
+          "winRate": 0.5833333333333334
+        },
+        "UPTREND": {
+          "trades": 4,
+          "wins": 3,
+          "losses": 1,
+          "winRate": 0.75
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 14,
+          "wins": 8,
+          "losses": 6,
+          "winRate": 0.5714285714285714
+        },
+        "70": {
+          "trades": 2,
+          "wins": 2,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "JD75",
+      "duration": 5,
+      "unit": "t",
+      "signals": 23,
+      "trades": 15,
+      "wins": 13,
+      "losses": 2,
+      "winRate": 0.8666666666666667,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "PUT": {
+          "trades": 10,
+          "wins": 8,
+          "losses": 2,
+          "winRate": 0.8
+        },
+        "CALL": {
+          "trades": 5,
+          "wins": 5,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 6,
+          "wins": 5,
+          "losses": 1,
+          "winRate": 0.8333333333333334
+        },
+        "CHOPPY": {
+          "trades": 6,
+          "wins": 5,
+          "losses": 1,
+          "winRate": 0.8333333333333334
+        },
+        "UPTREND": {
+          "trades": 3,
+          "wins": 3,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 13,
+          "wins": 11,
+          "losses": 2,
+          "winRate": 0.8461538461538461
+        },
+        "70": {
+          "trades": 2,
+          "wins": 2,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "RDBEAR",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "RDBEAR",
+      "duration": 5,
+      "unit": "t",
+      "signals": 9,
+      "trades": 7,
+      "wins": 4,
+      "losses": 3,
+      "winRate": 0.5714285714285714,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "CALL": {
+          "trades": 2,
+          "wins": 0,
+          "losses": 2,
+          "winRate": 0
+        },
+        "PUT": {
+          "trades": 5,
+          "wins": 4,
+          "losses": 1,
+          "winRate": 0.8
+        }
+      },
+      "byMarketState": {
+        "UPTREND": {
+          "trades": 2,
+          "wins": 0,
+          "losses": 2,
+          "winRate": 0
+        },
+        "DOWNTREND": {
+          "trades": 5,
+          "wins": 4,
+          "losses": 1,
+          "winRate": 0.8
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 7,
+          "wins": 4,
+          "losses": 3,
+          "winRate": 0.5714285714285714
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "RDBEAR",
+      "duration": 5,
+      "unit": "t",
+      "signals": 6,
+      "trades": 5,
+      "wins": 3,
+      "losses": 2,
+      "winRate": 0.6,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "CALL": {
+          "trades": 3,
+          "wins": 1,
+          "losses": 2,
+          "winRate": 0.3333333333333333
+        },
+        "PUT": {
+          "trades": 2,
+          "wins": 2,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "byMarketState": {
+        "CHOPPY": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        },
+        "DOWNTREND": {
+          "trades": 2,
+          "wins": 2,
+          "losses": 0,
+          "winRate": 1
+        },
+        "UPTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 5,
+          "wins": 3,
+          "losses": 2,
+          "winRate": 0.6
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "RDBULL",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "RDBULL",
+      "duration": 5,
+      "unit": "t",
+      "signals": 3,
+      "trades": 3,
+      "wins": 1,
+      "losses": 2,
+      "winRate": 0.3333333333333333,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "CALL": {
+          "trades": 3,
+          "wins": 1,
+          "losses": 2,
+          "winRate": 0.3333333333333333
+        }
+      },
+      "byMarketState": {
+        "UPTREND": {
+          "trades": 3,
+          "wins": 1,
+          "losses": 2,
+          "winRate": 0.3333333333333333
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 3,
+          "wins": 1,
+          "losses": 2,
+          "winRate": 0.3333333333333333
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "RDBULL",
+      "duration": 5,
+      "unit": "t",
+      "signals": 6,
+      "trades": 5,
+      "wins": 2,
+      "losses": 3,
+      "winRate": 0.4,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "CALL": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        }
+      },
+      "byMarketState": {
+        "CHOPPY": {
+          "trades": 4,
+          "wins": 2,
+          "losses": 2,
+          "winRate": 0.5
+        },
+        "UPTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_10",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_10",
+      "duration": 5,
+      "unit": "t",
+      "signals": 10,
+      "trades": 6,
+      "wins": 5,
+      "losses": 1,
+      "winRate": 0.8333333333333334,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "PUT": {
+          "trades": 6,
+          "wins": 5,
+          "losses": 1,
+          "winRate": 0.8333333333333334
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 6,
+          "wins": 5,
+          "losses": 1,
+          "winRate": 0.8333333333333334
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 6,
+          "wins": 5,
+          "losses": 1,
+          "winRate": 0.8333333333333334
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_10",
+      "duration": 5,
+      "unit": "t",
+      "signals": 14,
+      "trades": 7,
+      "wins": 5,
+      "losses": 2,
+      "winRate": 0.7142857142857143,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "PUT": {
+          "trades": 6,
+          "wins": 4,
+          "losses": 2,
+          "winRate": 0.6666666666666666
+        },
+        "CALL": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 5,
+          "wins": 4,
+          "losses": 1,
+          "winRate": 0.8
+        },
+        "CHOPPY": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 7,
+          "wins": 5,
+          "losses": 2,
+          "winRate": 0.7142857142857143
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_100",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_100",
+      "duration": 5,
+      "unit": "t",
+      "signals": 13,
+      "trades": 8,
+      "wins": 5,
+      "losses": 3,
+      "winRate": 0.625,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "PUT": {
+          "trades": 6,
+          "wins": 4,
+          "losses": 2,
+          "winRate": 0.6666666666666666
+        },
+        "CALL": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 6,
+          "wins": 4,
+          "losses": 2,
+          "winRate": 0.6666666666666666
+        },
+        "UPTREND": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 8,
+          "wins": 5,
+          "losses": 3,
+          "winRate": 0.625
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_100",
+      "duration": 5,
+      "unit": "t",
+      "signals": 11,
+      "trades": 8,
+      "wins": 5,
+      "losses": 3,
+      "winRate": 0.625,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "PUT": {
+          "trades": 6,
+          "wins": 4,
+          "losses": 2,
+          "winRate": 0.6666666666666666
+        },
+        "CALL": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 5,
+          "wins": 3,
+          "losses": 2,
+          "winRate": 0.6
+        },
+        "UPTREND": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        },
+        "CHOPPY": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 8,
+          "wins": 5,
+          "losses": 3,
+          "winRate": 0.625
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_25",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_25",
+      "duration": 5,
+      "unit": "t",
+      "signals": 9,
+      "trades": 7,
+      "wins": 3,
+      "losses": 4,
+      "winRate": 0.42857142857142855,
+      "maxConsecutiveLosses": 3,
+      "bySide": {
+        "PUT": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        },
+        "CALL": {
+          "trades": 6,
+          "wins": 2,
+          "losses": 4,
+          "winRate": 0.3333333333333333
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        },
+        "UPTREND": {
+          "trades": 6,
+          "wins": 2,
+          "losses": 4,
+          "winRate": 0.3333333333333333
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 7,
+          "wins": 3,
+          "losses": 4,
+          "winRate": 0.42857142857142855
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_25",
+      "duration": 5,
+      "unit": "t",
+      "signals": 10,
+      "trades": 8,
+      "wins": 4,
+      "losses": 4,
+      "winRate": 0.5,
+      "maxConsecutiveLosses": 3,
+      "bySide": {
+        "PUT": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        },
+        "CALL": {
+          "trades": 7,
+          "wins": 3,
+          "losses": 4,
+          "winRate": 0.42857142857142855
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 1
+        },
+        "UPTREND": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winRate": 0.4
+        },
+        "CHOPPY": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 8,
+          "wins": 4,
+          "losses": 4,
+          "winRate": 0.5
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_50",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_50",
+      "duration": 5,
+      "unit": "t",
+      "signals": 7,
+      "trades": 7,
+      "wins": 5,
+      "losses": 2,
+      "winRate": 0.7142857142857143,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "PUT": {
+          "trades": 7,
+          "wins": 5,
+          "losses": 2,
+          "winRate": 0.7142857142857143
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 7,
+          "wins": 5,
+          "losses": 2,
+          "winRate": 0.7142857142857143
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 7,
+          "wins": 5,
+          "losses": 2,
+          "winRate": 0.7142857142857143
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_50",
+      "duration": 5,
+      "unit": "t",
+      "signals": 10,
+      "trades": 8,
+      "wins": 5,
+      "losses": 3,
+      "winRate": 0.625,
+      "maxConsecutiveLosses": 2,
+      "bySide": {
+        "PUT": {
+          "trades": 7,
+          "wins": 5,
+          "losses": 2,
+          "winRate": 0.7142857142857143
+        },
+        "CALL": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 0.5
+        },
+        "CHOPPY": {
+          "trades": 6,
+          "wins": 4,
+          "losses": 2,
+          "winRate": 0.6666666666666666
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 8,
+          "wins": 5,
+          "losses": 3,
+          "winRate": 0.625
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_75",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_75",
+      "duration": 5,
+      "unit": "t",
+      "signals": 5,
+      "trades": 3,
+      "wins": 2,
+      "losses": 1,
+      "winRate": 0.6666666666666666,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "PUT": {
+          "trades": 3,
+          "wins": 2,
+          "losses": 1,
+          "winRate": 0.6666666666666666
+        }
+      },
+      "byMarketState": {
+        "DOWNTREND": {
+          "trades": 3,
+          "wins": 2,
+          "losses": 1,
+          "winRate": 0.6666666666666666
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 3,
+          "wins": 2,
+          "losses": 1,
+          "winRate": 0.6666666666666666
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "R_75",
+      "duration": 5,
+      "unit": "t",
+      "signals": 5,
+      "trades": 4,
+      "wins": 4,
+      "losses": 0,
+      "winRate": 1,
+      "maxConsecutiveLosses": 0,
+      "bySide": {
+        "PUT": {
+          "trades": 4,
+          "wins": 4,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "byMarketState": {
+        "CHOPPY": {
+          "trades": 2,
+          "wins": 2,
+          "losses": 0,
+          "winRate": 1
+        },
+        "DOWNTREND": {
+          "trades": 2,
+          "wins": 2,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 4,
+          "wins": 4,
+          "losses": 0,
+          "winRate": 1
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG2",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG2",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG2",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG3",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG3",
+      "duration": 5,
+      "unit": "t",
+      "signals": 1,
+      "trades": 1,
+      "wins": 0,
+      "losses": 1,
+      "winRate": 0,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "CALL": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byMarketState": {
+        "UPTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG3",
+      "duration": 5,
+      "unit": "t",
+      "signals": 2,
+      "trades": 1,
+      "wins": 0,
+      "losses": 1,
+      "winRate": 0,
+      "maxConsecutiveLosses": 1,
+      "bySide": {
+        "CALL": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byMarketState": {
+        "UPTREND": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "byConfidenceBand": {
+        "60": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winRate": 0
+        }
+      },
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG4",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG4",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG4",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG5",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "original-chop-off",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG5",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration",
+      "partition": "validation"
+    },
+    {
+      "symbol": "stpRNG5",
+      "duration": 5,
+      "unit": "t",
+      "signals": 0,
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": null,
+      "maxConsecutiveLosses": 0,
+      "bySide": {},
+      "byMarketState": {},
+      "byConfidenceBand": {},
+      "entryDelayTicks": 1,
+      "assumption": "Hypothetical replay, entry delayed one observed tick; equality counts as loss. Not Deriv settlements or profit. No historical payout data.",
+      "profile": "demo-exploration-chop-off",
+      "partition": "validation"
+    }
+  ],
+  "limitations": [
+    "Replay outcomes are hypothetical, not broker-confirmed settlements.",
+    "No historical proposal payouts: no profitability/expected-value conclusion.",
+    "A recent contiguous sample is insufficient to establish out-of-sample profitability.",
+    "Demo contract audit still required; real trading is disabled unconditionally."
+  ]
+}

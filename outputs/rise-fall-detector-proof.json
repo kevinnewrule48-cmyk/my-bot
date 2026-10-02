@@ -1,0 +1,2602 @@
+{
+  "execution": "DISABLED",
+  "thresholdsChanged": false,
+  "results": [
+    {
+      "direction": "UP",
+      "firstReady": {
+        "tick": 439,
+        "side": "RISE",
+        "checks": {
+          "history": true,
+          "fresh": true,
+          "pressure": true,
+          "alignment": true,
+          "slopes": true,
+          "structure": true,
+          "strength": true,
+          "momentum": true,
+          "persistence": true,
+          "chop": true,
+          "efficiency": true,
+          "volatility": true,
+          "deceleration": true,
+          "pullback": true,
+          "confidence": true
+        },
+        "confidence": 96.54017857142857,
+        "chop": 0
+      },
+      "states": [
+        {
+          "tick": 1,
+          "state": "ANALYZING"
+        },
+        {
+          "tick": 240,
+          "state": "CHOPPY",
+          "chop": 72.76061840729955
+        },
+        {
+          "tick": 308,
+          "state": "DEVELOPING UP",
+          "chop": 68.61680759405438
+        },
+        {
+          "tick": 309,
+          "state": "CHOPPY",
+          "chop": 68.31414801889149
+        },
+        {
+          "tick": 310,
+          "state": "DEVELOPING UP",
+          "chop": 66.24079958388285
+        },
+        {
+          "tick": 311,
+          "state": "CHOPPY",
+          "chop": 65.83629440290275
+        },
+        {
+          "tick": 312,
+          "state": "DEVELOPING UP",
+          "chop": 63.72277204936428
+        },
+        {
+          "tick": 313,
+          "state": "CHOPPY",
+          "chop": 63.224244997233875
+        },
+        {
+          "tick": 314,
+          "state": "DEVELOPING UP",
+          "chop": 61.08008219086836
+        },
+        {
+          "tick": 315,
+          "state": "CHOPPY",
+          "chop": 60.49002730781306
+        },
+        {
+          "tick": 316,
+          "state": "DEVELOPING UP",
+          "chop": 58.32066771356544
+        },
+        {
+          "tick": 317,
+          "state": "CHOPPY",
+          "chop": 59.237448159526494
+        },
+        {
+          "tick": 318,
+          "state": "DEVELOPING UP",
+          "chop": 55.44528399346913
+        },
+        {
+          "tick": 319,
+          "state": "CHOPPY",
+          "chop": 56.2638490034429
+        },
+        {
+          "tick": 320,
+          "state": "DEVELOPING UP",
+          "chop": 52.44886759918803
+        },
+        {
+          "tick": 321,
+          "state": "CHOPPY",
+          "chop": 53.16110846736816
+        },
+        {
+          "tick": 322,
+          "state": "DEVELOPING UP",
+          "chop": 49.32124814499161
+        },
+        {
+          "tick": 323,
+          "state": "CHOPPY",
+          "chop": 49.91606512788721
+        },
+        {
+          "tick": 324,
+          "state": "DEVELOPING UP",
+          "chop": 46.04734090364941
+        },
+        {
+          "tick": 325,
+          "state": "CHOPPY",
+          "chop": 46.51045472346863
+        },
+        {
+          "tick": 326,
+          "state": "DEVELOPING UP",
+          "chop": 42.60688256823236
+        },
+        {
+          "tick": 347,
+          "state": "RISE CANDIDATE",
+          "chop": 11.492888064316602
+        },
+        {
+          "tick": 439,
+          "state": "RISE READY",
+          "chop": 0
+        }
+      ],
+      "samples": [
+        {
+          "tick": 50,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 51.02040816326531,
+          "down": 48.97959183673469,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 97.95918367346938,
+              "contribution": 11.755102040816325
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 100,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 50,
+          "down": 50,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 150,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 50,
+          "down": 50,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 200,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 50,
+          "down": 50,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 250,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76128441178281,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.1054605140107,
+              "contribution": 11.892655261681284
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 300,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76295741506456,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.11940220802535,
+              "contribution": 11.894328264963042
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 350,
+          "state": "RISE CANDIDATE",
+          "marketState": "UPTREND",
+          "up": 90.7407407407407,
+          "down": 9.259259259259299,
+          "chop": 6.374905517762684,
+          "strength": 54.67836257309934,
+          "efficiency": 81.48148148148141,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 2.0408163265306123,
+              "contribution": 0.4489795918367347
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 18.51851851851859,
+              "contribution": 3.7037037037037184
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 18.51851851851859,
+              "contribution": 2.2222222222222308
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 400,
+          "state": "RISE CANDIDATE",
+          "marketState": "UPTREND",
+          "up": 100,
+          "down": 0,
+          "chop": 0,
+          "strength": 96.15384615384615,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 450,
+          "state": "RISE READY",
+          "marketState": "UPTREND",
+          "up": 100,
+          "down": 0,
+          "chop": 0,
+          "strength": 100,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 500,
+          "state": "RISE READY",
+          "marketState": "UPTREND",
+          "up": 100,
+          "down": 0,
+          "chop": 0,
+          "strength": 100,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 550,
+          "state": "RISE READY",
+          "marketState": "UPTREND",
+          "up": 100,
+          "down": 0,
+          "chop": 0,
+          "strength": 100,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 600,
+          "state": "RISE READY",
+          "marketState": "UPTREND",
+          "up": 100,
+          "down": 0,
+          "chop": 0,
+          "strength": 100,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 650,
+          "state": "RISE READY",
+          "marketState": "UPTREND",
+          "up": 100,
+          "down": 0,
+          "chop": 0,
+          "strength": 100,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "direction": "DOWN",
+      "firstReady": {
+        "tick": 436,
+        "side": "FALL",
+        "checks": {
+          "history": true,
+          "fresh": true,
+          "pressure": true,
+          "alignment": true,
+          "slopes": true,
+          "structure": true,
+          "strength": true,
+          "momentum": true,
+          "persistence": true,
+          "chop": true,
+          "efficiency": true,
+          "volatility": true,
+          "deceleration": true,
+          "pullback": true,
+          "confidence": true
+        },
+        "confidence": 96.52173913043478,
+        "chop": 0
+      },
+      "states": [
+        {
+          "tick": 1,
+          "state": "ANALYZING"
+        },
+        {
+          "tick": 240,
+          "state": "CHOPPY",
+          "chop": 72.76061840729955
+        },
+        {
+          "tick": 303,
+          "state": "DEVELOPING DOWN",
+          "chop": 70.60628504088525
+        },
+        {
+          "tick": 304,
+          "state": "CHOPPY",
+          "chop": 70.39951478379976
+        },
+        {
+          "tick": 305,
+          "state": "DEVELOPING DOWN",
+          "chop": 68.30546127090864
+        },
+        {
+          "tick": 306,
+          "state": "CHOPPY",
+          "chop": 68.0145284758115
+        },
+        {
+          "tick": 307,
+          "state": "DEVELOPING DOWN",
+          "chop": 65.8881416211756
+        },
+        {
+          "tick": 308,
+          "state": "CHOPPY",
+          "chop": 65.5202620660116
+        },
+        {
+          "tick": 309,
+          "state": "DEVELOPING DOWN",
+          "chop": 63.36986471032683
+        },
+        {
+          "tick": 310,
+          "state": "CHOPPY",
+          "chop": 64.03898499869338
+        },
+        {
+          "tick": 311,
+          "state": "DEVELOPING DOWN",
+          "chop": 61.8695060417019
+        },
+        {
+          "tick": 312,
+          "state": "CHOPPY",
+          "chop": 62.952930549054244
+        },
+        {
+          "tick": 313,
+          "state": "DEVELOPING DOWN",
+          "chop": 59.166821856213396
+        },
+        {
+          "tick": 314,
+          "state": "CHOPPY",
+          "chop": 60.172552315969966
+        },
+        {
+          "tick": 315,
+          "state": "DEVELOPING DOWN",
+          "chop": 56.37038046007524
+        },
+        {
+          "tick": 316,
+          "state": "CHOPPY",
+          "chop": 57.293055793624596
+        },
+        {
+          "tick": 317,
+          "state": "DEVELOPING DOWN",
+          "chop": 53.47386017430563
+        },
+        {
+          "tick": 318,
+          "state": "CHOPPY",
+          "chop": 54.306033374145926
+        },
+        {
+          "tick": 319,
+          "state": "DEVELOPING DOWN",
+          "chop": 50.46750952129132
+        },
+        {
+          "tick": 320,
+          "state": "CHOPPY",
+          "chop": 51.19963605529373
+        },
+        {
+          "tick": 321,
+          "state": "DEVELOPING DOWN",
+          "chop": 47.338178966161244
+        },
+        {
+          "tick": 344,
+          "state": "FALL CANDIDATE",
+          "chop": 16.112680969823806
+        },
+        {
+          "tick": 345,
+          "state": "DEVELOPING DOWN",
+          "chop": 16.3289820432678
+        },
+        {
+          "tick": 346,
+          "state": "FALL CANDIDATE",
+          "chop": 12.049886621315196
+        },
+        {
+          "tick": 436,
+          "state": "FALL READY",
+          "chop": 0
+        },
+        {
+          "tick": 437,
+          "state": "FALL CANDIDATE",
+          "chop": 0
+        },
+        {
+          "tick": 438,
+          "state": "FALL READY",
+          "chop": 0
+        }
+      ],
+      "samples": [
+        {
+          "tick": 50,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 51.02040816326531,
+          "down": 48.97959183673469,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 97.95918367346938,
+              "contribution": 11.755102040816325
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 100,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 50,
+          "down": 50,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 150,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 50,
+          "down": 50,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 200,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 50,
+          "down": 50,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 250,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76128441178281,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.1054605140107,
+              "contribution": 11.892655261681284
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 300,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76295741506456,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.11940220802535,
+              "contribution": 11.894328264963042
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 350,
+          "state": "FALL CANDIDATE",
+          "marketState": "DOWNTREND",
+          "up": 0,
+          "down": 100,
+          "chop": 1.1111111111111112,
+          "strength": 67.10526315789471,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 11.11111111111111,
+              "contribution": 1.1111111111111112
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 400,
+          "state": "FALL CANDIDATE",
+          "marketState": "DOWNTREND",
+          "up": 0,
+          "down": 100,
+          "chop": 0,
+          "strength": 100,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 450,
+          "state": "FALL READY",
+          "marketState": "DOWNTREND",
+          "up": 0,
+          "down": 100,
+          "chop": 0,
+          "strength": 100,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 500,
+          "state": "FALL READY",
+          "marketState": "DOWNTREND",
+          "up": 0,
+          "down": 100,
+          "chop": 0,
+          "strength": 100,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 550,
+          "state": "FALL READY",
+          "marketState": "DOWNTREND",
+          "up": 0,
+          "down": 100,
+          "chop": 0,
+          "strength": 100,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 600,
+          "state": "FALL READY",
+          "marketState": "DOWNTREND",
+          "up": 0,
+          "down": 100,
+          "chop": 0,
+          "strength": 100,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 650,
+          "state": "FALL READY",
+          "marketState": "DOWNTREND",
+          "up": 0,
+          "down": 100,
+          "chop": 0,
+          "strength": 100,
+          "efficiency": 100,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "direction": "CHOPPY",
+      "firstReady": null,
+      "states": [
+        {
+          "tick": 1,
+          "state": "ANALYZING"
+        },
+        {
+          "tick": 240,
+          "state": "CHOPPY",
+          "chop": 72.76061840729955
+        }
+      ],
+      "samples": [
+        {
+          "tick": 50,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 51.02040816326531,
+          "down": 48.97959183673469,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 97.95918367346938,
+              "contribution": 11.755102040816325
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 100,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 50,
+          "down": 50,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 150,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 50,
+          "down": 50,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 200,
+          "state": "ANALYZING",
+          "marketState": "COLLECTING",
+          "up": 50,
+          "down": 50,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "contribution": null
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "contribution": null
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": null,
+              "contribution": null
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "contribution": null
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "contribution": null
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": null,
+              "contribution": null
+            }
+          ]
+        },
+        {
+          "tick": 250,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76128441178281,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.1054605140107,
+              "contribution": 11.892655261681284
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 300,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76295741506456,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.11940220802535,
+              "contribution": 11.894328264963042
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 350,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76343670732186,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.12339631016948,
+              "contribution": 11.894807557220338
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 400,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76357401791284,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.12454056509432,
+              "contribution": 11.894944867811319
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 450,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76361335549464,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.124868378276,
+              "contribution": 11.89498420539312
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 500,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76362462516619,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.12496229220551,
+              "contribution": 11.894995475064661
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 550,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76362785377134,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.1249891972484,
+              "contribution": 11.894998703669808
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 600,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76362877872117,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.1249969051637,
+              "contribution": 11.894999628619644
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        },
+        {
+          "tick": 650,
+          "state": "CHOPPY",
+          "marketState": "CHOPPY",
+          "up": 50,
+          "down": 50,
+          "chop": 72.76362904370663,
+          "strength": 0,
+          "efficiency": 0,
+          "persistence": 100,
+          "inputs": [
+            {
+              "name": "Tick alternation",
+              "weight": 0.22,
+              "value": 100,
+              "contribution": 22
+            },
+            {
+              "name": "Candle alternation",
+              "weight": 0.1,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − efficiency",
+              "weight": 0.2,
+              "value": 100,
+              "contribution": 20
+            },
+            {
+              "name": "EMA compression",
+              "weight": 0.12,
+              "value": 99.1249991133759,
+              "contribution": 11.894999893605108
+            },
+            {
+              "name": "Range compression",
+              "weight": 0.08,
+              "value": 85.85786437626905,
+              "contribution": 6.868629150101524
+            },
+            {
+              "name": "Pressure balance",
+              "weight": 0.12,
+              "value": 100,
+              "contribution": 12
+            },
+            {
+              "name": "Failed breakouts",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            },
+            {
+              "name": "100 − persistence",
+              "weight": 0.08,
+              "value": 0,
+              "contribution": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,387 @@
+{
+  "generatedAt": "2026-10-02T02:03:28.340Z",
+  "scope": "Previously recorded public histories, not the user three-hour session. Baseline unchanged.",
+  "results": [
+    {
+      "symbol": "R_100",
+      "capturedAt": "2026-10-01T15:48:44.314Z",
+      "firstEpoch": 1790863338,
+      "lastEpoch": 1790873336,
+      "ticks": 5000,
+      "sides": {
+        "RISE": {
+          "evaluations": 4761,
+          "ready": 0,
+          "maxPassing": 11,
+          "rejected": {
+            "pressure": 4761,
+            "alignment": 3265,
+            "slopes": 3441,
+            "strength": 4761,
+            "momentum": 4635,
+            "persistence": 4089,
+            "chop": 4656,
+            "efficiency": 4761,
+            "deceleration": 1392,
+            "pullback": 843,
+            "confidence": 4761,
+            "structure": 2804
+          },
+          "ranges": {
+            "pressure": {
+              "min": 21.418636995827207,
+              "max": 73.80136986301473
+            },
+            "strength": {
+              "min": 0.13605442176857596,
+              "max": 45.88030888030915
+            },
+            "persistence": {
+              "min": 0,
+              "max": 100
+            },
+            "chop": {
+              "min": 24.99321731296276,
+              "max": 70.98868437626045
+            },
+            "confidence": {
+              "min": 29.511631459793147,
+              "max": 64.39203252990265
+            },
+            "efficiency": {
+              "min": 0,
+              "max": 57.16272600834559
+            }
+          },
+          "rejectionPercent": {
+            "pressure": 100,
+            "alignment": 68.58,
+            "slopes": 72.27,
+            "strength": 100,
+            "momentum": 97.35,
+            "persistence": 85.89,
+            "chop": 97.79,
+            "efficiency": 100,
+            "deceleration": 29.24,
+            "pullback": 17.71,
+            "confidence": 100,
+            "structure": 58.9
+          }
+        },
+        "FALL": {
+          "evaluations": 4761,
+          "ready": 0,
+          "maxPassing": 11,
+          "rejected": {
+            "pressure": 4761,
+            "alignment": 2590,
+            "slopes": 2893,
+            "structure": 2305,
+            "strength": 4761,
+            "momentum": 4504,
+            "persistence": 3719,
+            "chop": 4656,
+            "efficiency": 4761,
+            "confidence": 4761,
+            "deceleration": 1546,
+            "pullback": 623
+          },
+          "ranges": {
+            "pressure": {
+              "min": 26.198630136985276,
+              "max": 78.58136300417279
+            },
+            "strength": {
+              "min": 0.13605442176857596,
+              "max": 45.88030888030915
+            },
+            "persistence": {
+              "min": 0,
+              "max": 100
+            },
+            "chop": {
+              "min": 24.99321731296276,
+              "max": 70.98868437626045
+            },
+            "confidence": {
+              "min": 29.857946938771548,
+              "max": 67.91081244557355
+            },
+            "efficiency": {
+              "min": 0,
+              "max": 57.16272600834559
+            }
+          },
+          "rejectionPercent": {
+            "pressure": 100,
+            "alignment": 54.4,
+            "slopes": 60.76,
+            "structure": 48.41,
+            "strength": 100,
+            "momentum": 94.6,
+            "persistence": 78.11,
+            "chop": 97.79,
+            "efficiency": 100,
+            "confidence": 100,
+            "deceleration": 32.47,
+            "pullback": 13.09
+          }
+        }
+      }
+    },
+    {
+      "symbol": "R_10",
+      "capturedAt": "2026-10-01T15:48:42.662Z",
+      "firstEpoch": 1790863336,
+      "lastEpoch": 1790873334,
+      "ticks": 5000,
+      "sides": {
+        "RISE": {
+          "evaluations": 4761,
+          "ready": 0,
+          "maxPassing": 11,
+          "rejected": {
+            "pressure": 4761,
+            "alignment": 3121,
+            "slopes": 3312,
+            "structure": 2698,
+            "strength": 4761,
+            "momentum": 4593,
+            "persistence": 3793,
+            "chop": 4688,
+            "efficiency": 4761,
+            "deceleration": 1301,
+            "confidence": 4761,
+            "pullback": 835
+          },
+          "ranges": {
+            "pressure": {
+              "min": 22.299431459291505,
+              "max": 75.33990482664039
+            },
+            "strength": {
+              "min": 0.09000817460347363,
+              "max": 48.991153255755464
+            },
+            "persistence": {
+              "min": 0,
+              "max": 100
+            },
+            "chop": {
+              "min": 25.700207562517992,
+              "max": 70.3079884693836
+            },
+            "confidence": {
+              "min": 30.15145770176205,
+              "max": 67.95245321454247
+            },
+            "efficiency": {
+              "min": 0,
+              "max": 55.40113708141699
+            }
+          },
+          "rejectionPercent": {
+            "pressure": 100,
+            "alignment": 65.55,
+            "slopes": 69.57,
+            "structure": 56.67,
+            "strength": 100,
+            "momentum": 96.47,
+            "persistence": 79.67,
+            "chop": 98.47,
+            "efficiency": 100,
+            "deceleration": 27.33,
+            "confidence": 100,
+            "pullback": 17.54
+          }
+        },
+        "FALL": {
+          "evaluations": 4761,
+          "ready": 0,
+          "maxPassing": 11,
+          "rejected": {
+            "pressure": 4761,
+            "alignment": 2701,
+            "slopes": 2973,
+            "structure": 2351,
+            "strength": 4761,
+            "momentum": 4482,
+            "chop": 4688,
+            "efficiency": 4761,
+            "confidence": 4761,
+            "persistence": 3626,
+            "deceleration": 1314,
+            "pullback": 754
+          },
+          "ranges": {
+            "pressure": {
+              "min": 24.660095173359604,
+              "max": 77.7005685407085
+            },
+            "strength": {
+              "min": 0.09000817460347363,
+              "max": 48.991153255755464
+            },
+            "persistence": {
+              "min": 0,
+              "max": 100
+            },
+            "chop": {
+              "min": 25.700207562517992,
+              "max": 70.3079884693836
+            },
+            "confidence": {
+              "min": 29.865728867209988,
+              "max": 69.37328082753287
+            },
+            "efficiency": {
+              "min": 0,
+              "max": 55.40113708141699
+            }
+          },
+          "rejectionPercent": {
+            "pressure": 100,
+            "alignment": 56.73,
+            "slopes": 62.44,
+            "structure": 49.38,
+            "strength": 100,
+            "momentum": 94.14,
+            "chop": 98.47,
+            "efficiency": 100,
+            "confidence": 100,
+            "persistence": 76.16,
+            "deceleration": 27.6,
+            "pullback": 15.84
+          }
+        }
+      }
+    },
+    {
+      "symbol": "R_25",
+      "capturedAt": "2026-10-01T15:48:46.098Z",
+      "firstEpoch": 1790863340,
+      "lastEpoch": 1790873338,
+      "ticks": 5000,
+      "sides": {
+        "RISE": {
+          "evaluations": 4761,
+          "ready": 0,
+          "maxPassing": 11,
+          "rejected": {
+            "pressure": 4761,
+            "alignment": 3351,
+            "slopes": 3428,
+            "strength": 4761,
+            "momentum": 4502,
+            "persistence": 3993,
+            "chop": 4666,
+            "efficiency": 4761,
+            "deceleration": 1354,
+            "confidence": 4761,
+            "pullback": 850,
+            "structure": 2817
+          },
+          "ranges": {
+            "pressure": {
+              "min": 22.43632707775008,
+              "max": 77.15261549523089
+            },
+            "strength": {
+              "min": 0.16780995116289202,
+              "max": 44.36133990442312
+            },
+            "persistence": {
+              "min": 0,
+              "max": 100
+            },
+            "chop": {
+              "min": 28.68000123661949,
+              "max": 70.39015920667329
+            },
+            "confidence": {
+              "min": 29.693724900882984,
+              "max": 66.66919543674452
+            },
+            "efficiency": {
+              "min": 0,
+              "max": 55.12734584449984
+            }
+          },
+          "rejectionPercent": {
+            "pressure": 100,
+            "alignment": 70.38,
+            "slopes": 72,
+            "strength": 100,
+            "momentum": 94.56,
+            "persistence": 83.87,
+            "chop": 98,
+            "efficiency": 100,
+            "deceleration": 28.44,
+            "confidence": 100,
+            "pullback": 17.85,
+            "structure": 59.17
+          }
+        },
+        "FALL": {
+          "evaluations": 4761,
+          "ready": 0,
+          "maxPassing": 11,
+          "rejected": {
+            "pressure": 4761,
+            "slopes": 2922,
+            "structure": 2242,
+            "strength": 4761,
+            "momentum": 4516,
+            "persistence": 3673,
+            "chop": 4666,
+            "efficiency": 4761,
+            "confidence": 4761,
+            "alignment": 2644,
+            "pullback": 743,
+            "deceleration": 1464
+          },
+          "ranges": {
+            "pressure": {
+              "min": 22.847384504769106,
+              "max": 77.56367292224992
+            },
+            "strength": {
+              "min": 0.16780995116289202,
+              "max": 44.36133990442312
+            },
+            "persistence": {
+              "min": 0,
+              "max": 100
+            },
+            "chop": {
+              "min": 28.68000123661949,
+              "max": 70.39015920667329
+            },
+            "confidence": {
+              "min": 28.84903705281288,
+              "max": 67.13505188089508
+            },
+            "efficiency": {
+              "min": 0,
+              "max": 55.12734584449984
+            }
+          },
+          "rejectionPercent": {
+            "pressure": 100,
+            "slopes": 61.37,
+            "structure": 47.09,
+            "strength": 100,
+            "momentum": 94.85,
+            "persistence": 77.15,
+            "chop": 98,
+            "efficiency": 100,
+            "confidence": 100,
+            "alignment": 55.53,
+            "pullback": 15.61,
+            "deceleration": 30.75
+          }
+        }
+      }
+    }
+  ]
+}

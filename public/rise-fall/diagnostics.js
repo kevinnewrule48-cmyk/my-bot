@@ -9,6 +9,7 @@ export function chopBreakdown(a){
 export function directionState(a){
  if(a.sample<a.need)return 'ANALYZING';
  if(a.winner)return a.winner.name+' READY';
+ if(a.config.analysisMode&&a.candidates?.length){const b=[...a.candidates].sort((x,y)=>y.confidence-x.confidence)[0];return b.name+' '+b.balanced.state;}
  const developing=(a.candidates??[]).find(c=>a.windows[a.config.micro][c.sign===1?'up':'down']>50&&a.windows[a.config.short][c.sign===1?'up':'down']>50&&c.persistence>50);
  if(!developing)return a.marketState==='CHOPPY'?'CHOPPY':'NO TRADE';
  const count=Object.values(developing.checks).filter(Boolean).length;
@@ -18,6 +19,12 @@ export function directionState(a){
 }
 export function candidateDetails(a,side,now=Date.now()){
  const c=a.config,dir=side.sign,ps=dir===1?'up':'down',warm=a.sample<a.need;
+ if(side.balanced){
+  const m=side.balanced.metrics;
+  const values={history:[a.sample,`>= ${a.need}`],fresh:[Number.isFinite(a.epoch)?(now-a.epoch*1000)/1000:'Unavailable',`-2 to ${c.staleMs/1000} seconds`],severeChop:[m.chop,'< 65'],opposition:[`${m.pressure.toFixed(2)} / ${m.shortPressure.toFixed(2)}`,'micro > 40 and short > 45'],reversal:[m.reversalRisk,'< 60'],exhaustion:[m.exhaustion,'< 70'],volatility:[a.volatility,'0.05 to 4'],direction:[m.velocity,'> 0'],agreement:[m.agreement,'>= 4 of 6'],evidence:[m.score,'>= 68']};
+  const rows=Object.entries(side.checks).map(([gate,pass])=>({gate,label:gate,value:typeof values[gate][0]==='number'?number(values[gate][0]):values[gate][0],required:values[gate][1],pass,reason:pass?'Passed':`${gate}: ${values[gate][0]}; requires ${values[gate][1]}`}));
+  return {name:side.name,type:side.type,ready:side.ready,passed:rows.filter(r=>r.pass).length,total:rows.length,rows,components:{...m,...Object.fromEntries(Object.entries(side.balanced.support).map(([k,v])=>['weighted '+k,v]))}};
+ }
  const rows=[];
  const add=(gate,label,value,required,pass=side.checks?.[gate])=>rows.push({gate,label,value,required,pass:pass===true,reason:pass===true?'Passed':warm&&gate!=='history'&&gate!=='fresh'?'Not evaluated: history warm-up incomplete':`${label}: ${value}; requires ${required}`});
  add('history','History',`${a.sample} retained ticks`,`${a.need} or more`,a.sample>=a.need);
@@ -49,6 +56,7 @@ export function explain(a,now=Date.now()){
 export function strategyStatus(a){
  if(a.sample<a.need)return 'ANALYZING';
  if(a.winner)return a.winner.name+' READY';
+ if(a.config.analysisMode&&a.candidates?.length){const b=[...a.candidates].sort((x,y)=>y.confidence-x.confidence)[0];return b.name+' '+b.balanced.state;}
  const direction=directionState(a);
  if(direction==='DEVELOPING UP')return 'RISE DEVELOPING';
  if(direction==='DEVELOPING DOWN')return 'FALL DEVELOPING';
@@ -65,7 +73,10 @@ export function monitorStatus(a,execution,orders=[],now=Date.now()){
  const strategy=strategyStatus(a),active=orders.find(o=>['PROPOSAL','BUY_PENDING','OPEN'].includes(o.state));
  const latest=[...orders].filter(o=>o.state==='SETTLED'&&['won','lost'].includes(o.result)).sort((x,y)=>(y.settledAt??0)-(x.settledAt??0))[0];
  const blockers=execution?.blockers??['Demo execution is not connected'];
- const status=active?'EXECUTING':latest&&now-latest.settledAt<15000?latest.result.toUpperCase():blockers.length?'EXECUTION BLOCKED':strategy;
+ const authFailed=(execution?.checks??[]).some(c=>['authentication','demo','connection','heartbeat','auto'].includes(c.key)&&!c.pass)||blockers.some(x=>/authenticat|session|Auto off|connect.*demo/i.test(x));
+ const customLimit=(execution?.checks??[]).some(c=>c.key==='budget'&&!c.pass);
+ const unresolved=orders.some(o=>o.state==='UNKNOWN');
+ const status=active?.state==='OPEN'?'WAITING FOR SETTLEMENT':active?'EXECUTING':unresolved?'EXECUTION ERROR':authFailed?'SESSION/AUTHORIZATION ERROR':customLimit?'CUSTOM LIMIT REACHED':execution?.error?'EXECUTION ERROR':blockers.length?(blockers.every(x=>/signal episode/i.test(x))?'WAITING FOR NEXT SIGNAL':'EXECUTION ERROR'):a.winner?'READY':'NO TRADE — strategy rejected setup';
  return {status,strategy,blockers,lastResult:latest?.result?.toUpperCase()??'None recorded',lastExecutedAt:Math.max(0,...orders.map(o=>o.buyConfirmedAt??0))||null};
 }
 export class DiagnosticLog{
@@ -81,7 +92,7 @@ export class DiagnosticLog{
   }
   if(a.winner&&newTick&&a.signalId!==this.lastQualifiedSignal){this.lastQualifiedAt=now;this.lastQualifiedSignal=a.signalId;}
   for(const side of explain(a,now)){const rejected=side.rows.filter(r=>!r.pass);for(const gate of new Set(rejected.map(r=>r.gate)))this.rejections[side.name+':'+gate]=(this.rejections[side.name+':'+gate]??0)+1;
-   this.records.push({source:this.source,evaluatedAt:now,symbol:a.symbol,sequence:a.sequence,epoch:a.epoch,quote:a.quote,tick:a.tickTrace,side:side.name,ready:side.ready,passed:side.passed,total:side.total,rows:side.rows,components:side.components,chop:{score:a.chop,threshold:a.config.maxChop,blocking:a.config.chopFilter!==false,inputs:chopBreakdown(a)},executionBlockers:[...execution.blockers],health:{...health}});this.total++;
+   this.records.push({source:this.source,evaluatedAt:now,symbol:a.symbol,sequence:a.sequence,epoch:a.epoch,quote:a.quote,tick:a.tickTrace,side:side.name,ready:side.ready,passed:side.passed,total:side.total,rows:side.rows,components:side.components,chop:{score:a.chop,threshold:a.config.analysisMode?65:a.config.maxChop,blocking:!!a.config.analysisMode||a.config.chopFilter!==false,inputs:chopBreakdown(a)},executionBlockers:[...execution.blockers],health:{...health}});this.total++;
   }
   if(this.records.length>this.limit)this.records.splice(0,this.records.length-this.limit);
  }

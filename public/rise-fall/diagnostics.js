@@ -7,6 +7,7 @@ export function chopBreakdown(a){
  return [['Tick alternation',.22,a.tickAlternation],['Candle alternation',.10,a.candleAlternation],['100 − efficiency',.20,Number.isFinite(a.efficiency)?100-a.efficiency:null],['EMA compression',.12,a.emaCompression],['Range compression',.08,a.rangeCompression],['Pressure balance',.12,balance],['Failed breakouts',.08,a.failedBreakouts],['100 − persistence',.08,Number.isFinite(a.persistence)?100-a.persistence:null]].map(([name,weight,value])=>({name,weight,value,contribution:Number.isFinite(value)?weight*value:null}));
 }
 export function directionState(a){
+ if(a.confirmation)return a.confirmation.state;
  if(a.sample<a.need)return 'ANALYZING';
  if(a.winner)return a.winner.name+' READY';
  if(a.config.analysisMode&&a.candidates?.length){const b=[...a.candidates].sort((x,y)=>y.confidence-x.confidence)[0];return b.name+' '+b.balanced.state;}
@@ -22,6 +23,7 @@ export function candidateDetails(a,side,now=Date.now()){
  if(side.balanced){
   const m=side.balanced.metrics;
   const values={history:[a.sample,`>= ${a.need}`],fresh:[Number.isFinite(a.epoch)?(now-a.epoch*1000)/1000:'Unavailable',`-2 to ${c.staleMs/1000} seconds`],severeChop:[m.chop,'< 65'],opposition:[`${m.pressure.toFixed(2)} / ${m.shortPressure.toFixed(2)}`,'micro > 40 and short > 45'],reversal:[m.reversalRisk,'< 60'],exhaustion:[m.exhaustion,'< 70'],volatility:[a.volatility,'0.05 to 4'],direction:[m.velocity,'> 0'],agreement:[m.agreement,'>= 4 of 6'],evidence:[m.score,'>= 68']};
+  if(side.confirmation){const p=side.confirmation;Object.assign(values,{observation:[p.liveObservations,`>= ${p.requiredObservations} NEW live observations after arming`],shortAgreement:[m.shortPressure,'> 50 (medium is context only)'],trendConfirmation:[p.direction===side.name?p.directionBlocks:0,`>= ${p.requiredBlocks} independent ${p.blockSize}-observation directional blocks`],entryPersistence:[p.direction===side.name?p.readyObservations:0,`>= ${p.requiredReady} successive NEW eligible observations`],newEntry:[p.consumed?'consumed':'available','A distinct unconsumed entry event']});}
   const rows=Object.entries(side.checks).map(([gate,pass])=>({gate,label:gate,value:typeof values[gate][0]==='number'?number(values[gate][0]):values[gate][0],required:values[gate][1],pass,reason:pass?'Passed':`${gate}: ${values[gate][0]}; requires ${values[gate][1]}`}));
   return {name:side.name,type:side.type,ready:side.ready,passed:rows.filter(r=>r.pass).length,total:rows.length,rows,components:{...m,...Object.fromEntries(Object.entries(side.balanced.support).map(([k,v])=>['weighted '+k,v]))}};
  }
@@ -54,6 +56,7 @@ export function explain(a,now=Date.now()){
  return (a.candidates?.length?a.candidates:[{name:'RISE',type:'CALL',sign:1},{name:'FALL',type:'PUT',sign:-1}]).map(s=>candidateDetails(a,s,now));
 }
 export function strategyStatus(a){
+ if(a.confirmation)return a.confirmation.state;
  if(a.sample<a.need)return 'ANALYZING';
  if(a.winner)return a.winner.name+' READY';
  if(a.config.analysisMode&&a.candidates?.length){const b=[...a.candidates].sort((x,y)=>y.confidence-x.confidence)[0];return b.name+' '+b.balanced.state;}
@@ -82,7 +85,7 @@ export function monitorStatus(a,execution,orders=[],now=Date.now()){
 export class DiagnosticLog{
  constructor({limit=400,source='public'}={}){this.limit=Math.max(2,Math.min(2000,limit));this.source=source;this.records=[];this.total=0;this.rejections={};this.lastKey=null;this.lastQualifiedAt=null;this.lastEvaluationAt=null;this.lastSequence=null;this.lastMetrics=null;this.metricsChangedAt=null;this.lastQuote=null;this.metricsFrozen=false;this.startedAt=Date.now();}
  observe(a,now=Date.now(),execution={blockers:[]},health={}){
-  const key=JSON.stringify([a.symbol,a.sequence,a.candidates?.map(s=>s.checks.fresh),execution.blockers,health.state,health.error]);
+  const key=JSON.stringify([a.symbol,a.sequence,a.confirmation?.armed,a.confirmation?.candidate?.id,a.confirmation?.state,a.candidates?.map(s=>s.checks.fresh),execution.blockers,health.state,health.error]);
   if(key===this.lastKey)return;
   const newTick=a.sequence!==this.lastSequence;this.lastKey=key;this.lastEvaluationAt=now;
   if(newTick){const signature=JSON.stringify([a.ema,a.trendStrength,a.chop,a.efficiency,a.velocity,a.candidates?.map(s=>[s.momentum,s.persistence,s.confidence])]);
@@ -92,7 +95,7 @@ export class DiagnosticLog{
   }
   if(a.winner&&newTick&&a.signalId!==this.lastQualifiedSignal){this.lastQualifiedAt=now;this.lastQualifiedSignal=a.signalId;}
   for(const side of explain(a,now)){const rejected=side.rows.filter(r=>!r.pass);for(const gate of new Set(rejected.map(r=>r.gate)))this.rejections[side.name+':'+gate]=(this.rejections[side.name+':'+gate]??0)+1;
-   this.records.push({source:this.source,evaluatedAt:now,symbol:a.symbol,sequence:a.sequence,epoch:a.epoch,quote:a.quote,tick:a.tickTrace,side:side.name,ready:side.ready,passed:side.passed,total:side.total,rows:side.rows,components:side.components,chop:{score:a.chop,threshold:a.config.analysisMode?65:a.config.maxChop,blocking:!!a.config.analysisMode||a.config.chopFilter!==false,inputs:chopBreakdown(a)},executionBlockers:[...execution.blockers],health:{...health}});this.total++;
+   this.records.push({source:this.source,evaluatedAt:now,symbol:a.symbol,sequence:a.sequence,epoch:a.epoch,quote:a.quote,tick:a.tickTrace,side:side.name,ready:side.ready,passed:side.passed,total:side.total,rows:side.rows,components:side.components,confirmation:a.confirmation??null,chop:{score:a.chop,threshold:a.config.analysisMode?65:a.config.maxChop,blocking:!!a.config.analysisMode||a.config.chopFilter!==false,inputs:chopBreakdown(a)},executionBlockers:[...execution.blockers],health:{...health}});this.total++;
   }
   if(this.records.length>this.limit)this.records.splice(0,this.records.length-this.limit);
  }

@@ -1,3 +1,4 @@
+import {TrendConfirmation,V2_VERSION} from './trend-confirmation.js';
 import {balancedCandidate,BALANCED_VERSION} from './balanced.js';
 // Pure, causal analysis shared by the server, dashboard and replay runner.
 export const DEFAULTS=Object.freeze({fast:10,medium:30,slow:80,micro:20,short:50,mediumWindow:100,structural:200,macro:false,pressure:65,confidence:80,maxChop:35,chopFilter:true,minEfficiency:60,minStrength:60,minPersistence:65,maxDeceleration:0.65,minVolatility:0.05,maxVolatility:4,staleMs:10000,candleTicks:10});
@@ -6,7 +7,7 @@ const sum=a=>a.reduce((s,x)=>s+x,0);
 const mean=a=>a.length?sum(a)/a.length:0;
 export function configuration(input={}){
  const c={...DEFAULTS,...input};
- if(c.analysisMode!==undefined&&c.analysisMode!==BALANCED_VERSION)throw Error("Unknown analysis mode");
+ if(c.analysisMode!==undefined&&c.analysisMode!==BALANCED_VERSION&&c.analysisMode!==V2_VERSION)throw Error("Unknown analysis mode");
  for(const k of Object.keys(DEFAULTS)){if(k==='macro'||k==='chopFilter'){if(typeof c[k]!=='boolean')throw Error('Invalid '+k+' setting');continue;}if(!Number.isFinite(c[k]))throw Error('Invalid '+k);}
  for(const k of ['fast','medium','slow','micro','short','mediumWindow','structural','candleTicks'])if(!Number.isInteger(c[k])||c[k]<2||c[k]>1000)throw Error('Invalid period '+k);
  if(!(c.fast<c.medium&&c.medium<c.slow&&c.micro<c.short&&c.short<c.mediumWindow&&c.mediumWindow<c.structural))throw Error('Periods must be ascending');
@@ -20,6 +21,7 @@ const slope=p=>{const n=p.length,x=(n-1)/2,y=mean(p);let a=0,b=0;for(let i=0;i<n
 const alternation=d=>{const signs=d.filter(x=>x!==0).map(Math.sign);return signs.length<2?0:100*signs.slice(1).filter((x,i)=>x!==signs[i]).length/(signs.length-1);};
 export function candles(prices,n){const out=[];for(let i=0;i+n<=prices.length;i+=n){const p=prices.slice(i,i+n);out.push({open:p[0],close:p.at(-1),high:Math.max(...p),low:Math.min(...p)});}return out;}
 export function analyze(ticks,input={},now=Date.now()){
+ if(input.analysisMode===V2_VERSION){const c=configuration(input),a=analyze(ticks,{...c,analysisMode:BALANCED_VERSION},now);return new TrendConfirmation(c).project({...a,config:c},now,ticks.at(-1)?.epoch);}
  const c=configuration(input),p=ticks.map(t=>Number(t.quote)),last=ticks.at(-1),need=Math.max(c.structural+1,c.slow*3,c.macro?501:0),sample=p.length;
  const windows=Object.fromEntries([10,c.micro,c.short,c.mediumWindow,c.structural,...(c.macro?[500]:[])].map(n=>[n,pressure(p,n)]));
  const empty={state:'NO TRADE',marketState:'COLLECTING',reason:`Collecting history ${sample}/${need}`,sample,need,windows,candidates:[],config:c};
@@ -62,13 +64,25 @@ export function analyze(ticks,input={},now=Date.now()){
  return {...empty,state:winner?winner.name+' READY':'NO TRADE',marketState,reason:winner?`${winner.name}: all analysis conditions pass`:stale?'Market data is stale':c.analysisMode?candidates.map(x=>x.name+': '+x.balanced.state+' - '+x.blocked.join(', ')).join(' · '):c.chopFilter&&chop>c.maxChop?`Direction changes / compression — ChopScore ${chop.toFixed(1)}%`:candidates.map(x=>x.name+': '+x.blocked.join(', ')).join(' · '),candidates,winner,trendStrength,chop,efficiency,volatility,velocity,oldVelocity,acceleration,priceSlope,lastCandle:bars.at(-1),ema:{fast:fast.at(-1),medium:med.at(-1),slow:slow.at(-1),slopes,alignment},structure:{hh,hl,lh,ll},tickAlternation,candleAlternation,emaCompression,rangeCompression,failedBreakouts,persistence};
 }
 export class RiseFallEngine{
- constructor(symbol,config={}){this.symbol=symbol;this.config=configuration(config);this.history=[];this.sequence=0;this.episode=0;this.previous=null;}
+ constructor(symbol,config={}){this.symbol=symbol;this.config=configuration(config);this.history=[];this.sequence=0;this.episode=0;this.previous=null;if(this.config.analysisMode===V2_VERSION)this.trend=new TrendConfirmation(this.config);}
+ arm(token){this.trend?.arm(token);return this;}
+ disarm(){this.trend?.disarm();}
+ confirmExecution(signalId){this.trend?.confirmExecution(signalId);}
+ consume(signalId){return this.trend?.consume(signalId)??false;}
  enableTrace(limit=400){this.traceLimit=Math.max(2,Math.min(2000,limit));this.tickTrace=[];this.received=0;this.rejectedTicks=0;return this;}
- add(tick){const epoch=Number(tick.epoch??tick.timestamp),quote=Number(tick.quote),last=this.history.at(-1);
+ add(tick,options={}){const epoch=Number(tick.epoch??tick.timestamp),quote=Number(tick.quote),last=this.history.at(-1);
   const rejection=tick.symbol&&tick.symbol!==this.symbol?'Wrong symbol':!Number.isFinite(epoch)||!Number.isFinite(quote)||quote<=0?'Invalid timestamp or price':last&&epoch<=last.epoch?'Duplicate or out-of-order timestamp':null;
   if(!rejection){this.history.push({epoch,quote,symbol:this.symbol});if(this.history.length>Math.max(1500,this.config.slow*3+1))this.history.shift();this.sequence++;}
   if(this.traceLimit){this.received++;if(rejection)this.rejectedTicks++;const delta=last?quote-last.quote:null;this.lastTickTrace={received:this.received,epoch,price:quote,previousPrice:last?.quote??null,delta,direction:delta===null?'FIRST':delta>0?'UP':delta<0?'DOWN':'FLAT',accepted:!rejection,rejection,sequence:this.sequence,historySize:this.history.length,historyStart:this.history[0]?.epoch,historyEnd:this.history.at(-1)?.epoch,completeRollingCandles:Math.floor(this.history.length/this.config.candleTicks),partialCandleTicks:this.history.length%this.config.candleTicks};this.tickTrace.push(this.lastTickTrace);if(this.tickTrace.length>this.traceLimit)this.tickTrace.shift();}
+  if(!rejection&&this.trend){
+   const receivedAt=options.receivedAt??epoch*1000;
+   this.trendBase={...analyze(this.history,{...this.config,analysisMode:BALANCED_VERSION},receivedAt),config:this.config};
+   if(options.live===false){if(this.trend.armed){this.trend.invalidate('OBSERVING','Historical backfill is not live evidence');this.trend.live=0;this.trend.block=[];this.trend.revision++;}}
+   else this.trend.observe(this.trendBase,{epoch,quote},last?quote-last.quote:null);
+  }
   return !rejection;
  }
- snapshot(now=Date.now()){const a=analyze(this.history,this.config,now),side=a.winner?.type??null;if(side!==this.previous){this.episode++;this.previous=side;}return {...a,symbol:this.symbol,sequence:this.sequence,signalId:side?`${this.symbol}:${this.episode}:${side}`:null,epoch:this.history.at(-1)?.epoch,quote:this.history.at(-1)?.quote,tickTrace:this.lastTickTrace};}
+ snapshot(now=Date.now()){
+  if(this.trend){const a=this.trendBase??{...analyze(this.history,{...this.config,analysisMode:BALANCED_VERSION},now),config:this.config};return {...this.trend.project(a,now,this.history.at(-1)?.epoch),symbol:this.symbol,sequence:this.sequence,epoch:this.history.at(-1)?.epoch,quote:this.history.at(-1)?.quote,tickTrace:this.lastTickTrace};}
+  const a=analyze(this.history,this.config,now),side=a.winner?.type??null;if(side!==this.previous){this.episode++;this.previous=side;}return {...a,symbol:this.symbol,sequence:this.sequence,signalId:side?`${this.symbol}:${this.episode}:${side}`:null,epoch:this.history.at(-1)?.epoch,quote:this.history.at(-1)?.quote,tickTrace:this.lastTickTrace};}
 }

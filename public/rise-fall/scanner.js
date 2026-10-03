@@ -25,7 +25,7 @@ export class MarketScanner {
  }
  async cycle(token){for(const m of this.markets){if(token!==this.token)return;const row=this.rows.get(m.symbol)??{symbol:m.symbol,name:m.name,contracts:[]};try{
    if(!row.contractsCheckedAt||Date.now()-row.contractsCheckedAt>600000){const meta=await this.request({contracts_for:m.symbol});row.contracts=availableContracts(meta.contracts_for,m.symbol);row.contractsCheckedAt=Date.now();row.checked=true;}
-   if(row.contracts.length&&!row.engine){const h=await this.request({ticks_history:m.symbol,count:1500,end:'latest',style:'ticks'});row.engine=new RiseFallEngine(m.symbol,this.config);(h.history?.prices??[]).forEach((quote,i)=>row.engine.add({quote,epoch:h.history.times[i]}));}
+   if(row.contracts.length&&!row.engine){const h=await this.request({ticks_history:m.symbol,count:1500,end:'latest',style:'ticks'});row.engine=new RiseFallEngine(m.symbol,this.config);(h.history?.prices??[]).forEach((quote,i)=>row.engine.add({quote,epoch:h.history.times[i]},{live:false}));}
    this.rows.set(m.symbol,row);
    if(row.engine&&!row.subscribed){await this.request({ticks:m.symbol,subscribe:1});row.subscribed=true;}
    row.error=null;

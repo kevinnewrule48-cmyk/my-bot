@@ -1,3 +1,4 @@
+import {balancedCandidate,BALANCED_VERSION} from './balanced.js';
 // Pure, causal analysis shared by the server, dashboard and replay runner.
 export const DEFAULTS=Object.freeze({fast:10,medium:30,slow:80,micro:20,short:50,mediumWindow:100,structural:200,macro:false,pressure:65,confidence:80,maxChop:35,chopFilter:true,minEfficiency:60,minStrength:60,minPersistence:65,maxDeceleration:0.65,minVolatility:0.05,maxVolatility:4,staleMs:10000,candleTicks:10});
 const clamp=x=>Math.max(0,Math.min(100,x));
@@ -5,6 +6,7 @@ const sum=a=>a.reduce((s,x)=>s+x,0);
 const mean=a=>a.length?sum(a)/a.length:0;
 export function configuration(input={}){
  const c={...DEFAULTS,...input};
+ if(c.analysisMode!==undefined&&c.analysisMode!==BALANCED_VERSION)throw Error("Unknown analysis mode");
  for(const k of Object.keys(DEFAULTS)){if(k==='macro'||k==='chopFilter'){if(typeof c[k]!=='boolean')throw Error('Invalid '+k+' setting');continue;}if(!Number.isFinite(c[k]))throw Error('Invalid '+k);}
  for(const k of ['fast','medium','slow','micro','short','mediumWindow','structural','candleTicks'])if(!Number.isInteger(c[k])||c[k]<2||c[k]>1000)throw Error('Invalid period '+k);
  if(!(c.fast<c.medium&&c.medium<c.slow&&c.micro<c.short&&c.short<c.mediumWindow&&c.mediumWindow<c.structural))throw Error('Periods must be ascending');
@@ -52,11 +54,12 @@ export function analyze(ticks,input={},now=Date.now()){
   const decelerating=dir*oldVelocity>0&&dir*velocity<dir*oldVelocity*(1-c.maxDeceleration);
   const confidence=clamp(.22*s[ps]+.14*medium[ps]+.10*structural[ps]+.15*trendStrength+.14*momentum+.10*directionalPersistence+.10*efficiency+.05*(100-chop));
   const checks={history:sample>=need,fresh:!stale,pressure:[micro,s,medium,structural,...(c.macro?[windows[500]]:[])].every(w=>w.ready&&w[ps]>=c.pressure),alignment:alignment===dir,slopes:slopes.every(x=>dir*x>0)&&dir*priceSlope>0,structure,strength:trendStrength>=c.minStrength,momentum:dir*velocity>0&&momentum>=c.pressure,persistence:directionalPersistence>=c.minPersistence,chop:!c.chopFilter||chop<=c.maxChop,efficiency:efficiency>=c.minEfficiency,volatility:volatility>=c.minVolatility&&volatility<=c.maxVolatility,deceleration:!decelerating,pullback:pullback<=35,confidence:confidence>=c.confidence};
-  return {...side,confidence,momentum,persistence:directionalPersistence,pullback,reversalPressure:100-micro[ps],decelerating,bodyStrength,continuation,checks,ready:Object.values(checks).every(Boolean),blocked:Object.entries(checks).filter(([,v])=>!v).map(([k])=>k)};
+  const candidate={...side,confidence,momentum,persistence:directionalPersistence,pullback,reversalPressure:100-micro[ps],decelerating,bodyStrength,continuation,checks,ready:Object.values(checks).every(Boolean),blocked:Object.entries(checks).filter(([,v])=>!v).map(([k])=>k)};
+  return c.analysisMode===BALANCED_VERSION?balancedCandidate(candidate,{micro,short:s,medium,chop,volatility,stale,history:sample>=need,priceSlope}):candidate;
  });
  const eligible=candidates.filter(x=>x.ready),winner=eligible.length===1?eligible[0]:null;
- const marketState=chop>c.maxChop?'CHOPPY':alignment===1&&hh&&hl?'UPTREND':alignment===-1&&lh&&ll?'DOWNTREND':'SIDEWAYS';
- return {...empty,state:winner?winner.name+' READY':'NO TRADE',marketState,reason:winner?`${winner.name}: all analysis conditions pass`:stale?'Market data is stale':c.chopFilter&&chop>c.maxChop?`Direction changes / compression — ChopScore ${chop.toFixed(1)}%`:candidates.map(x=>x.name+': '+x.blocked.join(', ')).join(' · '),candidates,winner,trendStrength,chop,efficiency,volatility,velocity,oldVelocity,acceleration,priceSlope,lastCandle:bars.at(-1),ema:{fast:fast.at(-1),medium:med.at(-1),slow:slow.at(-1),slopes,alignment},structure:{hh,hl,lh,ll},tickAlternation,candleAlternation,emaCompression,rangeCompression,failedBreakouts,persistence};
+ const marketState=c.analysisMode?[...candidates].sort((a,b)=>b.confidence-a.confidence)[0].balanced.metrics.regime:chop>c.maxChop?'CHOPPY':alignment===1&&hh&&hl?'UPTREND':alignment===-1&&lh&&ll?'DOWNTREND':'SIDEWAYS';
+ return {...empty,state:winner?winner.name+' READY':'NO TRADE',marketState,reason:winner?`${winner.name}: all analysis conditions pass`:stale?'Market data is stale':c.analysisMode?candidates.map(x=>x.name+': '+x.balanced.state+' - '+x.blocked.join(', ')).join(' · '):c.chopFilter&&chop>c.maxChop?`Direction changes / compression — ChopScore ${chop.toFixed(1)}%`:candidates.map(x=>x.name+': '+x.blocked.join(', ')).join(' · '),candidates,winner,trendStrength,chop,efficiency,volatility,velocity,oldVelocity,acceleration,priceSlope,lastCandle:bars.at(-1),ema:{fast:fast.at(-1),medium:med.at(-1),slow:slow.at(-1),slopes,alignment},structure:{hh,hl,lh,ll},tickAlternation,candleAlternation,emaCompression,rangeCompression,failedBreakouts,persistence};
 }
 export class RiseFallEngine{
  constructor(symbol,config={}){this.symbol=symbol;this.config=configuration(config);this.history=[];this.sequence=0;this.episode=0;this.previous=null;}

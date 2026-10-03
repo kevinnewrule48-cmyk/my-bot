@@ -27,10 +27,10 @@ test('Indicators reevaluate from changing ticks, including candles and pressure'
  assert.notEqual(a.windows[20].up,b.windows[20].up);assert.notEqual(a.candidates[0].persistence,b.candidates[0].persistence);assert.notEqual(a.lastCandle.close,b.lastCandle.close);
 });
 test('Display distinguishes READY strategy from execution disabled, active and settled',()=>{
- const {a,now}=up();assert.equal(monitorStatus(a,{blockers:['Auto off']}).status,'EXECUTION BLOCKED');assert.equal(monitorStatus(a,{blockers:['Auto off']}).strategy,'RISE READY');
- assert.equal(monitorStatus(a,{blockers:[]}).status,'RISE READY');assert.equal(monitorStatus(a,{blockers:[]},[{state:'OPEN'}]).status,'EXECUTING');
- for(const result of ['won','lost'])assert.equal(monitorStatus(a,{blockers:[]},[{state:'SETTLED',result,settledAt:now}],now).status,result.toUpperCase());
- assert.equal(monitorStatus(a,{blockers:[]},[{state:'SETTLED',result:'won',settledAt:now-16000}],now).status,'RISE READY');
+ const {a,now}=up();assert.equal(monitorStatus(a,{blockers:['Auto off']}).status,'SESSION/AUTHORIZATION ERROR');assert.equal(monitorStatus(a,{blockers:['Auto off']}).strategy,'RISE READY');
+ assert.equal(monitorStatus(a,{blockers:[]}).status,'READY');assert.equal(monitorStatus(a,{blockers:[]},[{state:'OPEN'}]).status,'WAITING FOR SETTLEMENT');
+ for(const result of ['won','lost'])assert.equal(monitorStatus(a,{blockers:[]},[{state:'SETTLED',result,settledAt:now}],now).lastResult,result.toUpperCase());
+ assert.equal(monitorStatus(a,{blockers:[]},[{state:'SETTLED',result:'won',settledAt:now-16000}],now).status,'READY');
 });
 test('Developing and confirmation labels cannot create a READY signal',()=>{
  const {a}=up();const b=structuredClone(a);b.winner=null;b.marketState='UPTREND';b.candidates[0].ready=false;b.candidates[0].checks.confidence=false;

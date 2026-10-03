@@ -17,7 +17,7 @@ export function recoverStaleFeed(service,c){
    const h=await c.rpc.request({ticks_history:row.symbol,count:1500,end:'latest',style:'ticks'});
    if(service.contexts.get(c.owner)!==c||c.rpc.closed)return;
    // Keep episode identity and history; historical backfill never invokes execution.
-   (h.history?.prices??[]).forEach((quote,i)=>engine.add({symbol:row.symbol,quote,epoch:h.history.times[i]}));
+   (h.history?.prices??[]).forEach((quote,i)=>engine.add({symbol:row.symbol,quote,epoch:h.history.times[i]},{live:false}));
    const sub=await c.rpc.request({ticks:row.symbol,subscribe:1});
    if(!sub.subscription?.id)throw Error('Replacement tick subscription not confirmed');
    row.error=null;update({subscriptionId:sub.subscription.id,lastAcceptedSequence:engine.sequence,subscribed:true,state:'awaiting-live',error:'Subscription refreshed; waiting for a fresh live tick'});

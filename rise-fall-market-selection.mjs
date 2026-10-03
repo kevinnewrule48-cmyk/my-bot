@@ -24,7 +24,7 @@ export async function loadMarketScan(service,c){
      row.feedHealth={state:'subscribing',subscribed:false,startedAt:service.now()+(c.clockOffset??0)};
      const sub=await c.rpc.request({ticks:m.symbol,subscribe:1});
      if(!sub.subscription?.id)throw Error('Tick subscription not confirmed');
-     row.feedHealth.subscribed=true;row.feedHealth.state='live';
+     row.feedHealth.subscriptionId=sub.subscription.id;row.feedHealth.subscribed=true;row.feedHealth.state='live';
     }
     row.verifiedDurations=service.verifiedDurations(c.config,m.symbol);
    }catch(e){row.error=e.message;}
@@ -32,13 +32,22 @@ export async function loadMarketScan(service,c){
  }catch(e){scan.error=e.message;}finally{scan.loading=false;}
 }
 
+// Reuse unchanged market calculations, but always invalidate at the freshness boundary.
+export function scanAnalysis(row,now){
+ const e=row.engine;if(!e)return null;
+ const epoch=e.history?.at(-1)?.epoch,age=now-epoch*1000;
+ const freshness=Number.isFinite(epoch)?(age < -2000?'future':age>e.config.staleMs?'stale':'fresh'):'unknown';
+ const key=Number.isFinite(e.sequence)?`${e.sequence}:${freshness}`:null;
+ if(key===null||row.analysisCache?.engine!==e||row.analysisCache?.key!==key)row.analysisCache={engine:e,key,value:e.snapshot(now)};
+ return row.analysisCache.value;
+}
 export function rankedScan(service,c,duration=c.order?.duration??c.scanDuration,unit=c.order?.unit??c.scanUnit){
- return rankMarkets([...(c.marketScan?.rows.values()??[])],c.config,duration,unit,service.now()+(c.clockOffset??0)).map(r=>{
+ return rankMarkets([...(c.marketScan?.rows.values()??[])].map(row=>({...row,engine:row.engine?{snapshot:now=>scanAnalysis(row,now)}:null})),c.config,duration,unit,service.now()+(c.clockOffset??0)).map(r=>{
   const verified=r.verifiedDurations.some(d=>d.duration===duration&&d.unit===unit);
   const consumed=!!r.analysis?.signalId&&c.used.has(r.analysis.signalId);
-  const healthy=!!r.feedHealth?.subscribed&&!r.error;
+  const healthy=!!r.feedHealth?.subscribed&&!r.feedHealth?.recovering&&r.feedHealth?.state!=='awaiting-live'&&!r.error;
   const both=['CALL','PUT'].every(t=>supports(r.contracts,t,duration,unit));
-  return {...r,eligible:r.eligible&&verified&&healthy&&both&&!consumed,reason:r.error||(!healthy?'Live subscription unavailable':!both?'Selected duration unavailable':!verified?'Replay not verified for this duration':consumed?'Waiting for a new signal episode':r.reason)};
+  return {...r,engine:c.marketScan.rows.get(r.symbol).engine,eligible:r.eligible&&verified&&healthy&&both&&!consumed,reason:r.error||(!healthy?'Live subscription unavailable':!both?'Selected duration unavailable':!verified?'Replay not verified for this duration':consumed?'Waiting for a new signal episode':r.reason)};
  }).sort((a,b)=>Number(b.eligible)-Number(a.eligible)||(b.candidate?.confidence??-1)-(a.candidate?.confidence??-1)||a.name.localeCompare(b.name));
 }
 

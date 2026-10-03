@@ -1,5 +1,6 @@
+import {recoverStaleFeed} from './rise-fall-feed-recovery.mjs';
 import {loadMarketScan,selectMarket,scanStatus} from './rise-fall-market-selection.mjs';
-import {existsSync,readFileSync,writeFileSync,renameSync,mkdirSync} from 'node:fs';
+import {existsSync,readFileSync,writeFileSync,renameSync,mkdirSync,statSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {RiseFallEngine,configuration} from './public/rise-fall/engine.js';
@@ -19,7 +20,8 @@ export class RiseFallService{
  constructor({connect,accounts,file,validationFile,now=Date.now,otherBusy=()=>false}){Object.assign(this,{connect,accounts,file,validationFile,otherBusy,now});this.contexts=new Map();this.preparing=new Set();this.journal=file&&existsSync(file)?JSON.parse(readFileSync(file,'utf8')):[];for(const o of this.journal)if(!['SETTLED','REJECTED'].includes(o.state)){o.state=o.buySent?'UNKNOWN':'REJECTED';o.error='Server restarted; no automatic purchase retry';}}
  save(){if(!this.file)return;mkdirSync(dirname(this.file),{recursive:true});writeFileSync(this.file+'.tmp',JSON.stringify(this.journal,null,2));renameSync(this.file+'.tmp',this.file);}
  busy(accountId){return this.journal.some(o=>o.accountId===accountId&&!['SETTLED','REJECTED'].includes(o.state));}
- verifiedDurations(config,symbol){try{const v=JSON.parse(readFileSync(this.validationFile,'utf8')),p=v.profiles.find(p=>fingerprint(p.config)===fingerprint(config));return v.results.filter(r=>r.symbol===symbol&&r.profile===p?.name&&r.partition==='validation'&&this.validation(config,symbol,r.duration,r.unit)).map(r=>({duration:r.duration,unit:r.unit}));}catch{return [];}}
+ replayEvidence(){const stat=statSync(this.validationFile),key=`${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;if(this.replayCache?.key!==key)this.replayCache={key,value:JSON.parse(readFileSync(this.validationFile,'utf8'))};return this.replayCache.value;}
+ verifiedDurations(config,symbol){try{const v=this.replayEvidence(),p=v.profiles.find(p=>fingerprint(p.config)===fingerprint(config));return v.results.filter(r=>r.symbol===symbol&&r.profile===p?.name&&r.partition==='validation'&&this.validation(config,symbol,r.duration,r.unit)).map(r=>({duration:r.duration,unit:r.unit}));}catch{return [];}}
  async balance(owner,session,accountId){
   const list=await this.accounts(session),account=list.find(a=>a.account_id===accountId&&a.account_type==='demo'&&a.status==='active');
   if(!account)throw Error('Select a demo options account belonging to your connected Deriv login');
@@ -27,7 +29,7 @@ export class RiseFallService{
   const rpc=shared?ctx.rpc:new RpcSocket(await this.connect({token:session.accessToken,accountId,accountType:'demo'}));
   try{return {...brokerBalance(await rpc.request({balance:1}),account),updatedAt:this.now()};}finally{if(!shared)rpc.close();}
  }
- validation(config,symbol=null,duration=null,unit=null){try{const v=JSON.parse(readFileSync(this.validationFile,'utf8')),profile=v.profiles.find(p=>fingerprint(p.config)===fingerprint(config));return v.realData===true&&v.replayCompleted===true&&!!profile&&v.symbols.length>=2&&v.validationTicks>=2000&&(!symbol||v.results.some(r=>r.symbol===symbol&&r.profile===profile.name&&r.partition==='validation'&&(duration===null||r.duration===duration&&r.unit===unit)));}catch{return false;}}
+ validation(config,symbol=null,duration=null,unit=null){try{const v=this.replayEvidence(),profile=v.profiles.find(p=>fingerprint(p.config)===fingerprint(config));return v.realData===true&&v.replayCompleted===true&&!!profile&&v.symbols.length>=2&&v.validationTicks>=2000&&(!symbol||v.results.some(r=>r.symbol===symbol&&r.profile===profile.name&&r.partition==='validation'&&(duration===null||r.duration===duration&&r.unit===unit)));}catch{return false;}}
  async prepare(owner,session,body){
   if(this.preparing.has(owner))throw Error('Connection setup in progress');this.preparing.add(owner);
   try{
@@ -39,8 +41,8 @@ export class RiseFallService{
    this.contexts.set(owner,ctx);
    rpc.listeners.add(d=>{if(d.disconnected){ctx.feedHealth={...ctx.feedHealth,state:'closed'};ctx.running=false;ctx.error='Connection lost; reconnect to monitor and restart explicitly';for(const o of this.journal)if(o.accountId===account.account_id&&o.buySent&&!['SETTLED','REJECTED'].includes(o.state)){o.state='UNKNOWN';o.error='Trading connection lost; reconnect for contract reconciliation';}this.save();}
     if(d.error){ctx.error='Broker subscription: '+d.error.message;ctx.feedHealth={...ctx.feedHealth,error:ctx.error};}
-    if(d.tick&&ctx.autoSelect&&d.tick.symbol!==ctx.symbol){const row=ctx.marketScan?.rows.get(d.tick.symbol);if(row?.engine&&row.engine.add(d.tick)){const at=this.now()+(ctx.clockOffset??0);row.feedHealth={...row.feedHealth,state:'live',subscribed:!!d.subscription?.id||row.feedHealth?.subscribed,lastReceivedAt:at,lastAcceptedAt:at,lastAcceptedSequence:row.engine.sequence};void this.maybeExecute(ctx);}}
-    if(d.tick?.symbol===ctx.symbol){const receivedAt=this.now()+(ctx.clockOffset??0);ctx.feedHealth={...ctx.feedHealth,state:'live',subscribed:!!d.subscription?.id||!!ctx.feedHealth?.subscribed,lastReceivedAt:receivedAt};if(ctx.engine.add(d.tick)){ctx.feedHealth.lastAcceptedAt=receivedAt;ctx.feedHealth.lastAcceptedSequence=ctx.engine.sequence;const row=ctx.marketScan?.rows.get(ctx.symbol);if(row)row.feedHealth=ctx.feedHealth;ctx.analysis=ctx.engine.snapshot(receivedAt);observe(this,ctx,ctx.analysis);void this.maybeExecute(ctx);}}
+    if(d.tick&&ctx.autoSelect&&d.tick.symbol!==ctx.symbol){const row=ctx.marketScan?.rows.get(d.tick.symbol);if(row?.engine&&row.engine.add(d.tick)){const at=this.now()+(ctx.clockOffset??0);row.feedHealth={...row.feedHealth,state:'live',error:null,subscriptionId:d.subscription?.id??row.feedHealth?.subscriptionId,subscribed:!!d.subscription?.id||row.feedHealth?.subscribed,lastReceivedAt:at,lastAcceptedAt:at,lastAcceptedSequence:row.engine.sequence};void this.maybeExecute(ctx);}}
+    if(d.tick?.symbol===ctx.symbol){const receivedAt=this.now()+(ctx.clockOffset??0);ctx.feedHealth={...ctx.feedHealth,state:'live',error:null,subscriptionId:d.subscription?.id??ctx.feedHealth?.subscriptionId,subscribed:!!d.subscription?.id||!!ctx.feedHealth?.subscribed,lastReceivedAt:receivedAt};if(ctx.engine.add(d.tick)){ctx.feedHealth.lastAcceptedAt=receivedAt;ctx.feedHealth.lastAcceptedSequence=ctx.engine.sequence;const row=ctx.marketScan?.rows.get(ctx.symbol);if(row)row.feedHealth=ctx.feedHealth;ctx.analysis=ctx.engine.snapshot(receivedAt);observe(this,ctx,ctx.analysis);void this.maybeExecute(ctx);}}
     if(d.proposal_open_contract){const o=this.journal.find(o=>o.accountId===account.account_id&&String(o.contractId)===String(d.proposal_open_contract.contract_id));if(o&&o.state!=='SETTLED'){Object.assign(o,reduceSettlement(o,d.proposal_open_contract));this.save();}}
    });
    const [meta,h,time]=await Promise.all([rpc.request({contracts_for:symbol}),rpc.request({ticks_history:symbol,count:1500,end:'latest',style:'ticks'}),rpc.request({time:1})]);
@@ -48,7 +50,7 @@ export class RiseFallService{
    ctx.contracts=availableContracts(meta.contracts_for,symbol);ctx.contractsAt=this.now();
    if(!ctx.contracts.length)throw Error('No Rise/Fall contracts returned for this symbol');
    h.history?.prices.forEach((quote,i)=>ctx.engine.add({quote,epoch:h.history.times[i],symbol}));
-   const subscription=await rpc.request({ticks:symbol,subscribe:1});ctx.feedHealth.subscribed=!!subscription.subscription?.id;ctx.feedHealth.state=ctx.feedHealth.subscribed?'live':'unconfirmed';ctx.analysis=ctx.engine.snapshot(this.now()+ctx.clockOffset);
+   const subscription=await rpc.request({ticks:symbol,subscribe:1});ctx.feedHealth.subscriptionId=subscription.subscription?.id;ctx.feedHealth.subscribed=!!subscription.subscription?.id;ctx.feedHealth.state=ctx.feedHealth.subscribed?'live':'unconfirmed';ctx.analysis=ctx.engine.snapshot(this.now()+ctx.clockOffset);
    // Restore known contracts without issuing another purchase.
    for(const o of this.journal.filter(o=>o.accountId===account.account_id&&['OPEN','UNKNOWN'].includes(o.state)&&o.contractId))await this.monitor(ctx,o);
    if(ctx.autoSelect)ctx.scanTask=loadMarketScan(this,ctx);
@@ -58,10 +60,11 @@ export class RiseFallService{
  status(owner){
   const c=this.contexts.get(owner);if(!c)return {connected:false,running:false,realEnabled:false,orders:[],execution:executionStatus(this,null,null,this.now())};
   if(c.running&&(this.now()-c.heartbeat>20000||c.session.expiresAt<=this.now())){c.error=c.session.expiresAt<=this.now()?'Authentication expired; reconnect the demo account':'Auto authorization heartbeat expired; explicitly restart Auto';c.running=false;}
+  void recoverStaleFeed(this,c);
   const analysis=c.engine.snapshot(this.now()+(c.clockOffset??0)),diagnostic=observe(this,c,analysis);
   return {connected:!c.rpc.closed,sessionId:c.id,running:c.running,realEnabled:false,demoReplayVerified:this.validation(c.config,c.symbol),verifiedDurations:this.verifiedDurations(c.config,c.symbol),autoSelect:!!c.autoSelect,marketScan:scanStatus(this,c),symbol:c.symbol,accountId:c.account.account_id,currency:c.account.currency,analysis,contracts:c.contracts,error:c.error,orders:this.journal.filter(o=>o.accountId===c.account.account_id).slice(-100),blocked:this.busy(c.account.account_id),...diagnostic};
  }
- diagnostics(owner){const c=this.contexts.get(owner);return c?{...c.diagnosticLog?.export(),tickTrace:c.engine.tickTrace??[],receivedTicks:c.engine.received,rejectedTicks:c.engine.rejectedTicks}:{records:[],totalCandidates:0,scope:'No diagnostic session recorded'};}
+ diagnostics(owner){const c=this.contexts.get(owner);return c?{...c.diagnosticLog?.export(),tickTrace:c.engine.tickTrace??[],receivedTicks:c.engine.received,rejectedTicks:c.engine.rejectedTicks,marketFeeds:[...(c.marketScan?.rows.values()??[])].map(r=>({symbol:r.symbol,lastTick:r.engine?.history.at(-1)?.epoch,health:r.feedHealth,error:r.error}))}:{records:[],totalCandidates:0,scope:'No diagnostic session recorded'};}
 
  start(owner,body){const c=this.contexts.get(owner);if(!c||c.id!==body.sessionId||c.rpc.closed||c.session.expiresAt<=this.now())throw Error('Connect the current demo session first');if(c.autoSelect&&(c.marketScan?.loading||c.marketScan?.error))throw Error(c.marketScan?.error||'Market scan is still loading');
   const scanDuration=c.autoSelect&&[...c.marketScan.rows.values()].some(r=>r.verifiedDurations.some(d=>d.duration===body.duration&&d.unit===body.unit)&&['CALL','PUT'].every(t=>supports(r.contracts,t,body.duration,body.unit))&&!r.error&&r.feedHealth?.subscribed);
@@ -74,9 +77,24 @@ export class RiseFallService{
  }
  stop(owner){const c=this.contexts.get(owner);if(c){c.running=false;c.runId=null;}return {running:false};}
  heartbeat(owner,body){const c=this.contexts.get(owner);if(!c||c.id!==body.sessionId||!c.running||c.rpc.closed||c.session.expiresAt<=this.now())throw Error('Auto is stopped; start explicitly');c.heartbeat=this.now();return {running:true};}
- authorized(c,signalId,type,run){const a=c.engine.snapshot(this.now()+(c.clockOffset??0));return c.running&&c.runId===run&&c.session.expiresAt>this.now()&&this.now()-c.heartbeat<=20000&&!c.rpc.closed&&a.signalId===signalId&&a.winner?.type===type&&this.validation(c.config,c.symbol,c.order.duration,c.order.unit);}
+ purchaseBlockers(c,signalId,type,run){
+  const now=this.now(),a=c.engine.snapshot(now+(c.clockOffset??0)),reasons=[];
+  if(!c.running)reasons.push('Demo Auto is stopped');
+  if(c.runId!==run)reasons.push('Auto session changed during proposal');
+  if(c.session.expiresAt<=now)reasons.push('Demo authentication expired');
+  if(now-c.heartbeat>20000)reasons.push(`Auto heartbeat expired (${Math.floor((now-c.heartbeat)/1000)} seconds old)`);
+  if(c.rpc.closed)reasons.push('Broker connection closed');
+  if(c.feedHealth?.recovering)reasons.push('Tick subscription recovery in progress');
+  const age=now+(c.clockOffset??0)-(a.epoch??0)*1000;
+  if(!a.epoch||age>c.config.staleMs||age < -2000)reasons.push(`Market feed stale or clock invalid (last tick ${Math.max(0,age/1000).toFixed(1)} seconds ago)`);
+  if(a.signalId!==signalId)reasons.push('Qualifying signal episode changed during proposal');
+  if(a.winner?.type!==type)reasons.push('Setup no longer qualifies: '+((a.candidates??[]).find(x=>x.type===type)?.blocked??['direction changed']).join(', '));
+  if(!this.validation(c.config,c.symbol,c.order.duration,c.order.unit))reasons.push('Replay verification no longer matches market, duration or settings');
+  return reasons;
+ }
+ authorized(c,signalId,type,run){return this.purchaseBlockers(c,signalId,type,run).length===0;}
  async maybeExecute(c){
-  if(c.pending||!c.running)return;if(c.session.expiresAt<=this.now()||this.now()-c.heartbeat>20000){c.running=false;return;}
+  if(c.pending||!c.running)return;if(!c.autoSelect&&(c.feedHealth?.recovering||c.feedHealth?.state==='awaiting-live'))return;if(c.session.expiresAt<=this.now()||this.now()-c.heartbeat>20000){c.running=false;return;}
   if(!selectMarket(this,c))return;
   const a=c.engine.snapshot(this.now()+(c.clockOffset??0)),id=c.account.account_id;if(!a.winner||c.used.has(a.signalId)||this.busy(id)||this.otherBusy(id))return;
   c.pending=true;c.used.add(a.signalId);const run=c.runId;
@@ -87,10 +105,10 @@ export class RiseFallService{
    if(this.now()-c.contractsAt>60000){c.contracts=availableContracts((await c.rpc.request({contracts_for:c.symbol})).contracts_for,c.symbol);c.contractsAt=this.now();}
    const request=proposalRequest({...o,currency:c.account.currency},c.contracts),at=this.now();
    const response=await c.rpc.request(request);const buy=validateProposal(response,request,this.now(),at);o.proposalRequest=request;o.proposalReceivedAt=this.now();o.payout=Number(response.proposal.payout);
-   if(!this.authorized(c,a.signalId,o.type,run)||this.otherBusy(id))throw Error('Signal, authorization or account lock changed before purchase');
+   const blockers=this.purchaseBlockers(c,a.signalId,o.type,run);if(this.otherBusy(id))blockers.push('Part One account lock changed before purchase');if(blockers.length){o.rejectionReasons=blockers;throw Error('Purchase cancelled: '+blockers.join(' · '));}
    o.buySent=true;o.state='BUY_PENDING';o.proposalId=buy.buy;o.buySubmittedAt=this.now();this.save();
    const d=await c.rpc.request(buy);if(!Number.isSafeInteger(Number(d.buy?.contract_id))||Number(d.buy.contract_id)<=0)throw Error('Purchase confirmation missing; reconcile before retry');
-   o.contractId=d.buy.contract_id;o.buyPrice=Number(d.buy.buy_price);o.state='OPEN';o.buyConfirmedAt=this.now();this.save();await this.monitor(c,o);
+   o.contractId=d.buy.contract_id;o.buyPrice=Number(d.buy.buy_price);o.state='OPEN';c.error=null;o.buyConfirmedAt=this.now();this.save();await this.monitor(c,o);
   }catch(e){if(o.state!=='SETTLED'){o.state=o.buySent?'UNKNOWN':'REJECTED';o.error=e.message;this.save();}c.error=e.message;if(o.buySent)c.running=false;}finally{c.pending=false;}
  }
  async monitor(c,o){const response=await c.rpc.request({proposal_open_contract:1,contract_id:o.contractId,subscribe:1});if(response.proposal_open_contract){Object.assign(o,reduceSettlement(o,response.proposal_open_contract));this.save();}}

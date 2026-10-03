@@ -6,7 +6,7 @@ export function rankMarkets(rows,config,duration,unit,now=Date.now()) {
   const analysis=row.engine?.snapshot(now);
   const candidates=(analysis?.candidates??[]).filter(c=>c.ready&&supports(row.contracts,c.type,duration,unit));
   const candidate=candidates.length===1?candidates[0]:null;
-  return {...row,analysis,candidate,available:!!row.contracts?.length,eligible:!!candidate,
+  return {...row,analysis,candidate,available:!!row.contracts?.length,eligible:!!candidate&&!row.error,
    reason:row.error??(!row.contracts?.length?'Rise/Fall unavailable':
     !['CALL','PUT'].some(t=>supports(row.contracts,t,duration,unit))?'Selected duration unavailable':
     analysis?.reason??'Waiting for data')};

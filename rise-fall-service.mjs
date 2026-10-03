@@ -1,3 +1,4 @@
+import {loadMarketScan,selectMarket,scanStatus} from './rise-fall-market-selection.mjs';
 import {existsSync,readFileSync,writeFileSync,renameSync,mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
@@ -34,11 +35,12 @@ export class RiseFallService{
    const list=await this.accounts(session),account=list.find(a=>a.account_id===body.accountId&&a.account_type==='demo'&&a.status==='active');if(!account)throw Error('Choose an authenticated demo account. Rise/Fall real trading is disabled.');
    const cfg=configuration(body.config),symbol=body.symbol;if(!/^[A-Za-z0-9_]{2,30}$/.test(symbol??''))throw Error('Invalid symbol');
    const rpc=new RpcSocket(await this.connect({token:session.accessToken,accountId:account.account_id,accountType:'demo'}));
-   const ctx={id:randomUUID(),owner,session,account,symbol,config:cfg,engine:new RiseFallEngine(symbol,cfg).enableTrace(),rpc,running:false,heartbeat:0,used:new Set(),pending:false,contracts:[],error:null};
+   const ctx={id:randomUUID(),owner,session,account,symbol,autoSelect:body.autoSelect===true,scanDuration:body.duration,scanUnit:body.unit,config:cfg,engine:new RiseFallEngine(symbol,cfg).enableTrace(),rpc,running:false,heartbeat:0,used:new Set(),pending:false,contracts:[],error:null};
    this.contexts.set(owner,ctx);
    rpc.listeners.add(d=>{if(d.disconnected){ctx.feedHealth={...ctx.feedHealth,state:'closed'};ctx.running=false;ctx.error='Connection lost; reconnect to monitor and restart explicitly';for(const o of this.journal)if(o.accountId===account.account_id&&o.buySent&&!['SETTLED','REJECTED'].includes(o.state)){o.state='UNKNOWN';o.error='Trading connection lost; reconnect for contract reconciliation';}this.save();}
     if(d.error){ctx.error='Broker subscription: '+d.error.message;ctx.feedHealth={...ctx.feedHealth,error:ctx.error};}
-    if(d.tick?.symbol===symbol){const receivedAt=this.now()+(ctx.clockOffset??0);ctx.feedHealth={...ctx.feedHealth,state:'live',subscribed:!!d.subscription?.id||!!ctx.feedHealth?.subscribed,lastReceivedAt:receivedAt};if(ctx.engine.add(d.tick)){ctx.feedHealth.lastAcceptedAt=receivedAt;ctx.feedHealth.lastAcceptedSequence=ctx.engine.sequence;ctx.analysis=ctx.engine.snapshot(receivedAt);observe(this,ctx,ctx.analysis);void this.maybeExecute(ctx);}}
+    if(d.tick&&ctx.autoSelect&&d.tick.symbol!==ctx.symbol){const row=ctx.marketScan?.rows.get(d.tick.symbol);if(row?.engine&&row.engine.add(d.tick)){const at=this.now()+(ctx.clockOffset??0);row.feedHealth={...row.feedHealth,state:'live',subscribed:!!d.subscription?.id||row.feedHealth?.subscribed,lastReceivedAt:at,lastAcceptedAt:at,lastAcceptedSequence:row.engine.sequence};void this.maybeExecute(ctx);}}
+    if(d.tick?.symbol===ctx.symbol){const receivedAt=this.now()+(ctx.clockOffset??0);ctx.feedHealth={...ctx.feedHealth,state:'live',subscribed:!!d.subscription?.id||!!ctx.feedHealth?.subscribed,lastReceivedAt:receivedAt};if(ctx.engine.add(d.tick)){ctx.feedHealth.lastAcceptedAt=receivedAt;ctx.feedHealth.lastAcceptedSequence=ctx.engine.sequence;const row=ctx.marketScan?.rows.get(ctx.symbol);if(row)row.feedHealth=ctx.feedHealth;ctx.analysis=ctx.engine.snapshot(receivedAt);observe(this,ctx,ctx.analysis);void this.maybeExecute(ctx);}}
     if(d.proposal_open_contract){const o=this.journal.find(o=>o.accountId===account.account_id&&String(o.contractId)===String(d.proposal_open_contract.contract_id));if(o&&o.state!=='SETTLED'){Object.assign(o,reduceSettlement(o,d.proposal_open_contract));this.save();}}
    });
    const [meta,h,time]=await Promise.all([rpc.request({contracts_for:symbol}),rpc.request({ticks_history:symbol,count:1500,end:'latest',style:'ticks'}),rpc.request({time:1})]);
@@ -49,6 +51,7 @@ export class RiseFallService{
    const subscription=await rpc.request({ticks:symbol,subscribe:1});ctx.feedHealth.subscribed=!!subscription.subscription?.id;ctx.feedHealth.state=ctx.feedHealth.subscribed?'live':'unconfirmed';ctx.analysis=ctx.engine.snapshot(this.now()+ctx.clockOffset);
    // Restore known contracts without issuing another purchase.
    for(const o of this.journal.filter(o=>o.accountId===account.account_id&&['OPEN','UNKNOWN'].includes(o.state)&&o.contractId))await this.monitor(ctx,o);
+   if(ctx.autoSelect)ctx.scanTask=loadMarketScan(this,ctx);
    return this.status(owner);
   }catch(e){const ctx=this.contexts.get(owner);if(ctx){ctx.running=false;ctx.error=e.message;ctx.rpc.close();}throw e;}finally{this.preparing.delete(owner);}
  }
@@ -56,22 +59,25 @@ export class RiseFallService{
   const c=this.contexts.get(owner);if(!c)return {connected:false,running:false,realEnabled:false,orders:[],execution:executionStatus(this,null,null,this.now())};
   if(c.running&&(this.now()-c.heartbeat>20000||c.session.expiresAt<=this.now())){c.error=c.session.expiresAt<=this.now()?'Authentication expired; reconnect the demo account':'Auto authorization heartbeat expired; explicitly restart Auto';c.running=false;}
   const analysis=c.engine.snapshot(this.now()+(c.clockOffset??0)),diagnostic=observe(this,c,analysis);
-  return {connected:!c.rpc.closed,sessionId:c.id,running:c.running,realEnabled:false,demoReplayVerified:this.validation(c.config,c.symbol),verifiedDurations:this.verifiedDurations(c.config,c.symbol),symbol:c.symbol,accountId:c.account.account_id,currency:c.account.currency,analysis,contracts:c.contracts,error:c.error,orders:this.journal.filter(o=>o.accountId===c.account.account_id).slice(-100),blocked:this.busy(c.account.account_id),...diagnostic};
+  return {connected:!c.rpc.closed,sessionId:c.id,running:c.running,realEnabled:false,demoReplayVerified:this.validation(c.config,c.symbol),verifiedDurations:this.verifiedDurations(c.config,c.symbol),autoSelect:!!c.autoSelect,marketScan:scanStatus(this,c),symbol:c.symbol,accountId:c.account.account_id,currency:c.account.currency,analysis,contracts:c.contracts,error:c.error,orders:this.journal.filter(o=>o.accountId===c.account.account_id).slice(-100),blocked:this.busy(c.account.account_id),...diagnostic};
  }
  diagnostics(owner){const c=this.contexts.get(owner);return c?{...c.diagnosticLog?.export(),tickTrace:c.engine.tickTrace??[],receivedTicks:c.engine.received,rejectedTicks:c.engine.rejectedTicks}:{records:[],totalCandidates:0,scope:'No diagnostic session recorded'};}
 
- start(owner,body){const c=this.contexts.get(owner);if(!c||c.id!==body.sessionId||c.rpc.closed||c.session.expiresAt<=this.now())throw Error('Connect the current demo session first');if(!this.validation(c.config,c.symbol,body.duration,body.unit))throw Error('Historical replay must be completed for this symbol, duration and settings before Auto is enabled');
+ start(owner,body){const c=this.contexts.get(owner);if(!c||c.id!==body.sessionId||c.rpc.closed||c.session.expiresAt<=this.now())throw Error('Connect the current demo session first');if(c.autoSelect&&(c.marketScan?.loading||c.marketScan?.error))throw Error(c.marketScan?.error||'Market scan is still loading');
+  const scanDuration=c.autoSelect&&[...c.marketScan.rows.values()].some(r=>r.verifiedDurations.some(d=>d.duration===body.duration&&d.unit===body.unit)&&['CALL','PUT'].every(t=>supports(r.contracts,t,body.duration,body.unit))&&!r.error&&r.feedHealth?.subscribed);
+  if(c.autoSelect?!scanDuration:!this.validation(c.config,c.symbol,body.duration,body.unit))throw Error('Historical replay must be completed for this symbol, duration and settings before Auto is enabled');
   if(!Number.isFinite(body.stake)||body.stake<=0||body.stake>50)throw Error('Demo verification stake must be between 0 and 50');
-  if(!['CALL','PUT'].every(t=>supports(c.contracts,t,body.duration,body.unit)))throw Error('Select a Deriv-supported duration for both Rise and Fall');
+  if(!c.autoSelect&&!['CALL','PUT'].every(t=>supports(c.contracts,t,body.duration,body.unit)))throw Error('Select a Deriv-supported duration for both Rise and Fall');
   if(this.busy(c.account.account_id)||this.otherBusy(c.account.account_id))throw Error('Account has an unresolved contract');
   for(const other of this.contexts.values())if(other!==c&&other.account.account_id===c.account.account_id)this.stop(other.owner);
   c.order={stake:body.stake,duration:body.duration,unit:body.unit};c.runId=randomUUID();c.running=true;c.heartbeat=this.now();c.error=null;return this.status(owner);
  }
  stop(owner){const c=this.contexts.get(owner);if(c){c.running=false;c.runId=null;}return {running:false};}
  heartbeat(owner,body){const c=this.contexts.get(owner);if(!c||c.id!==body.sessionId||!c.running||c.rpc.closed||c.session.expiresAt<=this.now())throw Error('Auto is stopped; start explicitly');c.heartbeat=this.now();return {running:true};}
- authorized(c,signalId,type,run){const a=c.engine.snapshot(this.now()+(c.clockOffset??0));return c.running&&c.runId===run&&c.session.expiresAt>this.now()&&this.now()-c.heartbeat<=20000&&!c.rpc.closed&&a.signalId===signalId&&a.winner?.type===type&&this.validation(c.config);}
+ authorized(c,signalId,type,run){const a=c.engine.snapshot(this.now()+(c.clockOffset??0));return c.running&&c.runId===run&&c.session.expiresAt>this.now()&&this.now()-c.heartbeat<=20000&&!c.rpc.closed&&a.signalId===signalId&&a.winner?.type===type&&this.validation(c.config,c.symbol,c.order.duration,c.order.unit);}
  async maybeExecute(c){
   if(c.pending||!c.running)return;if(c.session.expiresAt<=this.now()||this.now()-c.heartbeat>20000){c.running=false;return;}
+  if(!selectMarket(this,c))return;
   const a=c.engine.snapshot(this.now()+(c.clockOffset??0)),id=c.account.account_id;if(!a.winner||c.used.has(a.signalId)||this.busy(id)||this.otherBusy(id))return;
   c.pending=true;c.used.add(a.signalId);const run=c.runId;
   const o={id:randomUUID(),signalId:a.signalId,accountId:id,accountType:'demo',symbol:c.symbol,type:a.winner.type,state:'PROPOSAL',createdAt:this.now(),confidence:a.winner.confidence,marketState:a.marketState,evidence:{checks:a.winner.checks,efficiency:a.efficiency,chop:a.chop,trendStrength:a.trendStrength,epoch:a.epoch,configFingerprint:fingerprint(c.config)},...c.order};this.journal.push(o);

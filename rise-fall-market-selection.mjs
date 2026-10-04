@@ -20,7 +20,7 @@ export async function loadMarketScan(service,c){
      if(!row.contracts.length)continue;
      const h=await c.rpc.request({ticks_history:m.symbol,count:1500,end:'latest',style:'ticks'});
      row.engine=new RiseFallEngine(m.symbol,c.config).enableTrace();
-     (h.history?.prices??[]).forEach((quote,i)=>row.engine.add({quote,epoch:h.history.times[i],symbol:m.symbol}));
+     (h.history?.prices??[]).forEach((quote,i)=>row.engine.add({quote,epoch:h.history.times[i],symbol:m.symbol},{live:false}));
      row.feedHealth={state:'subscribing',subscribed:false,startedAt:service.now()+(c.clockOffset??0)};
      const sub=await c.rpc.request({ticks:m.symbol,subscribe:1});
      if(!sub.subscription?.id)throw Error('Tick subscription not confirmed');
@@ -37,7 +37,7 @@ export function scanAnalysis(row,now){
  const e=row.engine;if(!e)return null;
  const epoch=e.history?.at(-1)?.epoch,age=now-epoch*1000;
  const freshness=Number.isFinite(epoch)?(age < -2000?'future':age>e.config.staleMs?'stale':'fresh'):'unknown';
- const key=Number.isFinite(e.sequence)?`${e.sequence}:${freshness}`:null;
+ const key=Number.isFinite(e.sequence)?`${e.sequence}:${freshness}:${e.trend?.revision??0}`:null;
  if(key===null||row.analysisCache?.engine!==e||row.analysisCache?.key!==key)row.analysisCache={engine:e,key,value:e.snapshot(now)};
  return row.analysisCache.value;
 }

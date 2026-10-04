@@ -76,13 +76,13 @@ export class RiseFallEngine{
   if(this.traceLimit){this.received++;if(rejection)this.rejectedTicks++;const delta=last?quote-last.quote:null;this.lastTickTrace={received:this.received,epoch,price:quote,previousPrice:last?.quote??null,delta,direction:delta===null?'FIRST':delta>0?'UP':delta<0?'DOWN':'FLAT',accepted:!rejection,rejection,sequence:this.sequence,historySize:this.history.length,historyStart:this.history[0]?.epoch,historyEnd:this.history.at(-1)?.epoch,completeRollingCandles:Math.floor(this.history.length/this.config.candleTicks),partialCandleTicks:this.history.length%this.config.candleTicks};this.tickTrace.push(this.lastTickTrace);if(this.tickTrace.length>this.traceLimit)this.tickTrace.shift();}
   if(!rejection&&this.trend){
    const receivedAt=options.receivedAt??epoch*1000;
-   this.trendBase={...analyze(this.history,{...this.config,analysisMode:BALANCED_VERSION},receivedAt),config:this.config};
+   this.trendBase=options.live===false?null:{...analyze(this.history,{...this.config,analysisMode:BALANCED_VERSION},receivedAt),config:this.config};
    if(options.live===false){if(this.trend.armed){this.trend.invalidate('OBSERVING','Historical backfill is not live evidence');this.trend.live=0;this.trend.block=[];this.trend.revision++;}}
    else this.trend.observe(this.trendBase,{epoch,quote},last?quote-last.quote:null);
   }
   return !rejection;
  }
  snapshot(now=Date.now()){
-  if(this.trend){const a=this.trendBase??{...analyze(this.history,{...this.config,analysisMode:BALANCED_VERSION},now),config:this.config};return {...this.trend.project(a,now,this.history.at(-1)?.epoch),symbol:this.symbol,sequence:this.sequence,epoch:this.history.at(-1)?.epoch,quote:this.history.at(-1)?.quote,tickTrace:this.lastTickTrace};}
+  if(this.trend){const a=this.trendBase??={...analyze(this.history,{...this.config,analysisMode:BALANCED_VERSION},now),config:this.config};return {...this.trend.project(a,now,this.history.at(-1)?.epoch),symbol:this.symbol,sequence:this.sequence,epoch:this.history.at(-1)?.epoch,quote:this.history.at(-1)?.quote,tickTrace:this.lastTickTrace};}
   const a=analyze(this.history,this.config,now),side=a.winner?.type??null;if(side!==this.previous){this.episode++;this.previous=side;}return {...a,symbol:this.symbol,sequence:this.sequence,signalId:side?`${this.symbol}:${this.episode}:${side}`:null,epoch:this.history.at(-1)?.epoch,quote:this.history.at(-1)?.quote,tickTrace:this.lastTickTrace};}
 }

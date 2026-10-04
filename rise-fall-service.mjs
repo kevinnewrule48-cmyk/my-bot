@@ -126,7 +126,7 @@ export function riseFallRoutes(service,{getSession,cookieValue,json,readJson}){r
  try{if(req.method==='GET'&&url.pathname==='/api/rise-fall/audit'){const c=service.contexts.get(owner);if(!c)throw Error('Connect demo analysis first');json(res,200,{strategy:'RISE_FALL',realEnabled:false,exportedAt:new Date(service.now()).toISOString(),demoLimits:demoLimits(c.demoLimits),statistics:service.statistics(c.account.account_id),orders:service.journal.filter(o=>o.accountId===c.account.account_id)});return true;}
   if(req.method==='GET'&&url.pathname==='/api/rise-fall/diagnostics'){json(res,200,service.diagnostics(owner));return true;}
   if(req.method==='GET'&&url.pathname==='/api/rise-fall/balance'){json(res,200,await service.balance(owner,session,url.searchParams.get('accountId')));return true;}
-  if(req.method==='GET'&&url.pathname==='/api/rise-fall/status'){await service.refresh(owner);json(res,200,service.status(owner));return true;}
+  if(req.method==='GET'&&url.pathname==='/api/rise-fall/status'){void service.refresh(owner);json(res,200,service.status(owner));return true;}
   if(req.method!=='POST')throw Error('Unsupported request');if(req.headers.origin&&!['http://'+req.headers.host,'https://'+req.headers.host].includes(req.headers.origin))throw Error('Invalid request origin');const body=await readJson(req);let result;
   switch(url.pathname){case '/api/rise-fall/connect':result=await service.prepare(owner,session,body);break;case '/api/rise-fall/start':result=service.start(owner,body);break;case '/api/rise-fall/stop':result=service.stop(owner);break;case '/api/rise-fall/heartbeat':result=service.heartbeat(owner,body);break;default:throw Error('Unknown route');}json(res,200,result);
  }catch(e){json(res,409,{error:e.message});}return true;

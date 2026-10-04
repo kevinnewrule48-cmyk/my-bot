@@ -1,0 +1,13 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {presetConfig} from '../public/rise-fall/presets.js';
+import {fingerprint} from '../rise-fall-service.mjs';
+const source=JSON.parse(readFileSync('../../outputs/balanced-v2/comparison.json','utf8'));
+const rows=source.results.filter(r=>r.profile==='balancedV2');
+if(rows.length!==16||rows.some(r=>r.settledCount!==r.wins+r.losses||r.executedCount!==r.settledCount))throw Error('Incomplete V2 replay evidence');
+const file='outputs/rise-fall-replay-report.json',report=JSON.parse(readFileSync(file,'utf8')),config=presetConfig('balancedV2');
+report.profiles=report.profiles.filter(p=>p.name!=='balancedV2').concat({name:'balancedV2',config});
+report.configFingerprints=[...new Set([...report.configFingerprints,fingerprint(config)])];
+report.results=report.results.filter(r=>r.profile!=='balancedV2').concat(rows.map(r=>({symbol:r.symbol,profile:r.profile,partition:r.partition,duration:5,unit:'t',ticks:r.ticks,signals:r.readyCount,trades:r.settledCount,wins:r.wins,losses:r.losses,maxConsecutiveLosses:r.maxConsecutiveLosses,preBuyCancellations:r.preBuyCancellationCount,assumption:'Recorded public ticks with actual service and mock RPC. One-tick proposal delay, expiry five ticks after mock BUY. Not authenticated Deriv trades or broker settlement.'})));
+report.v2DemoEvidence={generatedAt:source.generatedAt,registeredAt:new Date().toISOString(),validationTicks:rows.filter(r=>r.partition==='validation').reduce((n,r)=>n+r.ticks,0),symbols:source.symbols,duration:5,unit:'t',limitations:source.limitations};
+writeFileSync(file,JSON.stringify(report));
+console.log('Registered V2 demo replay:',report.v2DemoEvidence.symbols.length,'markets, 5 ticks only');

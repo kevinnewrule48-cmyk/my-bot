@@ -5,6 +5,15 @@ import {diagnoseSnapshot} from './part-one-diagnostics.js';
 import {DifferEngine} from './differ-engine.js';
 import {TradabilityEngine,tradabilityBlocks} from './tradability-engine.js';
 import {TradabilityMarkets} from './tradability-markets.js';
+const EntryStabilityRecovery = class {
+  constructor({recoveryObservations=3,excellentObservations=5}={}){this.recoveryObservations=recoveryObservations;this.excellentObservations=excellentObservations;this.reset();}
+  reset(){this.state='STABLE';this.blocked=false;this.recoveryRun=0;this.excellentRun=0;this.trigger=null;this.last=null;this.sequence=-1;}
+  observe(history,sequence=history.length){if(sequence<=this.sequence)return this.snapshot();this.sequence=sequence;const d=history.slice(-12).map(x=>Number(x?.digit)).filter(x=>Number.isInteger(x)&&x>=0&&x<=9),ext=new Set([0,1,8,9]),tr=d.slice(1).map((x,i)=>[d[i],x]),danger=tr.filter(([a,b])=>ext.has(a)&&ext.has(b)&&Math.abs(a-b)>=7).length,recentDanger=tr.slice(-4).filter(([a,b])=>ext.has(a)&&ext.has(b)&&Math.abs(a-b)>=7).length,er=d.length?d.filter(x=>ext.has(x)).length/d.length*100:0,mid=d.length?d.filter(x=>x>=2&&x<=7).length/d.length*100:0,dr=tr.length?danger/tr.length*100:0,severe=danger>=2||(er>=58&&danger>=1);
+    if(severe&&!this.blocked){this.trigger={extremeRevisitRate:er,dangerousTransitionRate:dr,sequence};this.blocked=true;this.state='UNSTABLE';this.recoveryRun=0;this.excellentRun=0;}
+    else if(this.blocked){const clear=recentDanger===0&&er<=Math.max(12,(this.trigger?.extremeRevisitRate??58)*.75)&&mid>=40;if(clear){this.recoveryRun++;this.excellentRun++;this.state=this.recoveryRun>=this.recoveryObservations?(this.excellentRun>=this.excellentObservations?'EXCELLENT':'STABLE'):'RECOVERING';if(this.state==='STABLE'||this.state==='EXCELLENT')this.blocked=false;}else{this.recoveryRun=0;this.excellentRun=0;this.state='UNSTABLE';}}
+    else {this.excellentRun++;this.state=this.excellentRun>=this.excellentObservations?'EXCELLENT':'STABLE';}this.last={window:d.length,extremeRevisitRate:er,dangerousTransitions:danger,recentDangerousTransitions:recentDanger,dangerousTransitionRate:dr,middleConcentration:mid,sequence};return this.snapshot();}
+  snapshot(){return {state:this.state,blocked:this.blocked,recoveryRun:this.recoveryRun,requiredRecovery:this.recoveryObservations,recoveryConfidence:Math.min(100,Math.round(this.recoveryRun/this.recoveryObservations*100)),...(this.last??{window:0,extremeRevisitRate:0,dangerousTransitions:0,dangerousTransitionRate:0,middleConcentration:0}),trigger:this.trigger};}
+};
 const tradabilityEvents=[];
 const tradabilityMarkets=new TradabilityMarkets({onEvent:event=>{tradabilityEvents.push(event);if(tradabilityEvents.length>200)tradabilityEvents.shift();auditStage('tradability-state',event);}});
 const tradabilityEngine=new Proxy({}, {get:(_,key)=>{const engine=tradabilityMarkets.engine(document.getElementById('symbol')?.value||'R_100');const value=engine[key];return typeof value==='function'?value.bind(engine):value;}});
@@ -150,6 +159,7 @@ const analyzeBoth = () => {
   return snapshot;
 };
 let ticks = [], distributionDigits = [], socket, distributionTimer, isRunning = false, lastSignalIndex = -Infinity, liveTickNumber = 0;
+const entryStability = new EntryStabilityRecovery();
 const pending = [], settled = [];
 const quotes = { over: null, under: null };
 let strengthSample = null;
@@ -411,16 +421,9 @@ updatePerformance = () => {
   if (typeof updateAutoState === 'function') updateAutoState();
 };
 const researchGuardPaused = () => false;
-// User-defined digit-jump filter: five quiet transitions clear a large jump.
 const digitStability = (history) => {
-  const recent = history.slice(-6);
-  for (let i = recent.length - 1; i > 0; i--) {
-    if (Math.abs(recent[i].digit - recent[i - 1].digit) >= 7) {
-      return { unstable:true, from:recent[i - 1].digit, to:recent[i].digit,
-        remaining:5 - (recent.length - 1 - i) };
-    }
-  }
-  return { unstable:false, remaining:0 };
+  const result = entryStability.observe(history, liveTickNumber);
+  return {...result, unstable:result.blocked, remaining:0};
 };
 const digitPercentageGate = (type, history = ticks) => {
   if (!['OVER', 'UNDER'].includes(type)) return {allowed:false, note:'Choose OVER 1 or UNDER 8.'};
@@ -452,9 +455,9 @@ const updateEntryStrength = () => {
   const minimum = Number($('minimum').value || 65);
   const stability = digitStability(ticks);
   if (stability.unstable) {
-    $('entryStrength').textContent = 'UNSTABLE';
+    $('entryStrength').textContent = stability.state;
     $('entryStrength').className = 'negative';
-    $('entryStrengthNote').textContent = `Digit jump ${stability.from} → ${stability.to}. Entries blocked: ${stability.remaining} ticks without a jump of 7+ required.`;
+    $('entryStrengthNote').textContent = `Extreme revisit rate ${stability.extremeRevisitRate.toFixed(1)}% · dangerous transitions ${stability.dangerousTransitionRate.toFixed(1)}%. Middle digits ${stability.middleConcentration.toFixed(1)}% · recovery ${stability.recoveryRun}/${stability.requiredRecovery}. Entry BLOCKED until live recovery evidence confirms stability.`;
     return;
   }
   // Rearm before the normal signal gate. Otherwise a score below the minimum
@@ -477,12 +480,12 @@ const updateEntryStrength = () => {
   const displayedRate = (signal.observed * 100).toFixed(1);
   const digitGate = digitPercentageGate(signal.type);
   const liveSupport = Boolean(analysis.selected) && qualifiesForLiveSupport(signal, minimum);
-  const label = !digitGate.allowed ? 'DIGIT FILTER' : change !== null && change < 0 ? 'DETERIORATING' : liveSupport ? 'LIVE SUPPORT' : 'WAITING';
+  const label = !digitGate.allowed ? 'DIGIT FILTER' : stability.state === 'EXCELLENT' ? 'EXCELLENT' : stability.state === 'STABLE' ? 'STABLE' : change !== null && change < 0 ? 'DETERIORATING' : liveSupport ? 'LIVE SUPPORT' : 'WAITING';
   $('entryStrength').textContent = label;
   $('entryStrength').className = label === 'STRONG' || label === 'LIVE SUPPORT' ? 'positive' : label === 'CAUTION' ? 'regime-consolidation' : 'negative';
   $('entryStrengthNote').textContent = `${signal.label}: ${changeText} · ${displayedRate}% sample matches. ${label === 'DETERIORATING' ? 'Falling support: automatic entry blocked.' : liveSupport ? 'Not falling; confidence and 90% sample gates met.' : 'Waiting for live change, minimum confidence and 90% sample matches.'}`;
   if (!digitGate.allowed) $('entryStrengthNote').textContent = digitGate.note;
-  if (label === 'LIVE SUPPORT' && botMode === 'auto' && autoEnabled && !autoAwaitingReset) maybeAutoOrder(signal);
+  if (['LIVE SUPPORT','STABLE','EXCELLENT'].includes(label) && botMode === 'auto' && autoEnabled && !autoAwaitingReset) maybeAutoOrder(signal);
 };
 const updatePricing = () => {
   const render = (quote, priceId, breakEvenId) => {
@@ -954,7 +957,7 @@ if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mount
     feedLive:socket?.readyState===1 && isRunning, botMode, autoEnabled:autoEnabled&&parallelAutoReady,
     active:autoInFlight||manualOrderPending||autoContractIds.size>0,
     cooldown:Number.isFinite(lastAutoSignalTick)?Math.max(0,selectedAutoCooldown()-(liveTickNumber-lastAutoSignalTick)):0,
-    awaitingReset:autoAwaitingReset, quotes, orders:accountOrderHistory,
+    awaitingReset:autoAwaitingReset, entryStability:entryStability.snapshot(), quotes, orders:accountOrderHistory,
     lastOrder:lastSettledOrder, flash:digitFlash, audit:barrierAudit,execution:executionView,executionTransportError,recheckExecution:()=>loadRecentOrder(true),
     minimum:Number($('minimum').value), persistence:Number($('barrierPersistence').value),
     stake:Number($('stake').value),tradability:tradabilityState()}));

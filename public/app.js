@@ -14,6 +14,20 @@ const EntryStabilityRecovery = class {
     else {this.excellentRun++;this.state=this.excellentRun>=this.excellentObservations?'EXCELLENT':'STABLE';}this.last={window:d.length,extremeRevisitRate:er,dangerousTransitions:danger,recentDangerousTransitions:recentDanger,dangerousTransitionRate:dr,middleConcentration:mid,sequence};return this.snapshot();}
   snapshot(){return {state:this.state,blocked:this.blocked,recoveryRun:this.recoveryRun,requiredRecovery:this.recoveryObservations,recoveryConfidence:Math.min(100,Math.round(this.recoveryRun/this.recoveryObservations*100)),...(this.last??{window:0,extremeRevisitRate:0,dangerousTransitions:0,dangerousTransitionRate:0,middleConcentration:0}),trigger:this.trigger};}
 };
+// One-way research telemetry: no return value is read by the trading code.
+const observeDigitRegime = (event, data) => {
+  try {
+    if(globalThis.partOneRegimeObserver)globalThis.partOneRegimeObserver(event,data);
+    else {const queue=globalThis.partOneRegimeQueue??(globalThis.partOneRegimeQueue=[]);if(queue.length>=256){queue.shift();globalThis.partOneRegimeQueueDropped=(globalThis.partOneRegimeQueueDropped??0)+1;}queue.push([event,JSON.parse(JSON.stringify(data))]);}
+  } catch (error) { console.warn('Shadow observer failed; execution unchanged', error.message); }
+};
+const regimeAttempt = (attemptId,type,mode,stake,barrier) => { try { observeDigitRegime('attempt',{
+  attemptId,type,mode,stake,barrier,market:$('symbol').value,sequence:liveTickNumber,capturedAt:Date.now(),tickTime:ticks.at(-1)?.time??null,
+  accountId:selectedAccount()?.accountId??null,accountType:selectedAccount()?.accountType??null,currency:selectedAccount()?.currency??null,
+  quotedPayout:type==='DIGITOVER'?quotes.over?.payout??null:type==='DIGITUNDER'?quotes.under?.payout??null:null,
+  existing:{barrier:barrierSnapshot,barrierConfig:barrierEngine.config,minimumConfidence:Number($('minimum').value),requiredPersistence:Number($('barrierPersistence').value),
+    entryStrength:{display:$('entryStrength').textContent,recovery:entryStability.snapshot(),sample:strengthSample},differ:{candidate:differEngineState.candidate,signal:differEngineState.signal,status:differEngineState.status},risk:diagnosticRisk()}
+}); } catch(error) { console.warn('Shadow snapshot unavailable; execution unchanged',error.message); } };
 const tradabilityEvents=[];
 const tradabilityMarkets=new TradabilityMarkets({onEvent:event=>{tradabilityEvents.push(event);if(tradabilityEvents.length>200)tradabilityEvents.shift();auditStage('tradability-state',event);}});
 const tradabilityEngine=new Proxy({}, {get:(_,key)=>{const engine=tradabilityMarkets.engine(document.getElementById('symbol')?.value||'R_100');const value=engine[key];return typeof value==='function'?value.bind(engine):value;}});
@@ -95,6 +109,7 @@ const maybeDifferOrder=async(signal)=>{
   if(executionBlocked()||autoInFlight||manualHttpPending||manualOrderPending||autoContractIds.size||engine.executionLock){engine.record('ACCOUNT BUSY · signal expired; no delayed purchase');renderParallel();return;}
   if(!Number.isFinite(stake)||stake<=0||stake>Number($('maxStake').value)){engine.record('INVALID STAKE');renderParallel();return;}
   const attemptId=crypto.randomUUID();engine.pending(attemptId);liveDigitWheel.register(attemptId);
+  regimeAttempt(attemptId,'DIGITDIFF','auto',stake,signal.barrier);
   try{
     const response=await fetch('/api/order',{method:'POST',headers:{'content-type':'application/json'},signal:globalThis.AbortSignal?.timeout?.(45000),body:JSON.stringify({attemptId,browserAutoState:autoAuthorizationState,tradabilityMode,executionSessionId:parallelRunId,decisionId:attemptId,signalAt:executionNow(),gatePassed:true,runId:parallelRunId,armed:true,mode:'auto',type:'DIGITDIFF',barrier:signal.barrier,symbol:$('symbol').value,stake,accountId:account.accountId,accountType:'demo',riskLimits:demoRiskLimits(),strategyEvidence:{...signal,jumpDigit:ticks.at(-1)?.digit}})});
     const result=await response.json();
@@ -103,6 +118,7 @@ const maybeDifferOrder=async(signal)=>{
       if(response.status===400||response.status===403||result.riskCode||['INVALID_PROPOSAL','AUTO_STOPPED','EXECUTION_BUSY'].includes(result.executionCode))engine.executionLock=false;
       throw Error(result.error||'DIFFER request failed');
     }
+    observeDigitRegime('receipt',{attemptId,receipt:result});
     engine.observe(result);if(selectedAccount()?.accountId!==account.accountId)return;showOrderEntry('DIGITDIFF',result,'DIFFER Auto');
   }catch(error){engine.record((engine.executionLock?'RECONCILIATION REQUIRED · ':'BLOCKED · ')+error.message);}
   finally{trackRecentOrder();renderParallel();}
@@ -137,9 +153,11 @@ const beginOrderAudit=(type,mode,stake)=>{
   const requestId=auditStage('proposal-request',{attemptId,decisionId,type,mode,symbol:$('symbol').value,stake,risk:diagnosticRisk(),
     request:{contract_type:type,barrier:type==='DIGITOVER'?'1':'8',duration:1,duration_unit:'t',basis:'stake'},
     note:'Client order request; server determines actual account currency and proposal'});
+  regimeAttempt(attemptId,type,mode,stake,type==='DIGITOVER'?1:8);
   return {decisionId,requestId,attemptId};
 };
 const acceptedOrderAudit=(trace,result)=>{
+  observeDigitRegime('receipt',{attemptId:trace.attemptId,receipt:result});
   auditStage('proposal-validation',{...trace,validation:result.proposalValidation??null,status:result.proposalValidation?.validated?'validated':'not reported'});
   auditStage('execution-accepted',{...trace,contractId:result.contractId,entryTick:result.entryTick,buyPrice:result.buyPrice,currency:result.currency});
   orderDecisionIds.set(result.contractId,trace);if(orderDecisionIds.size>250)orderDecisionIds.delete(orderDecisionIds.keys().next().value);
@@ -149,6 +167,7 @@ const analyzeBoth = () => {
   const snapshot=barrierEngine.analyze(ticks,{context:strengthContext(),sequence:liveTickNumber,minimumConfidence:Math.max(0,Math.min(100,Number($('minimum').value)||0)),persistence});
   if(snapshot!==barrierSnapshot){
     barrierSnapshot=snapshot;
+    observeDigitRegime('candidate',{market:$('symbol').value,sequence:liveTickNumber,time:ticks.at(-1)?.time??null,candidates:snapshot.candidates.map(c=>({type:c.type,barrier:c.barrier,ready:c.ready})),selected:snapshot.selected?.type??null});
     currentDecisionId=`${snapshot.context}:${snapshot.sequence}:${auditEventSequence+1}`;
     const latest=ticks.at(-1);
     auditStage('candidate-evaluation',{...diagnoseSnapshot(snapshot,{timestamp:latest?.time??null,market:$('symbol').value,
@@ -301,6 +320,7 @@ const showOrderEntry = (type, result, source) => {
   renderLastSettledOrder(lastSettledOrder); update();
 };
 const showContractResult = (type, result, source) => {
+  observeDigitRegime('receipt',{receipt:result});
   if(result.lifecycle?.accountId&&result.lifecycle.accountId!==selectedAccount()?.accountId)return;
   liveDigitWheel.settle(result);
   const record=liveDigitWheel.contracts.accept(result);
@@ -567,6 +587,7 @@ const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
   if(Number.isInteger(digit)){
     const tick = {price:raw,time:epoch,digit};
     ticks.push(tick);
+    observeDigitRegime('tick',{market:$('symbol').value,sequence:liveTickNumber,...tick});
     // Advance only on price ticks, never on quote responses or UI redraws.
     // Compare each side with itself, even when the suggested side changes.
     const context = strengthContext();
@@ -576,6 +597,7 @@ const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
     if (!distributionDigits.length) distributionDigits = [tick];
     if (!distributionTimer) distributionTimer = setTimeout(() => { distributionDigits = ticks.slice(); distributionTimer = undefined; update(); }, 5000);
     const differSignal=differEngineState.tick(ticks.slice(-(Number($('window').value)||200)),{context:strengthContext()+':'+selectedAccount()?.accountId,sequence:liveTickNumber,running:autoEnabled&&botMode==='auto',cooldownTicks:selectedAutoCooldown()});
+    observeDigitRegime('candidate',{market:$('symbol').value,sequence:liveTickNumber,time:epoch,candidates:[{type:'DIGITDIFF',barrier:differSignal?.barrier??differEngineState.candidate?.digit,ready:Boolean(differSignal)}]});
     // Both analyses see the same tick; neither awaits the other engine's network work.
     // Alternate dispatch precedence on simultaneous signals; the account safety lock remains authoritative.
     if(liveTickNumber%2===0)void maybeDifferOrder(differSignal);
@@ -696,6 +718,7 @@ const startLive = () => {
   const symbol=$('symbol').value.trim();
   // Mode/Start clicks must not replace an open (or connecting) subscription.
   if(liveFeedSymbol===symbol&&socket&&(socket.readyState===0||socket.readyState===1))return;
+  observeDigitRegime('feed-start',{market:symbol,time:Date.now()});
   // Preserve same-market history across short reconnects. push() still resets
   // on an actual data gap, invalid quote, or change of market.
   tradabilityMarkets.start();
@@ -759,6 +782,7 @@ const loadRecentOrder = async (reconcile=false) => {
     if(result.execution){executionView=result.execution;autoContractIds.clear();if(executionView.blocking&&executionView.last?.request.mode==='auto'&&executionView.last.request.strategy!=='DIFFER'&&executionView.last.contractId)autoContractIds.add(executionView.last.contractId);manualOrderPending=executionView.blocking||manualHttpPending;}
     liveDigitWheel.observeExecution(result.execution);
     const order=result.order;
+    if(order)observeDigitRegime('receipt',{receipt:order});
     if(order?.strategy==='DIFFER'){
       if(!differEngineState.attemptId){differEngineState.pending(order.attemptId);differEngineState.pendingCooldown=Number($('autoCooldownTicks').value)||5;}
       differEngineState.observe(order);

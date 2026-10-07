@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Digit regime test fixture — simulated only</title>
+<link rel="stylesheet" href="/public/digit-regime.css"><style>body{background:#111923;color:#e2e8f0;font:16px system-ui;margin:30px}button,input,select{font:inherit;margin:6px;padding:8px}section{padding:20px;border:1px solid #536275}h1{color:#eac478}</style>
+<h1>SIMULATED TEST FIXTURE — NO TRADING OR WEBSOCKET</h1><p>This test page is outside the served production public folder. Mock receipts must not count as broker evidence.</p>
+<button id="extremes">Replay 220 extreme ticks</button><button id="recovery">Replay 80 middle ticks</button><button id="receipt">Save one mock settlement</button>
+<section id="digitRegimePanel"></section>
+<script type="module">
+import '/public/digit-regime-panel.js';
+let sequence=0;const emit=(event,data)=>globalThis.partOneRegimeObserver(event,data);
+const feed=(pattern,n)=>{for(let i=0;i<n;i++){sequence++;emit('tick',{market:'SIMULATED_ONLY',digit:pattern[i%pattern.length],sequence,time:1000+sequence});}};
+document.getElementById('extremes').onclick=()=>feed([0,1,9,0,8,0,1,9],220);
+document.getElementById('recovery').onclick=()=>feed([5,4,6,3,5,4,6,5],80);
+document.getElementById('receipt').onclick=()=>{const attemptId='fixture-'+crypto.randomUUID();emit('attempt',{attemptId,type:'DIGITOVER',market:'SIMULATED_ONLY',sequence,capturedAt:Date.now(),accountId:'test-fixture',accountType:'mock',stake:1});emit('receipt',{receipt:{attemptId,contractId:attemptId,state:'settled',status:'won',profit:.1,buyPrice:1,payout:1.1,currency:'USD',evidenceSource:'mock',lifecycle:{entryDigit:4,settlementDigit:5}}});};
+</script></html>

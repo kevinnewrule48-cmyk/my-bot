@@ -1,0 +1,13 @@
+#digitRegimePanel { margin-top: 18px; min-width: 0; }
+.regime-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+.regime-heading > strong { font-size:.8rem; color:#d9c28b; }
+.regime-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:12px 0; }
+.regime-summary strong { display:block; margin-top:6px; font-size:.92rem; }
+.regime-scroll { overflow-x:auto; }
+#digitRegimePanel table { width:100%; border-collapse:collapse; font-size:.85rem; }
+#digitRegimePanel th, #digitRegimePanel td { text-align:left; padding:8px; border-bottom:1px solid #46505b; }
+#digitRegimePanel details { padding:10px 0; }
+#digitRegimePanel summary { cursor:pointer; }
+#digitRegimePanel pre { max-height:320px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font-size:.8rem; }
+#digitRegimePanel label { display:block; margin:10px 0; }
+#regimeWarning { color:#f5bb7b; }

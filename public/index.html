@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/terminal-glass.css" />
     <link rel="stylesheet" href="/live-digit-wheel.css" />
     <link rel="stylesheet" href="/tradability.css" />
+    <link rel="stylesheet" href="/digit-regime.css" />
   </head>
   <body>
     <div class="ambient ambient-one" aria-hidden="true"></div><div class="ambient ambient-two" aria-hidden="true"></div><div class="ambient ambient-three" aria-hidden="true"></div>
@@ -134,7 +135,9 @@
         </div>
       </section>
       <section class="panel"><h2>Digit Barrier Engine · Part One</h2><p>Both sides are analyzed independently. READY means all analysis conditions passed; account, cooldown and proposal checks follow. Confidence is a strategy score, not a next-digit probability.</p><label>Required consecutive qualifying ticks <input id="barrierPersistence" type="number" min="1" max="100" step="1" value="1"></label><pre id="barrierDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere">Waiting for live ticks</pre><button id="exportBarrierAudit" class="secondary">Export both-candidate diagnostics</button></section>
+      <section class="panel" id="digitRegimePanel"><h2>Digit Regime Intelligence</h2><p>Shadow observer loading. It does not control trades.</p></section>
     </main>
+    <script type="module" src="/digit-regime-panel.js"></script>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

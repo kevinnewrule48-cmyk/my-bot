@@ -1,0 +1,4 @@
+import {readFileSync,writeFileSync} from 'node:fs';import {analyzeBalance} from '../public/balance-engine.js';
+const input=JSON.parse(readFileSync('work/fixtures/balance-public-digits.json','utf8')),rows=[];
+for(const [market,ticks] of Object.entries(input.markets)){const s=analyzeBalance(market,ticks);rows.push({market,position:s.position,lean:s.lean,lastTick:s.createdAt,selected:s.selected,candidates:s.candidates.map(c=>({label:c.label,support:c.observed*100,recent:c.recentSupport*100,strength:c.strength,clearance:c.clearance,failed:c.checks.filter(k=>!k.pass).map(k=>({condition:k.name,value:k.value,required:k.required}))}))});}
+writeFileSync('../../outputs/balance-recorded-gate-evidence.json',JSON.stringify(rows,null,2));console.log(JSON.stringify(rows.map(s=>({market:s.market,position:s.position,candidates:s.candidates.map(c=>({label:c.label,support:c.support,strength:c.strength,failed:c.failed.map(x=>x.condition)}))})),null,2));

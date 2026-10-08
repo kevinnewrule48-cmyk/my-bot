@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const source=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
-const EntryStabilityRecovery=vm.runInNewContext(source.slice(source.indexOf('const EntryStabilityRecovery'),source.indexOf('const tradabilityEvents'))+';EntryStabilityRecovery');
+const EntryStabilityRecovery=vm.runInNewContext(source.slice(source.indexOf('const EntryStabilityRecovery'),source.indexOf('const balanceBook'))+';EntryStabilityRecovery');
 const ticks = digits => digits.map((digit, i) => ({digit,time:i}));
 
 test('extreme bouncing enters UNSTABLE and remains blocked beyond five ticks',()=>{

@@ -34,6 +34,7 @@ if(globalThis.partOneRegimeQueueDropped)research.warning=`${globalThis.partOneRe
 store.then(db=>{const request=db.transaction('trades','readonly').objectStore('trades').getAll();request.onsuccess=()=>research.restore(request.result);request.onerror=()=>fail(request.error);}).catch(fail);
 const receive=(event,data)=>{try{research.observe(event,data);}catch(e){research.warning='Shadow analysis error: '+e.message;research.dirty++;}};
 globalThis.partOneRegimeObserver=receive;
+globalThis.partOneRegimeSnapshot=market=>{const s=research.engine.snapshot(market);return s?{market,sequence:s.sequence,time:s.time,state:s.state,version:s.version,supports:{over:s.supports.over,under:s.supports.under},reasons:s.reasons}:null;};
 for(const event of globalThis.partOneRegimeQueue??[])receive(...event);
 globalThis.partOneRegimeQueue=[];
 if(root){

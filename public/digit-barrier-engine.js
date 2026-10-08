@@ -51,10 +51,11 @@ export class DigitBarrierEngine{
     return this.cached={context,sequence,candidates,selected:selectCandidate(candidates)};
   }
 }
-export function proposalRequest({type,symbol,stake,currency='USD'}){
+export function proposalRequest({type,symbol,stake,currency='USD',barrier}){
   if(!['OVER','UNDER','DIGITOVER','DIGITUNDER'].includes(type)||!/^[A-Za-z0-9_]{2,30}$/.test(symbol)||!Number.isFinite(stake)||stake<=0||!/^[A-Z]{3,8}$/.test(currency))throw Error('Invalid proposal parameters');
   const over=type==='OVER'||type==='DIGITOVER';
-  return {proposal:1,amount:stake,basis:'stake',contract_type:over?'DIGITOVER':'DIGITUNDER',currency,duration:1,duration_unit:'t',barrier:over?'1':'8',underlying_symbol:symbol};
+  barrier=barrier??(over?1:8);if(!(over?[1,2]:[8,7]).includes(barrier))throw Error('Invalid direction/barrier mapping');
+  return {proposal:1,amount:stake,basis:'stake',contract_type:over?'DIGITOVER':'DIGITUNDER',currency,duration:1,duration_unit:'t',barrier:String(barrier),underlying_symbol:symbol};
 }
 export function validateProposal(p,stake){
   if(!p?.id||!Number.isFinite(Number(p.ask_price))||Number(p.ask_price)<=0||Number(p.ask_price)>stake||!Number.isFinite(Number(p.payout))||Number(p.payout)<=Number(p.ask_price))throw Error('Invalid Deriv proposal');

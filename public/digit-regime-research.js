@@ -8,16 +8,17 @@ export function shadowDecision(snapshot,type,barrier){
 export class RegimeResearch {
   constructor({config,onRecord=()=>{},onDelete=()=>{}}={}){
     this.engine=new DigitRegimeEngine(config);this.onRecord=onRecord;this.onDelete=onDelete;this.trades=new Map();this.candidates=[];this.ticks=[];this.events=[];
-    this.capacity={trades:200,candidates:500,ticks:2000,events:200};this.dropped={trades:0,candidates:0,ticks:0,events:0};this.warning=null;this.latest=null;this.dirty=0;this.lastSeen=null;this.uncaptured=new Set();
+    this.capacity={trades:200,candidates:500,ticks:2000,events:200};this.dropped={trades:0,candidates:0,ticks:0,events:0};this.warning=null;this.latest=null;this.dirty=0;this.lastSeen=null;this.inspectedMarket='R_100';this.lastSeenByMarket=new Map();this.uncaptured=new Set();
   }
   bounded(name,event){this[name].push(event);if(this[name].length>this.capacity[name]){this[name].shift();this.dropped[name]++;}}
   persist(r){try{this.onRecord(clone(r));}catch(e){this.warning='Research storage failed: '+e.message;}}
   configure(config){this.engine=new DigitRegimeEngine(config);this.latest=null;this.bounded('events',{event:'CONFIG_CHANGED',time:Date.now(),config:clone(this.engine.config),note:'New measurement history; existing snapshots keep their original rule version/config'});this.dirty++;}
   observe(event,d){
     this.dirty++;
+    if(event==='inspect'){this.inspectedMarket=d.market;this.latest=this.engine.snapshot(d.market);this.lastSeen=this.lastSeenByMarket.get(d.market)??null;return;}
     if(event==='feed-start'){this.engine.markets.delete(d.market);this.latest=null;this.lastSeen=null;this.bounded('events',{event:'FEED_SEGMENT_STARTED',...d});return;}
     if(event==='tick'){
-      const s=this.engine.observe(d);if(s){this.lastSeen={market:d.market,time:d.time,sequence:d.sequence,receivedAt:Date.now()};this.latest=s;this.bounded('ticks',clone(d));}return;
+      const s=this.engine.observe(d);if(s){const seen={market:d.market,time:d.time,sequence:d.sequence,receivedAt:Date.now()};this.lastSeenByMarket.set(d.market,seen);if(d.market===this.inspectedMarket){this.latest=s;this.lastSeen=seen;}this.bounded('ticks',clone(d));}return;
     }
     if(event==='candidate'){
       const snapshot=this.engine.snapshot(d.market);

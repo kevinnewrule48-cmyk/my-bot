@@ -1,3 +1,6 @@
+import {createTradeDecision} from '../public/trade-decision.js';
+import {BalanceBook,assertCandidate} from '../public/balance-engine.js';
+import {BalanceEvidence} from '../public/balance-scale.js';
 import {TradabilityEngine,tradabilityBlocks} from '../public/tradability-engine.js';
 import {test} from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import crypto from 'node:crypto';import {readFileSync} from 'node:fs';
 import {ContractLifecycleStore,reduceContract,contractDigit} from '../public/contract-lifecycle.js';
@@ -24,7 +27,7 @@ test('actual wheel, lower result panel and history agree: entry 8 → 3 WIN; ent
   const fields=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],{value:'0',checked:false,textContent:'',classList:{toggle(){},add(){},remove(){}},addEventListener(){},setAttribute(){},setCustomValidity(){},querySelector(){return null;},replaceChildren(){},append(){}}]));
   for(const [k,v] of Object.entries({symbol:'R_100',window:200,minimum:65,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo1',duration:1}))fields[k].value=String(v);
   const wheel=new DigitWheelState(),host=new Node(),cells=Array.from({length:10},()=>new Node());host.querySelectorAll=()=>cells;host.querySelector('.wheel-price').children=[new Node(),new Node()];globalThis.matchMedia=()=>({matches:true});const dispose=mountDigitWheel(host,wheel);
-  const context=vm.createContext({TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,liveDigitWheel:wheel,heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,URLSearchParams,console,document:{getElementById:id=>fields[id]},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async()=>({ok:true,json:async()=>({connected:false,configured:false,accounts:[]})})});
+  const context=vm.createContext({createTradeDecision,BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,TradabilityMarkets:class{start(){} stop(){} snapshot(){return null;}},TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,liveDigitWheel:wheel,heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,URLSearchParams,console,document:{getElementById:id=>fields[id]},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async()=>({ok:true,json:async()=>({connected:false,configured:false,accounts:[]})})});
   vm.runInContext(source.replace(/^import[^\n]*\n/gm,''),context);await new Promise(setImmediate);
   const base={attemptId:'a',contractId:123,strategy:'OVER_UNDER',symbol:'R_100',precision:2,entryTick:null,purchaseTick:{digit:8,price:'100.08',pipSize:2,epoch:1000}};
   let lifecycle=reduceContract(null,base);wheel.register('a');context.receipt={...base,lifecycle};

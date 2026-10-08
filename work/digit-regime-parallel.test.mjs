@@ -1,3 +1,6 @@
+import {createTradeDecision} from '../public/trade-decision.js';
+import {BalanceBook,assertCandidate} from '../public/balance-engine.js';
+import {BalanceEvidence} from '../public/balance-scale.js';
 import {TradabilityMarkets} from '../public/tradability-markets.js';
 import {RegimeResearch} from '../public/digit-regime-research.js';
 import {TradabilityEngine,tradabilityBlocks} from '../public/tradability-engine.js';
@@ -22,27 +25,28 @@ async function fixture(ou,differ,connected=false){
  const fields=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],{value:'0',checked:false,textContent:'',classList:{toggle(){},add(){},remove(){}},addEventListener(){},setAttribute(){},setCustomValidity(){},querySelector(){return null;},replaceChildren(){},append(){}}]));
  for(const [k,v] of Object.entries({symbol:'R_100',window:100,minimum:65,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo',duration:1}))fields[k].value=String(v);
  const requests=[],urls=[];const research=new RegimeResearch();
- const context=vm.createContext({partOneRegimeObserver:(event,data)=>research.observe(event,data),TradabilityMarkets:class extends TradabilityMarkets {start(){}},TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,URLSearchParams,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,console,document:{getElementById:id=>fields[id],createElement:()=>({})},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async(url,options)=>{
+ const context=vm.createContext({createTradeDecision,BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,partOneRegimeObserver:(event,data)=>research.observe(event,data),TradabilityMarkets:class extends TradabilityMarkets {start(){}},TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,URLSearchParams,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,console,document:{getElementById:id=>fields[id],createElement:()=>({})},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async(url,options)=>{
   if(url==='/api/order'){requests.push(JSON.parse(options.body));return new Promise(()=>{});}
   urls.push(url);return {ok:true,json:async()=>({connected,configured:true,pageId:'fresh-page',accounts:connected?[{accountId:'demo',accountType:'demo',currency:'USD',balance:1000}]:[]})};
  }});
  vm.runInContext(source.replace(/^import[^\n]*\n/gm,''),context);await flush();
- if(!connected)vm.runInContext(`demoConnected=true;availableAccounts=[{accountId:'demo',accountType:'demo'}];botMode='auto';autoEnabled=true;parallelAutoReady=true;overUnderEngineState.armed=${ou};differEngineState.arm(${differ});quotes.over={ask:1,payout:1.1};quotes.under={ask:1,payout:1.1};`,context);
+ if(!connected)vm.runInContext(`demoConnected=true;availableAccounts=[{accountId:'demo',accountType:'demo'}];botMode='auto';autoEnabled=true;parallelAutoReady=true;isRunning=true;socket={readyState:1};overUnderEngineState.armed=${ou};differEngineState.arm(${differ});quotes.over={ask:1,payout:1.1};quotes.under={ask:1,payout:1.1};`,context);
  return {context,requests,fields,urls,research};
 }
 for(const [ou,differ] of [[true,true],[true,false],[false,true],[false,false]]){
  test(`real dashboard arm matrix OU=${ou} DIFFER=${differ}`,async()=>{
   // Independent fixtures ensure the account lock does not mask either strategy's permission.
   const a=await fixture(ou,differ);
-  for(let i=0;i<200;i++){a.context.price=100+[3,5,7,8,9][i%5]/100;vm.runInContext('addTick(price,1000+liveTickNumber,2)',a.context);}
+  for(let i=0;i<200;i++){a.context.price=100+[3,5,7,8,9][i%5]/100;vm.runInContext('tradabilityMarkets.push("R_100",price,Math.floor(Date.now()/1000)-199+liveTickNumber,2,true);addTick(price,Math.floor(Date.now()/1000)-199+liveTickNumber,2)',a.context);}
+  vm.runInContext('balanceCycle()',a.context);await flush();
   assert.equal(a.requests.some(r=>r.type==='DIGITOVER'),ou);
-  assert.equal(vm.runInContext('barrierSnapshot.sequence',a.context),200);
+  assert.equal(vm.runInContext('barrierSnapshot.ticks.length',a.context),200);
   assert.equal(vm.runInContext('differEngineState.sequence',a.context),200);
   const b=await fixture(ou,differ);
   // Set history without rendering/authorizing OU. Real addTick then detects the exact candidate and jump.
-  vm.runInContext("ticks=Array.from({length:99},()=>({digit:7,price:'100.07',time:1}));addTick(100.03,1000,2);addTick(100.07,1001,2)",b.context);
+  vm.runInContext("ticks=Array.from({length:99},()=>({digit:7,price:'100.07',time:1}));tradabilityMarkets.push('R_100',100.03,1000,2,true);addTick(100.03,1000,2);tradabilityMarkets.push('R_100',100.07,1001,2,true);addTick(100.07,1001,2)",b.context);
   assert.equal(b.requests.some(r=>r.type==='DIGITDIFF'),differ);
-  if(differ){const request=b.requests.find(r=>r.type==='DIGITDIFF');assert.equal(request.barrier,3);assert.equal(request.strategyEvidence.count,1);assert.equal(request.strategyEvidence.sample,100);const record=[...b.research.trades.values()][0];assert.equal(record.preEntry.type,'DIGITDIFF');assert.equal(record.preEntry.barrier,3);assert.equal(record.preEntry.regime.sequence,2);assert.equal(record.preEntry.regime.executionAuthority,false);}
+  if(differ){const request=b.requests.find(r=>r.type==='DIGITDIFF');assert.equal(request.barrier,3);assert.equal(request.strategyEvidence.count,1);assert.equal(request.strategyEvidence.sample,100);const record=[...b.research.trades.values()][0];assert.equal(record.preEntry.type,'DIGITDIFF');assert.equal(record.preEntry.barrier,3);assert.equal(record.preEntry.regime.sequence,1001);assert.equal(record.preEntry.regime.executionAuthority,false);}
  });
 }
 test('Stop switch prevents new DIFFER requests and clears jump candidate',async()=>{

@@ -67,7 +67,7 @@ test('close signals: explicit account lock, unique IDs, tagged settlement, no du
  const s=new Socket(),results=[],engine=new PartOneExecution({connect:async()=>s,onSettled:(id,a,r)=>results.push(r)});
  let previousMonitor=null;
  for(const [type,id] of [['DIGITOVER',1],['DIGITDIFF',2],['DIGITUNDER',3]]){
-  const request={...base,type,barrier:4,attemptId:'attempt-'+id},flow=engine.execute(credentials,request);
+  const request={...base,type,barrier:type==='DIGITOVER'?1:type==='DIGITUNDER'?8:4,attemptId:'attempt-'+id},flow=engine.execute(credentials,request);
   assert.throws(()=>engine.execute(credentials,{...base,type:'DIGITDIFF',barrier:8,attemptId:'other-'+id}),e=>e.code==='EXECUTION_BUSY');
   assert.equal(engine.execute(credentials,request).entry,flow.entry);
   await flush();s.reply(s.last('proposal'),{proposal:{id:'p'+id,ask_price:1,payout:1.1}});
@@ -85,7 +85,7 @@ test('close signals: explicit account lock, unique IDs, tagged settlement, no du
 test('Stop or disarm before proposal returns prevents either strategy BUY',async()=>{
  for(const type of ['DIGITOVER','DIGITDIFF']){
   const s=new Socket(),engine=new PartOneExecution({connect:async()=>s});let running=true;
-  const flow=engine.execute(credentials,{...base,type,barrier:3,authorizePurchase:()=>running});await flush();running=false;
+  const flow=engine.execute(credentials,{...base,type,barrier:type==='DIGITOVER'?1:3,authorizePurchase:()=>running});await flush();running=false;
   s.reply(s.last('proposal'),{proposal:{id:'p',ask_price:1,payout:1.1}});
   await assert.rejects(flow.entry,e=>e.code==='AUTO_STOPPED');assert.equal(s.sent.filter(r=>r.buy).length,0);
  }

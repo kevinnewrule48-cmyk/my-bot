@@ -1,3 +1,6 @@
+import {createTradeDecision} from '../public/trade-decision.js';
+import {BalanceBook,assertCandidate} from '../public/balance-engine.js';
+import {BalanceEvidence} from '../public/balance-scale.js';
 import {TradabilityMarkets} from '../public/tradability-markets.js';
 import {TradabilityEngine,tradabilityBlocks} from '../public/tradability-engine.js';
 import {DifferEngine} from '../public/differ-engine.js';
@@ -16,7 +19,7 @@ test('real dashboard polling: late settlement releases Auto lock, survives Stop 
  const fields=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],{value:'0',checked:false,textContent:'',classList:{toggle(){},add(){},remove(){}},addEventListener(){},setCustomValidity(){},querySelector(){return null;},replaceChildren(){},append(){}}]));
  for(const [k,v] of Object.entries({symbol:'R_100',window:200,minimum:65,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo1',duration:1}))fields[k].value=String(v);
  let receipt=null,clearCount=0,orders=0;
- const context=vm.createContext({TradabilityMarkets:class extends TradabilityMarkets {start(){}},TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,URLSearchParams,console,document:{getElementById:id=>fields[id]},localStorage:{getItem:()=>null,setItem(){throw Error('Storage full');}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){clearCount++;},fetch:async url=>{
+ const context=vm.createContext({createTradeDecision,BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,TradabilityMarkets:class{start(){} stop(){} snapshot(){return null;}},TradabilityMarkets:class extends TradabilityMarkets {start(){}},TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,URLSearchParams,console,document:{getElementById:id=>fields[id]},localStorage:{getItem:()=>null,setItem(){throw Error('Storage full');}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){clearCount++;},fetch:async url=>{
    if(url.startsWith('/api/orders/recent'))return {ok:true,json:async()=>receipt};
    if(url==='/api/order')orders++;
    return {ok:true,json:async()=>({connected:false,configured:false,accounts:[]})};

@@ -1,3 +1,5 @@
+import {validateTradeDecision} from './public/trade-decision.js';
+import {validateBalanceRequest} from './balance-authorization.mjs';
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -24,9 +26,9 @@ const realTradingEnabled = process.env.ENABLE_REAL_TRADING === 'true';
 const oauthReady = Boolean(clientId && redirectUri && redirectUri.startsWith('https://'));
 const base64url = (value) => Buffer.from(value).toString('base64url');
 const cookieValue = (req, name) => (req.headers.cookie ?? '').split(';').map(x => x.trim()).find(x => x.startsWith(`${name}=`))?.slice(name.length + 1);
-const readJson = async (req) => {
+const readJson = async (req,limit=16_384) => {
   let raw = '';
-  for await (const chunk of req) { raw += chunk; if (raw.length > 16_384) throw new Error('Request too large'); }
+  for await (const chunk of req) { raw += chunk; if (raw.length > limit) throw new Error('Request too large'); }
   return JSON.parse(raw || '{}');
 };
 const json = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); };
@@ -162,10 +164,13 @@ const server = http.createServer(async (req, res) => {
     const session = getSession(req);
     if (!session) return json(res, 401, { error:'Connect your Deriv demo account first.' });
     try {
-      const { browserAutoState, armed, type, barrier, runId, executionSessionId, signalAt, gatePassed, tradabilityMode='monitor',symbol, stake, accountId, accountType, realConfirmed,mode='manual',riskLimits,attemptId:clientAttemptId,decisionId,strategyEvidence } = await readJson(req);
+      const { browserAutoState, armed, type, barrier, runId, executionSessionId, signalAt, gatePassed, tradabilityMode='monitor',symbol, stake, accountId, accountType, realConfirmed,mode='manual',riskLimits,attemptId:clientAttemptId,decisionId,strategyEvidence,decision } = await readJson(req,32_768);
+      const candidate=decision?.candidate,balanceState=decision?.balanceState;
       const strategy=strategyForType(type);
+      if(strategy==='OVER_UNDER')validateTradeDecision(decision,{type,barrier,symbol,mode,decisionId});
+      if(strategy==='OVER_UNDER')validateBalanceRequest({candidate,balanceState,type,barrier,symbol,mode,decisionId});
       const requiredChecks=['Barrier','Momentum','Zone','Stability','Score','Persistence','Confidence','Quality'];
-      const verifiedGate=gatePassed===true&&(type==='DIGITDIFF'||(strategyEvidence?.selected===(type==='DIGITOVER'?'OVER':'UNDER')&&requiredChecks.every(name=>strategyEvidence?.checks?.some(c=>c.name===name&&c.pass===true))));
+      const verifiedGate=gatePassed===true&&(type==='DIGITDIFF'||candidate?.ready===true||(strategyEvidence?.selected===(type==='DIGITOVER'?'OVER':'UNDER')&&requiredChecks.every(name=>strategyEvidence?.checks?.some(c=>c.name===name&&c.pass===true))));
       const permission=purchasePermission(session,{mode,executionSessionId,attemptId:clientAttemptId,accountId,type,strategy,decisionId,signalAt,gatePassed:verifiedGate});
       const gate=()=>tradability.status(session,accountId,symbol,tradabilityMode);
       const authorizePurchase=()=>permission()&&gate().allowed&&!riseFall.busy(accountId);
@@ -189,10 +194,11 @@ const server = http.createServer(async (req, res) => {
       if (accountType === 'real' && realConfirmed !== true) return json(res, 403, { error:'A separate real-money confirmation is required.' });
       const sessionKey = cookieValue(req, 'deriv_session');
       const credentials={accountId:selectedAccount.account_id,accountType,token:session.accessToken};
-      const request={attemptId,decisionId,executionSessionId,strategyEvidence,browserAutoState:['AUTO_AUTHORIZED','AUTO_EXECUTING'].includes(browserAutoState)?browserAutoState:'UNREPORTED',type,strategy,barrier,symbol,stake:amount,currency:selectedAccount.currency,mode,riskLimits,authorizePurchase};
+      const request={attemptId,decisionId,executionSessionId,strategyEvidence,decision,candidate,balanceState,browserAutoState:['AUTO_AUTHORIZED','AUTO_EXECUTING'].includes(browserAutoState)?browserAutoState:'UNREPORTED',type,strategy,barrier,symbol,stake:amount,currency:selectedAccount.currency,mode,riskLimits,authorizePurchase};
       const existing=execution.find(accountId,attemptId);
       if(existing&&['type','symbol','stake','mode','currency'].some(k=>existing.request[k]!==request[k]))return json(res,409,{error:'Attempt ID already belongs to a different order'});
-      if(existing&&type==='DIGITDIFF'&&existing.request.barrier!==barrier)return json(res,409,{error:'Attempt barrier mismatch'});
+      if(existing&&strategy==='OVER_UNDER'&&existing.request.decisionId!==decisionId)return json(res,409,{error:'TRADE BLOCKED — AUTHORITATIVE DECISION MISMATCH: attempt belongs to another decision'});
+      if(existing&&existing.request.barrier!==barrier)return json(res,409,{error:'Attempt barrier mismatch'});
       const place=()=>execution.execute(credentials,request);
       const orderFlow = existing?execution.flow(accountId,existing):accountType==='demo'?await guardedDemoOrder(demoRisk,accountId,request,place):place();
       const entry = await orderFlow.entry;
@@ -205,7 +211,7 @@ const server = http.createServer(async (req, res) => {
         recentOrders.set(sessionKey, { ...receipt, state:'failed', completedAt:Date.now(), error:error.message || 'Deriv did not return a settlement result.' });
       });
       return json(res, 200, { ok:true, attemptId, account:`${accountType === 'real' ? 'Real' : 'Demo'} ${selectedAccount.account_id}`, currency:selectedAccount.currency, ...receipt });
-    } catch (error) { return json(res, error instanceof RiskRejection?409:502, { error:error.message || 'Order could not be completed.',riskCode:error instanceof RiskRejection?error.code:undefined,executionCode:error.code,attemptId:error.attemptId,uncertain:!!error.uncertain }); }
+    } catch (error) { return json(res, error instanceof RiskRejection||/^(BALANCE_|AUTHORITATIVE_DECISION_|DECISION_)/.test(error.code??'')?409:502, { error:error.message || 'Order could not be completed.',riskCode:error instanceof RiskRejection?error.code:undefined,executionCode:error.code,attemptId:error.attemptId,uncertain:!!error.uncertain }); }
   }
   if (url.pathname === '/api/auth/start') {
     const previousSession=getSession(req);if(previousSession)resetExecution(previousSession);

@@ -24,7 +24,7 @@ export function reduceContract(previous,receipt){
   const entryDigit=previous?.entryDigit??(r.schema===1?validDigit(r.entryDigit):entrySource==='purchase-time'?purchaseDigit:contractDigit(entryTick,precision));
   const brokerEntryDigit=previous?.brokerEntryDigit??(r.schema===1?validDigit(r.brokerEntryDigit):contractDigit(entryTick,precision));
   const settlementDigit=previous?.settlementDigit??(r.schema===1?validDigit(r.settlementDigit):contractDigit(exitTick,precision));
-  return Object.freeze({schema:1,contractId,strategy,attemptId:previous?.attemptId??r.attemptId??null,
+  return Object.freeze({schema:1,contractId,strategy,decisionId:previous?.decisionId??r.decisionId??receipt.decisionId??null,type:previous?.type??r.type??receipt.type??null,barrier:previous?.barrier??r.barrier??receipt.barrier??null,attemptId:previous?.attemptId??r.attemptId??null,
     accountId:previous?.accountId??r.accountId??null,symbol:r.symbol??previous?.symbol??null,precision,
     entryTick,entryDigit,entrySource,brokerEntryDigit,entryTickTime:previous?.entryTickTime??r.entryTickTime??null,
     purchaseQuote:previous?.purchaseQuote??r.purchaseQuote??purchase?.price??null,
@@ -38,6 +38,8 @@ export class ContractLifecycleStore{
   accept(receipt){
     const id=receipt?.contractId;if(!id)return null;
     const previous=this.contracts.get(String(id)),incoming=receipt.lifecycle??receipt;
+    if(previous&&incoming.decisionId&&previous.decisionId&&incoming.decisionId!==previous.decisionId)return null;
+    if(previous&&((incoming.type&&previous.type&&incoming.type!==previous.type)||(incoming.barrier!==undefined&&previous.barrier!==null&&incoming.barrier!==previous.barrier)))return null;
     if(previous&&(incoming.strategy&&previous.strategy!==incoming.strategy||incoming.attemptId&&previous.attemptId&&incoming.attemptId!==previous.attemptId))return null;
     const record=reduceContract(previous,receipt);
     if(record)this.contracts.set(String(id),record);

@@ -1,3 +1,6 @@
+import {createTradeDecision} from './trade-decision.js';
+import {BalanceBook,assertCandidate} from './balance-engine.js';
+import {mountBalanceScale,BalanceEvidence} from './balance-scale.js';
 import {DigitBarrierEngine,extractLastDigit,proposalRequest} from './digit-barrier-engine.js';
 import {liveDigitWheel} from './live-digit-wheel.js';
 import {heatMap} from './premium-model.js';
@@ -22,14 +25,17 @@ const observeDigitRegime = (event, data) => {
   } catch (error) { console.warn('Shadow observer failed; execution unchanged', error.message); }
 };
 const regimeAttempt = (attemptId,type,mode,stake,barrier) => { try { observeDigitRegime('attempt',{
-  attemptId,type,mode,stake,barrier,market:$('symbol').value,sequence:liveTickNumber,capturedAt:Date.now(),tickTime:ticks.at(-1)?.time??null,
+  attemptId,type,mode,stake,barrier,market:$('symbol').value,sequence:balanceBook.current($('symbol').value)?.sequence??liveTickNumber,capturedAt:Date.now(),tickTime:ticks.at(-1)?.time??null,
   accountId:selectedAccount()?.accountId??null,accountType:selectedAccount()?.accountType??null,currency:selectedAccount()?.currency??null,
   quotedPayout:type==='DIGITOVER'?quotes.over?.payout??null:type==='DIGITUNDER'?quotes.under?.payout??null:null,
   existing:{barrier:barrierSnapshot,barrierConfig:barrierEngine.config,minimumConfidence:Number($('minimum').value),requiredPersistence:Number($('barrierPersistence').value),
     entryStrength:{display:$('entryStrength').textContent,recovery:entryStability.snapshot(),sample:strengthSample},differ:{candidate:differEngineState.candidate,signal:differEngineState.signal,status:differEngineState.status},risk:diagnosticRisk()}
 }); } catch(error) { console.warn('Shadow snapshot unavailable; execution unchanged',error.message); } };
+const balanceBook=new BalanceBook();
+const balanceEvidence=new BalanceEvidence();
+const balanceSeenSettlements=new Set();
 const tradabilityEvents=[];
-const tradabilityMarkets=new TradabilityMarkets({onEvent:event=>{tradabilityEvents.push(event);if(tradabilityEvents.length>200)tradabilityEvents.shift();auditStage('tradability-state',event);}});
+const tradabilityMarkets=new TradabilityMarkets({onTick:tick=>{balanceBook.push(tick.market,tick);observeDigitRegime('tick',{...tick,sequence:tick.epoch});if(!tick.historical)queueMicrotask(()=>balanceCycle());},onEvent:event=>{tradabilityEvents.push(event);if(tradabilityEvents.length>200)tradabilityEvents.shift();auditStage('tradability-state',event);}});
 const tradabilityEngine=new Proxy({}, {get:(_,key)=>{const engine=tradabilityMarkets.engine(document.getElementById('symbol')?.value||'R_100');const value=engine[key];return typeof value==='function'?value.bind(engine):value;}});
 let tradabilityMode='monitor',tradabilityServer=null,tradabilitySyncing=false,tradabilityRevision=Date.now(),tradabilitySyncKey=null;
 const syncTradability=async()=>{
@@ -132,7 +138,8 @@ let auditEventSequence=0,auditDropped=0,currentDecisionId=null;
 const orderDecisionIds=new Map();
 let executionView=null,recentOrderFetch=false,executionTransportError='',manualHttpPending=false;
 const executionBlocked=()=>Boolean(executionView?.blocking);
-const executionRequest=trace=>({attemptId:trace.attemptId,decisionId:trace.decisionId,strategyEvidence:{source:'client strategy, not broker authorization',selected:barrierSnapshot?.selected?.type??null,checks:barrierSnapshot?.selected?.checks??[]}});
+let authoritativeAutoDecision=null;let authoritativeDecisionState='ANALYZING';let authoritativeDecisionError='';
+const executionRequest=trace=>({attemptId:trace.attemptId,decisionId:trace.decision.decisionId,decision:trace.decision,barrier:trace.decision.candidate.barrier,strategyEvidence:{selected:trace.candidate.type,checks:trace.candidate.checks}});
 const auditStage = (stage,detail) => {
   const event={eventId:++auditEventSequence,time:Date.now(),sequence:liveTickNumber,decisionId:currentDecisionId,market:$('symbol').value,stage,...detail};
   barrierAudit.push(event);
@@ -141,41 +148,41 @@ const auditStage = (stage,detail) => {
 };
 const diagnosticRisk=()=>({connected:demoConnected,accountType:selectedAccount()?.accountType??null,mode:botMode,armed:autoEnabled,
   pending:autoInFlight||manualOrderPending||autoContractIds.size>0,awaitingMomentumReset:autoAwaitingReset,
-  cooldownRemaining:Number.isFinite(lastAutoSignalTick)?Math.max(0,selectedAutoCooldown()-(liveTickNumber-lastAutoSignalTick)):0,
+  cooldownRemaining:0,
   configuredCooldown:selectedAutoCooldown(),stake:Number($('stake').value),maximumStake:Number($('maxStake').value),
   realAutoEnabled:false,dailyAccountLimits:'Demo server session ledger; not account-wide daily limits',requestedDemoLimits:demoRiskLimits()});
-const beginOrderAudit=(type,mode,stake)=>{
-  const decisionId=currentDecisionId;
+const beginOrderAudit=(type,mode,stake,candidate)=>{
+  const balanceState=balanceBook.current(candidate.market);assertCandidate(candidate,balanceState,{type,now:Date.now(),allowManual:mode==='manual'});balanceBook.consume(candidate);balanceEvidence.attempt(candidate,balanceState);
+  const decision=createTradeDecision(candidate,balanceState,{mode,regime:globalThis.partOneRegimeSnapshot?.(candidate.market)??null});
+  if(mode==='auto'){authoritativeAutoDecision=decision;authoritativeDecisionState='LOCKED';authoritativeDecisionError='';}
+  auditStage('decision-locked',{decision});
+  const decisionId=decision.decisionId;
   const attemptId=globalThis.crypto?.randomUUID?.()??`${Date.now()}-${Math.random().toString(36).slice(2)}`;
   liveDigitWheel.register(attemptId);
   auditStage('signal-detected',{attemptId,decisionId,type,mode});
-  auditStage('condition-gate',{attemptId,decisionId,checks:barrierSnapshot?.candidates.find(c=>c.type===(type==='DIGITOVER'?'OVER':'UNDER'))?.checks??[],mode});
+  auditStage('condition-gate',{attemptId,decisionId,checks:candidate.checks,mode});
   const requestId=auditStage('proposal-request',{attemptId,decisionId,type,mode,symbol:$('symbol').value,stake,risk:diagnosticRisk(),
-    request:{contract_type:type,barrier:type==='DIGITOVER'?'1':'8',duration:1,duration_unit:'t',basis:'stake'},
+    request:{contract_type:type,barrier:String(candidate.barrier),duration:1,duration_unit:'t',basis:'stake'},
     note:'Client order request; server determines actual account currency and proposal'});
-  regimeAttempt(attemptId,type,mode,stake,type==='DIGITOVER'?1:8);
-  return {decisionId,requestId,attemptId};
+  regimeAttempt(attemptId,type,mode,stake,candidate.barrier);
+  return {decisionId:decision.decisionId,requestId,attemptId,decision,candidate:decision.candidate,balanceState:decision.balanceState};
 };
 const acceptedOrderAudit=(trace,result)=>{
-  observeDigitRegime('receipt',{attemptId:trace.attemptId,receipt:result});
+  if(authoritativeAutoDecision?.decisionId===trace.decisionId)authoritativeDecisionState='PURCHASED';
+  observeDigitRegime('receipt',{attemptId:trace.attemptId,receipt:result});balanceEvidence.receipt(result);
   auditStage('proposal-validation',{...trace,validation:result.proposalValidation??null,status:result.proposalValidation?.validated?'validated':'not reported'});
   auditStage('execution-accepted',{...trace,contractId:result.contractId,entryTick:result.entryTick,buyPrice:result.buyPrice,currency:result.currency});
   orderDecisionIds.set(result.contractId,trace);if(orderDecisionIds.size>250)orderDecisionIds.delete(orderDecisionIds.keys().next().value);
 };
 const analyzeBoth = () => {
-  const persistence=Math.max(1,Math.min(100,Math.floor(Number($('barrierPersistence').value)||1)));
-  const snapshot=barrierEngine.analyze(ticks,{context:strengthContext(),sequence:liveTickNumber,minimumConfidence:Math.max(0,Math.min(100,Number($('minimum').value)||0)),persistence});
-  if(snapshot!==barrierSnapshot){
-    barrierSnapshot=snapshot;
-    observeDigitRegime('candidate',{market:$('symbol').value,sequence:liveTickNumber,time:ticks.at(-1)?.time??null,candidates:snapshot.candidates.map(c=>({type:c.type,barrier:c.barrier,ready:c.ready})),selected:snapshot.selected?.type??null});
-    currentDecisionId=`${snapshot.context}:${snapshot.sequence}:${auditEventSequence+1}`;
-    const latest=ticks.at(-1);
-    auditStage('candidate-evaluation',{...diagnoseSnapshot(snapshot,{timestamp:latest?.time??null,market:$('symbol').value,
-      quote:latest?.price??null,lastDigit:latest?.digit??null,rollingWindow:Number($('window').value)||200,risk:diagnosticRisk(),
-      config:{...barrierEngine.config,minimumConfidence:Number($('minimum').value),persistence}}),legacy:calculateSignal(ticks)});
-    $('barrierDiagnostics').textContent=snapshot.candidates.map(c=>`${c.label}: support ${(c.observed*100).toFixed(1)}% | Momentum ${c.momentum===null?'waiting':c.momentum.toFixed(2)+' pp'} | Zone ${c.zone?'PASS':'FAIL'} | Stability ${c.stability} | Score ${c.score} | Persistence ${c.persistence} | Confidence ${c.confidence} (score) | Quality ${c.quality} | Gate ${c.gatePercent.toFixed(0)}% | ${c.ready?'READY':c.checks.filter(x=>!x.pass).map(x=>x.name).join(', ')}`).join('\n');
-  }
-  return snapshot;
+ const state=balanceBook.current($('symbol').value);
+ const snapshot=state??{id:null,sequence:0,candidates:[],selected:null};
+ if(snapshot!==barrierSnapshot){barrierSnapshot=snapshot;currentDecisionId=state?.selected?.id??state?.id??null;
+  auditStage('balance-evaluation',{balanceStateId:state?.id,position:state?.position,candidates:state?.candidates.map(c=>({label:c.label,ready:c.ready,checks:c.checks}))});
+  if(state)observeDigitRegime('candidate',{market:state.market,sequence:state.sequence,candidates:state.candidates.map(c=>({type:c.contractType,barrier:c.barrier,ready:c.ready}))});
+  $('barrierDiagnostics').textContent=snapshot.candidates.map(c=>`${c.label}: ${c.status} · ${c.checks.filter(x=>!x.pass).map(x=>`${x.name}: ${x.value} requires ${x.required}`).join('; ')}`).join('\n');
+ }
+ return snapshot;
 };
 let ticks = [], distributionDigits = [], socket, distributionTimer, isRunning = false, lastSignalIndex = -Infinity, liveTickNumber = 0;
 const entryStability = new EntryStabilityRecovery();
@@ -312,7 +319,7 @@ const showOrderEntry = (type, result, source) => {
   if(!liveDigitWheel.confirm(result))return;
   const record=liveDigitWheel.contracts.contracts.get(String(result.contractId));
   if(!record||record.state==='settled')return;
-  const label = type==='DIGITDIFF'?`DIFFER ${result.barrier}`:type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
+  const label = type==='DIGITDIFF'?`DIFFER ${result.barrier}`:`${result.type==='DIGITOVER'?'OVER':'UNDER'} ${result.barrier??'UNKNOWN'}`;
   lastSettledOrder = { ...record, lifecycle:record, label, source, time:Date.now() };
   $('entryExecutionStatus').textContent = `ORDER ENTERED · ${label} · ${source} · entry number ${record.entryDigit??'pending from Deriv'} · waiting for settlement · contract ${record.contractId}`;
   $('entryExecutionStatus').className = 'entryExecutionStatus';
@@ -321,6 +328,7 @@ const showOrderEntry = (type, result, source) => {
 };
 const showContractResult = (type, result, source) => {
   observeDigitRegime('receipt',{receipt:result});
+  balanceEvidence.receipt(result);if(result.candidate&&!balanceSeenSettlements.has(String(result.contractId))){balanceSeenSettlements.add(String(result.contractId));balanceBook.settled(result.symbol,Date.now());if(authoritativeAutoDecision?.decisionId===result.decisionId)authoritativeDecisionState='SETTLED';}
   if(result.lifecycle?.accountId&&result.lifecycle.accountId!==selectedAccount()?.accountId)return;
   liveDigitWheel.settle(result);
   const record=liveDigitWheel.contracts.accept(result);
@@ -330,7 +338,7 @@ const showContractResult = (type, result, source) => {
   if(displayedContractIds.size>1000)displayedContractIds.delete(displayedContractIds.values().next().value);
   auditStage('order-result',{...(orderDecisionIds.get(result.contractId)||{decisionId:null}),contractId:result.contractId,type,source,
     status:result.status,entryTick:result.entryTick,exitTick:result.exitTick,profit:result.profit,payout:result.payout,buyPrice:result.buyPrice});
-  const label = type==='DIGITDIFF'?`DIFFER ${result.barrier}`:type === 'DIGITOVER' || type === 'OVER' ? 'OVER 1' : 'UNDER 8';
+  const label = type==='DIGITDIFF'?`DIFFER ${result.barrier}`:`${result.type==='DIGITOVER'?'OVER':'UNDER'} ${result.barrier??'UNKNOWN'}`;
   const won = record.result==='WON';
   const outcome = record.result;
   const completedOrder={...record,lifecycle:record,won,buyPrice:Number(result.buyPrice||0),payout:Number(result.payout||0),profit:Number(result.profit||0),label,source,time:Date.now()};
@@ -376,28 +384,15 @@ const updateAutoIndicator = () => {
 const handleAutoSettlement = (result, won) => {
   autoContractIds.delete(result.contractId);
   // One completed order ends this momentum, regardless of its outcome.
-  autoAwaitingReset = momentumResetEnabled();
+  autoAwaitingReset = false;
   lastAutoSignalTick = liveTickNumber;
   updateCooldownMonitor();
   updateAutoState();
 };
 const updateCooldownMonitor = () => {
-  const monitor = $('cooldownMonitor'), note = $('cooldownMonitorNote');
-  if (!Number.isFinite(lastAutoSignalTick)) {
-    monitor.textContent = autoAwaitingReset ? 'RESET MODE' : 'READY'; monitor.className = '';
-    note.textContent = autoAwaitingReset ? `Waiting for confidence to reach ${autoResetThreshold()}% or lower.` : `Waiting for the next qualifying Auto signal. Cooldown is set to ${selectedAutoCooldown()} ticks.`;
-    updateAutoIndicator(); return;
-  }
-  const cooldown = selectedAutoCooldown(), elapsed = Math.max(0, liveTickNumber - lastAutoSignalTick);
-  if (elapsed >= cooldown) {
-    lastAutoSignalTick = -Infinity;
-    monitor.textContent = autoAwaitingReset ? 'RESET MODE' : 'READY'; monitor.className = 'positive';
-    note.textContent = autoAwaitingReset ? `Cooldown complete. Waiting for confidence to reach ${autoResetThreshold()}% or lower.` : `Cooldown complete after ${cooldown} ticks. Waiting for the next qualifying Auto signal.`;
-    updateAutoIndicator(); return;
-  }
-  monitor.textContent = `COOLDOWN · ${elapsed}/${cooldown}`; monitor.className = 'regime-consolidation';
-  note.textContent = `${cooldown - elapsed} tick${cooldown - elapsed === 1 ? '' : 's'} remaining. New Auto orders are paused until the countdown finishes.`;
-  updateAutoIndicator();
+ const c=balanceBook.current($('symbol').value)?.selected;
+ $('cooldownMonitor').textContent=c&&balanceBook.available(c)?'FRESH AUTHORIZATION':'AWAITING FRESH EVIDENCE';
+ $('cooldownMonitorNote').textContent='Each balance authorization is used once. A completed contract requires new post-settlement analysis. No fixed tick cooldown applies to OVER/UNDER.';
 };
 const updateReport = () => {
   const wins = settled.filter(x => x.won).length;
@@ -469,44 +464,11 @@ const updateSideScores = (signal) => {
   }
 };
 const updateEntryStrength = () => {
-  const analysis=analyzeBoth();
-  const legacy=calculateSignal(ticks);
-  const signal = analysis.selected ? {...analysis.selected,options:legacy?.options} : legacy;
-  const minimum = Number($('minimum').value || 65);
-  const stability = digitStability(ticks);
-  if (stability.unstable) {
-    $('entryStrength').textContent = stability.state;
-    $('entryStrength').className = 'negative';
-    $('entryStrengthNote').textContent = `Extreme revisit rate ${stability.extremeRevisitRate.toFixed(1)}% · dangerous transitions ${stability.dangerousTransitionRate.toFixed(1)}%. Middle digits ${stability.middleConcentration.toFixed(1)}% · recovery ${stability.recoveryRun}/${stability.requiredRecovery}. Entry BLOCKED until live recovery evidence confirms stability.`;
-    return;
-  }
-  // Rearm before the normal signal gate. Otherwise a score below the minimum
-  // returns early and an Auto Bot paused for a fresh momentum reset never wakes.
-  if (autoAwaitingReset && autoContractIds.size === 0 && liveTickNumber - lastAutoSignalTick >= selectedAutoCooldown() && signal && signal.confidence <= autoResetThreshold()) {
-    autoAwaitingReset = false;
-    autoMomentumTrades = 0;
-    updateCooldownMonitor();
-    $('autoStatus').textContent = `Confidence reset to ${signal?.confidence ?? 0}%. Auto Bot is rearmed and waiting for the next LIVE SUPPORT entry.`;
-    updateAutoIndicator();
-  }
-  const suggestedEntryIsActive = Boolean(signal?.type && signal.confidence >= minimum);
-  if (!signal || !quotes.over || !quotes.under || !suggestedEntryIsActive) {
-    $('entryStrength').textContent = 'WAITING'; $('entryStrength').className = '';
-    $('entryStrengthNote').textContent = signal && !signal.type ? 'OVER 1 and UNDER 8 have equal sample strength. Waiting for a stronger side.' : signal && !suggestedEntryIsActive ? `Suggested Entry is not active: ${signal.label} score ${signal.confidence}% is below your ${minimum}% minimum. Strength waits until Suggested Entry gives a trade.` : 'It will assess the same selected entry after live data and pricing are available.';
-    return;
-  }
-  const change = selectedRateChange(signal);
-  const changeText = change === null ? 'Waiting for two live samples' : `${change > 0 ? '+' : ''}${change.toFixed(2)} percentage points this tick`;
-  const displayedRate = (signal.observed * 100).toFixed(1);
-  const digitGate = digitPercentageGate(signal.type);
-  const liveSupport = Boolean(analysis.selected) && qualifiesForLiveSupport(signal, minimum);
-  const label = !digitGate.allowed ? 'DIGIT FILTER' : stability.state === 'EXCELLENT' ? 'EXCELLENT' : stability.state === 'STABLE' ? 'STABLE' : change !== null && change < 0 ? 'DETERIORATING' : liveSupport ? 'LIVE SUPPORT' : 'WAITING';
-  $('entryStrength').textContent = label;
-  $('entryStrength').className = label === 'STRONG' || label === 'LIVE SUPPORT' ? 'positive' : label === 'CAUTION' ? 'regime-consolidation' : 'negative';
-  $('entryStrengthNote').textContent = `${signal.label}: ${changeText} · ${displayedRate}% sample matches. ${label === 'DETERIORATING' ? 'Falling support: automatic entry blocked.' : liveSupport ? 'Not falling; confidence and 90% sample gates met.' : 'Waiting for live change, minimum confidence and 90% sample matches.'}`;
-  if (!digitGate.allowed) $('entryStrengthNote').textContent = digitGate.note;
-  if (['LIVE SUPPORT','STABLE','EXCELLENT'].includes(label) && botMode === 'auto' && autoEnabled && !autoAwaitingReset) maybeAutoOrder(signal);
+ const state=analyzeBoth(),candidate=state.selected;
+ $('entryStrength').textContent=candidate?'FULLY QUALIFIED':state.status??'WARMING UP';
+ $('entryStrengthNote').textContent=candidate?`${candidate.label} · all required conditions passed; not a win probability`:'No current balance candidate qualifies. Inspect the scale conditions.';
 };
+
 const updatePricing = () => {
   const render = (quote, priceId, breakEvenId) => {
     if (!quote) { $(priceId).textContent = '—'; $(breakEvenId).textContent = 'No current quote'; return; }
@@ -515,8 +477,9 @@ const updatePricing = () => {
     $(breakEvenId).textContent = `Break-even win rate ${(breakEven * 100).toFixed(1)}%`;
   };
   render(quotes.over, 'overPrice', 'overBreakEven'); render(quotes.under, 'underPrice', 'underBreakEven');
-  const signal = calculateSignal(ticks);
+  const signal = analyzeBoth().selected;
   if (!signal?.type || !quotes.over || !quotes.under) { $('pricingGate').textContent = 'WAIT'; $('pricingGate').className = ''; $('pricingNote').textContent = signal && !signal.type ? 'Both sides have equal sample strength.' : 'Need live quotes and at least 50 ticks'; updateEntryStrength(); return; }
+  if(signal.barrier!==1&&signal.barrier!==8){$('pricingGate').textContent='FRESH PROPOSAL REQUIRED';$('pricingNote').textContent=signal.label+' receives its own validated proposal on execution; legacy 1/8 quotes do not apply.';updateEntryStrength();return;}
   const quote = signal.type === 'OVER' ? quotes.over : quotes.under;
   const expected = signal.observed * quote.payout - quote.ask;
   $('pricingGate').textContent = expected > 0 ? 'PASS' : 'BLOCK'; $('pricingGate').className = expected > 0 ? 'positive' : 'negative';
@@ -553,7 +516,7 @@ const calculateSignal = (history) => {
 };
 const update = () => {
   const windowSize = Number($('window').value) || 200; ticks = ticks.slice(-windowSize); distributionDigits = distributionDigits.slice(-windowSize);
-  updateSideScores(calculateSignal(ticks));
+  const canonical=analyzeBoth();updateSideScores({type:canonical.lean,options:{over1:canonical.candidates.find(c=>c.label==='OVER 1'),under8:canonical.candidates.find(c=>c.label==='UNDER 8')}});
   if (typeof updateDemoArmState === 'function') updateDemoArmState();
   updateCooldownMonitor();
   const c = counts(ticks), n = ticks.length, displayed = ticks.length, latest = ticks.at(-1);
@@ -564,20 +527,15 @@ const update = () => {
     return `<div class="digit"><b>${digit}</b><span>${displayed ? (value/displayed*100).toFixed(1) : '0.0'}%</span></div>`;
   }).join('');
   if(n < 50) { showSignal(null); updateEntryStrength(); liveDigitWheel.setLive(latest, heatMap(ticks), $('symbol').value); return; }
-  const candidate = calculateSignal(ticks);
-  const confidence = candidate.confidence;
-  const threshold = Number($('minimum').value);
-  const selected=analyzeBoth().selected;
-  showSignal(selected ? {...selected,options:candidate.options} : null, candidate, confidence);
-  if(!selected)$('signalNote').textContent='No candidate passes every analysis condition. See the two-candidate diagnostics for failed checks.';
+  showSignal(canonical.selected);
   updatePricing();
   // Strategy/authorization/request dispatch above must never wait for wheel rendering.
   liveDigitWheel.setLive(latest, heatMap(ticks), $('symbol').value);
 };
-const showSignal = (signal, candidate, confidence) => {
-  if(!signal){ $('signal').textContent = 'NO SIGNAL'; $('signal').className=''; $('signalNote').textContent = candidate ? `${candidate.type ? `${candidate.label} score ${confidence}% is below your threshold` : 'No stronger side'} · OVER 1 ${(candidate.options.over1.observed*100).toFixed(1)}% · UNDER 8 ${(candidate.options.under8.observed*100).toFixed(1)}% sample rates` : 'Collecting data'; $('executeOver').classList.remove('suggested'); $('executeUnder').classList.remove('suggested'); return; }
-  $('signal').textContent = signal.label; $('signal').className = 'positive'; $('signalNote').textContent = `Analysis score ${signal.confidence}% · OVER 1 sample rate ${(signal.options.over1.observed*100).toFixed(1)}% · UNDER 8 sample rate ${(signal.options.under8.observed*100).toFixed(1)}%`;
-  $('executeOver').classList.toggle('suggested', signal.type === 'OVER'); $('executeUnder').classList.toggle('suggested', signal.type === 'UNDER');
+const showSignal = signal => {
+ $('signal').textContent=signal?.label??'NO TRADE';$('signal').className=signal?'positive':'';
+ $('signalNote').textContent=signal?`${signal.label} · all required balance conditions passed; no guaranteed outcome`:'No current balance candidate qualifies. Inspect all four candidates below the scale.';
+ $('executeOver').classList.toggle('suggested',signal?.type==='OVER');$('executeUnder').classList.toggle('suggested',signal?.type==='UNDER');
 };
 const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
   let parsed;
@@ -587,7 +545,7 @@ const addTick = (price, epoch=Math.floor(Date.now()/1000), pipSize) => {
   if(Number.isInteger(digit)){
     const tick = {price:raw,time:epoch,digit};
     ticks.push(tick);
-    observeDigitRegime('tick',{market:$('symbol').value,sequence:liveTickNumber,...tick});
+    // Canonical balance/regime histories come from independent five-market subscriptions.
     // Advance only on price ticks, never on quote responses or UI redraws.
     // Compare each side with itself, even when the suggested side changes.
     const context = strengthContext();
@@ -611,104 +569,29 @@ const refreshPricing = () => {
   const amount = Number($('stake').value) || 1, symbol = $('symbol').value.trim();
   for (const type of ['OVER','UNDER']) socket.send(JSON.stringify(proposalRequest({type,symbol,stake:amount})));
 };
-const classifyMarket = (symbol, rawPrices) => {
-  const prices = rawPrices.map(Number).filter(Number.isFinite);
-  if (prices.length < 20) return { symbol, regime:'UNAVAILABLE', score:0, note:'Not enough recent prices' };
-  const measure = (series) => {
-    let movement = 0;
-    for (let i = 1; i < series.length; i++) movement += Math.abs(series[i] - series[i - 1]);
-    const net = series.at(-1) - series[0];
-    return { net, efficiency: movement ? Math.abs(net) / movement : 0 };
-  };
-  const full = measure(prices);
-  const recent = measure(prices.slice(-20));
-  // Prefer a sustained recent move when the older candles hide a new trend.
-  const bestWindow = recent.efficiency >= full.efficiency ? recent : full;
-  const direction = bestWindow.net >= 0 ? 'UPTREND' : 'DOWNTREND';
-  const trending = bestWindow.efficiency >= 0.22 && Math.abs(bestWindow.net) > 0;
-  const score = Math.round(bestWindow.efficiency * 100);
-  const windowNote = bestWindow === recent ? 'recent 20-minute movement' : 'recent 50-minute movement';
-  return { symbol, regime: trending ? direction : 'CONSOLIDATION', score, note: trending ? `${direction === 'UPTREND' ? 'Up' : 'Down'} movement is consistent in the ${windowNote}` : 'Price movement is choppy / sideways across both scan windows' };
-};
-const scannerSampleSize = () => Math.max(50, Math.min(500, Number($('window').value || 50)));
-const historyToTicks = (prices = [], times = []) => prices.map((price, index) => {
-  const raw = String(price);
-  const digit = Number(raw.at(-1));
-  return Number.isInteger(digit) ? { price:raw, time:Number(times[index]) || Math.floor(Date.now() / 1000), digit } : null;
-}).filter(Boolean);
-const fetchMarketHistory = (symbol) => new Promise((resolve) => {
-  let done = false;
-  const finish = (value) => { if (done) return; done = true; clearTimeout(timeout); try { ws.close(); } catch {} resolve(value); };
-  let ws;
-  const timeout = setTimeout(() => finish(classifyMarket(symbol, [])), 8000);
-  try {
-    ws = new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');
-    ws.onopen = () => ws.send(JSON.stringify({ ticks_history:symbol, count:scannerSampleSize(), end:'latest', style:'ticks' }));
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.error) return finish({ symbol, regime:'UNAVAILABLE', score:0, note:data.error.message || 'Market unavailable' });
-      if (data.candles) {
-        const prices = data.candles.map((candle) => candle.close);
-        saveMarketTicks(symbol, historyToTicks(prices, data.candles.map((candle) => candle.epoch)));
-        finish(classifyMarket(symbol, prices));
-      } else if (data.history?.prices) {
-        const prices = data.history.prices;
-        saveMarketTicks(symbol, historyToTicks(prices, data.history.times));
-        finish(classifyMarket(symbol, prices));
-      }
-    };
-    ws.onerror = () => finish({ symbol, regime:'UNAVAILABLE', score:0, note:'Could not read this market' });
-  } catch { finish({ symbol, regime:'UNAVAILABLE', score:0, note:'Could not open market scan' }); }
-});
 const renderMarketScan = () => {
-  const current = lastMarketScan.find((result) => result.symbol === $('symbol').value.trim());
-  const eligible = lastMarketScan.filter((result) => result.regime === 'UPTREND' || result.regime === 'DOWNTREND').sort((a,b) => b.score - a.score);
-  const consolidating = lastMarketScan.filter((result) => result.regime === 'CONSOLIDATION').sort((a,b) => b.score - a.score);
-  const best = eligible[0] ?? consolidating[0];
-  const bestIsTrend = Boolean(eligible[0]);
-  scannerRecommendedSymbol = best?.symbol ?? null;
-  $('currentRegime').textContent = current?.regime ?? 'WAITING';
-  $('currentRegime').className = current?.regime === 'CONSOLIDATION' ? 'regime-consolidation' : current?.regime === 'UNAVAILABLE' ? 'regime-unavailable' : current ? 'regime-trend' : '';
-  $('currentRegimeNote').textContent = current ? `${current.note} · strength ${current.score}% from recent 1-minute candles` : 'Start a scan to classify the selected market.';
-  $('scannerRecommendation').textContent = best ? `${best.symbol} · ${best.regime}` : 'WAIT — UNAVAILABLE';
-  $('scannerRecommendation').className = best ? (bestIsTrend ? 'regime-trend' : 'regime-consolidation') : 'regime-unavailable';
-  $('scannerRecommendationNote').textContent = best ? (bestIsTrend ? `Strongest scanner result: ${best.score}% trend strength. This does not predict the next digit.` : `Every available market is consolidating. ${best.symbol} has the highest relative movement score at ${best.score}%, so it is the selected fallback—not a trend signal.`) : 'No market data was available for comparison.';
-  $('useScannerMarket').disabled = !best;
-  $('useScannerMarket').textContent = best ? `Use ${best.symbol}` : 'Use recommended market';
-  $('marketScanResults').innerHTML = lastMarketScan.map((result) => `<article><p>${result.symbol}</p><strong class="${result.regime === 'CONSOLIDATION' ? 'regime-consolidation' : result.regime === 'UNAVAILABLE' ? 'regime-unavailable' : 'regime-trend'}">${result.regime}</strong><small>Strength ${result.score}% · ${result.note}</small></article>`).join('');
-  return { best, bestIsTrend };
+ const best=balanceBook.best();scannerRecommendedSymbol=best?.market??null;
+ $('scannerRecommendation').textContent=best?`${best.market} · ${best.label}`:'NO QUALIFIED MARKET';
+ $('scannerRecommendationNote').textContent='Independent digit balance analysis; no price-trend fallback or direction quota.';
+ $('useScannerMarket').disabled=!best;
+ $('marketScanResults').textContent=[...balanceBook.states.values()].map(s=>`${s.market}: ${s.selected?.label??s.status}`).join(' · ');
+ return {best,bestIsTrend:false};
 };
-const useScannerMarket = (symbol) => {
-  if (!symbol || $('symbol').value.trim() === symbol) return;
-  const previous = $('symbol').value.trim();
-  saveMarketTicks(previous);
-  $('symbol').value = symbol;
-  const restored = restoreMarketTicks(symbol);
-  if (!restored) { ticks = []; distributionDigits = []; }
-  quotes.over = null; quotes.under = null;
-  $('scannerStatus').textContent = restored ? `Switched to ${symbol} with its saved ${ticks.length}-tick scanner memory.` : `Switched to ${symbol}. Waiting for its scanner memory to load.`;
-  update();
-  startLive();
+const useScannerMarket = symbol => {
+ if(!symbol||$('symbol').value===symbol||autoInFlight||manualHttpPending||executionBlocked()||autoContractIds.size)return;
+ saveMarketTicks($('symbol').value);$('symbol').value=symbol;balanceBook.executionMarket=symbol;
+ restoreMarketTicks(symbol);quotes.over=null;quotes.under=null;startLive();
 };
-const scanMarkets = async () => {
-  if (marketScanBusy) return;
-  marketScanBusy = true; $('scanMarkets').disabled = true; $('scannerStatus').textContent = 'Checking recent price movement across markets…';
-  const currentSymbol = $('symbol').value.trim();
-  const symbols = [...new Set([currentSymbol, ...scannerSymbols].filter(Boolean))];
-  lastMarketScan = await Promise.all(symbols.map(fetchMarketHistory));
-  const recommendation = renderMarketScan();
-  const best = recommendation.best;
-  const canSwitch = botMode === 'auto' && autoEnabled && $('autoSwitchMarket').checked && best;
-  if (canSwitch && best.symbol !== currentSymbol) {
-    $('scannerStatus').textContent = `Auto bot switched from ${currentSymbol} to ${best.symbol} after the scanner selected the strongest ${recommendation.bestIsTrend ? 'trend' : 'consolidation fallback'}.`;
-    useScannerMarket(best.symbol);
-  } else if (botMode === 'auto' && $('autoSwitchMarket').checked && !best) {
-    $('scannerStatus').textContent = 'Auto switching did not run because no market data was available.';
-  } else if (best) {
-    $('scannerStatus').textContent = `Recommendation: ${best.symbol} (${best.regime}, ${best.score}% strength). Manual mode leaves the choice with you.`;
-  } else $('scannerStatus').textContent = 'No market data was available for a recommendation.';
-  marketScanBusy = false; $('scanMarkets').disabled = false;
+const scanMarkets = async () => {tradabilityMarkets.start();renderMarketScan();balanceCycle();};
+const balanceCycle = () => {
+ renderMarketScan();const current=analyzeBoth();showSignal(current.selected);updateEntryStrength();renderParallel();
+ if(botMode!=='auto'||!autoEnabled)return;
+ const best=$('autoSwitchMarket').checked?balanceBook.best():balanceBook.current($('symbol').value)?.selected;
+ if(!best)return;
+ if(best.market!==$('symbol').value){useScannerMarket(best.market);return;}
+ analyzeBoth();void maybeAutoOrder(best);
 };
+
 const syncScannerTimer = () => {
   clearInterval(scannerTimer); scannerTimer = undefined;
   if (botMode === 'auto' && autoEnabled) scannerTimer = setInterval(scanMarkets, 30000);
@@ -718,7 +601,7 @@ const startLive = () => {
   const symbol=$('symbol').value.trim();
   // Mode/Start clicks must not replace an open (or connecting) subscription.
   if(liveFeedSymbol===symbol&&socket&&(socket.readyState===0||socket.readyState===1))return;
-  observeDigitRegime('feed-start',{market:symbol,time:Date.now()});
+  balanceBook.executionMarket=symbol; // Selection must not reset analysis histories.
   // Preserve same-market history across short reconnects. push() still resets
   // on an actual data gap, invalid quote, or change of market.
   tradabilityMarkets.start();
@@ -782,7 +665,8 @@ const loadRecentOrder = async (reconcile=false) => {
     if(result.execution){executionView=result.execution;autoContractIds.clear();if(executionView.blocking&&executionView.last?.request.mode==='auto'&&executionView.last.request.strategy!=='DIFFER'&&executionView.last.contractId)autoContractIds.add(executionView.last.contractId);manualOrderPending=executionView.blocking||manualHttpPending;}
     liveDigitWheel.observeExecution(result.execution);
     const order=result.order;
-    if(order)observeDigitRegime('receipt',{receipt:order});
+    if(order?.decision?.mode==='auto'){authoritativeAutoDecision=order.decision;authoritativeDecisionState=order.state==='settled'?'SETTLED':order.contractId?'PURCHASED':order.state==='rejected'?'BLOCKED':'PROPOSAL';authoritativeDecisionError=order.error??'';}
+    if(order){observeDigitRegime('receipt',{receipt:order});balanceEvidence.receipt(order);if(order.candidate&&order.state==='settled'&&!balanceSeenSettlements.has(String(order.contractId))){balanceSeenSettlements.add(String(order.contractId));balanceBook.settled(order.symbol,Date.now());if(authoritativeAutoDecision?.decisionId===order.decisionId)authoritativeDecisionState='SETTLED';}}
     if(order?.strategy==='DIFFER'){
       if(!differEngineState.attemptId){differEngineState.pending(order.attemptId);differEngineState.pendingCooldown=Number($('autoCooldownTicks').value)||5;}
       differEngineState.observe(order);
@@ -841,35 +725,31 @@ updateDemoArmState = () => {
   else if (realSelected && !realConfirmed) { $('executionMode').textContent = 'REAL CONFIRM'; $('executionMode').className = 'negative'; $('executionNote').textContent = 'A separate real-money confirmation is required.'; }
   else if (accountReady) { $('executionMode').textContent = 'MANUAL READY'; $('executionMode').className = 'positive'; $('executionNote').textContent = 'Ready: press OVER 1 or UNDER 8 to send one order.'; }
   else { $('executionMode').textContent = 'ENTER STAKE'; $('executionMode').className = ''; $('executionNote').textContent = `Enter a stake up to ${money(maximum)} to enable manual execution.`; }
-  const unstable = digitStability(ticks).unstable;
+  const unstable = false;
   const manualReady = accountReady && botMode === 'manual' && !manualOrderPending && !manualHttpPending && !executionBlocked() && !unstable;
   $('executeOver').disabled = !manualReady; $('executeUnder').disabled = !manualReady;
   $('demoOrderStatus').textContent = !demoConnected ? 'Connect your Deriv account first.' : (manualOrderPending ? 'Current order is waiting for its one-tick settlement. Manual buttons will return immediately after settlement.' : (realSelected && !realTradingEnabled ? 'Real account is connected for later. Real-money ordering is disabled by the server setting.' : (accountReady ? `Ready for one order of ${money(stake)}.` : 'Select an account and enter a valid stake.')));
   if(executionBlocked())$('demoOrderStatus').textContent=`Execution: ${executionView.state.replaceAll('_',' ')}. ${executionView.last?.error?.message??executionView.errorSummary??'Monitoring the accepted request.'}`;
 };
-const executeOrder = async (type) => {
+const executeOrder = async (type,chosen=null) => {
+  const state=balanceBook.current($('symbol').value);const candidate=chosen??state?.candidates.find(c=>c.contractType===type&&c.barrier===(type==='DIGITOVER'?1:8));
+  if(!balanceBook.available(candidate)){ $('demoOrderStatus').textContent='NO ORDER · chosen candidate is not currently qualified or its authorization was consumed';return;}
   if(tradabilityBlocked()){$('demoOrderStatus').textContent='NEW ENTRY BLOCKED · '+(tradabilityServer?.reason??tradabilityEngine.snapshot?.state??'COLLECTING DATA');auditStage('tradability-block',{mode:'manual',type});return;}
   if(botMode!=='manual')return;
   if(manualOrderPending||manualHttpPending||executionBlocked()||differEngineState.executionLock){trackRecentOrder();return;}
   auditStage('manual-attempt',{type,risk:diagnosticRisk(),note:'Manual path uses existing guards, not automatic READY gate'});
-  const digitGate = digitPercentageGate(type === 'DIGITOVER' ? 'OVER' : 'UNDER');
-  if (!digitGate.allowed) { $('demoOrderStatus').textContent = `NO ORDER · ${digitGate.note}`; return; }
-  if (digitStability(ticks).unstable) {
-    $('autoStatus').textContent = 'UNSTABLE digit movement. New entries are blocked until five ticks pass without a large jump.';
-    updateDemoArmState();
-    return;
-  }
   const stake = Number($('stake').value || 0), account = selectedAccount();
   if (!demoConnected || !account || !Number.isFinite(stake) || stake <= 0) return updateDemoArmState();
-  const title = type === 'DIGITOVER' ? 'OVER 1' : 'UNDER 8';
+  const title = candidate.label;
   if (account.accountType === 'real' && !window.confirm(`Place one ${title} real-money order for ${money(stake)}?`)) return;
   const button = type === 'DIGITOVER' ? $('executeOver') : $('executeUnder'); manualOrderPending = true; $('executeOver').disabled = true; $('executeUnder').disabled = true; $('demoOrderStatus').textContent = 'ORDER REQUEST SENT · Waiting for Deriv to accept it…';
-  const trace=beginOrderAudit(type,'manual',stake);
+  const trace=beginOrderAudit(type,'manual',stake,candidate);
   manualHttpPending=true;
   try {
     const intentResponse=await fetch('/api/execution/manual-intent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,intent:'manual-click',attemptId:trace.attemptId,accountId:account.accountId,type})});
     const intent=await intentResponse.json();if(!intentResponse.ok)throw Error(intent.error||'Manual authorization failed');
-    const submitted = fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),tradabilityMode,executionSessionId:intent.executionSessionId,armed:true, type, symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked,mode:'manual',riskLimits:demoRiskLimits() }) });
+    assertCandidate(candidate,balanceBook.current(candidate.market),{type,now:Date.now(),allowManual:true});
+    const submitted = fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),tradabilityMode,executionSessionId:intent.executionSessionId,armed:true, type, symbol:trace.candidate.market, stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked,mode:'manual',riskLimits:demoRiskLimits() }) });
     trackRecentOrder();
     const response = await submitted;
     const result = await response.json();
@@ -884,12 +764,11 @@ const maybeAutoOrder = async (signal) => {
   if(tradabilityBlocked()){auditStage('tradability-block',{strategy:'OVER_UNDER',state:tradabilityEngine.snapshot?.state});return;}
   if(!overUnderEngineState.armed||!parallelAutoReady)return;
   if(differEngineState.executionLock){if(overUnderEngineState.blockedSequence!==liveTickNumber){overUnderEngineState.blockedSequence=liveTickNumber;auditStage('account-purchase-lock',{strategy:'OVER_UNDER',reason:'DIFFER execution unresolved; analysis continues, no delayed purchase'});}return;}
-  if(analyzeBoth().selected?.type!==signal.type)return;
-  auditStage('risk-manager',{type:signal.type,connected:demoConnected,mode:botMode,armed:autoEnabled,pending:autoInFlight||autoContractIds.size>0,reset:autoAwaitingReset,cooldown:Math.max(0,selectedAutoCooldown()-(liveTickNumber-lastAutoSignalTick))});
-  if (digitStability(ticks).unstable) return;
-  if (!qualifiesForLiveSupport(signal, Number($('minimum').value || 65))) return;
+  if(analyzeBoth().selected?.id!==signal.id||!balanceBook.available(signal))return;
+  auditStage('risk-manager',{type:signal.type,connected:demoConnected,mode:botMode,armed:autoEnabled,pending:autoInFlight||autoContractIds.size>0,reset:autoAwaitingReset,cooldown:0});
+  if(!signal.ready)return;
   const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = liveTickNumber;
-  if (botMode !== 'auto' || !autoEnabled || autoAwaitingReset || autoInFlight || autoContractIds.size > 0 || executionBlocked() || !demoConnected || account?.accountType !== 'demo') return;
+  if (botMode !== 'auto' || !isRunning || socket?.readyState!==1 || !autoEnabled || autoInFlight || autoContractIds.size > 0 || executionBlocked() || !demoConnected || account?.accountType !== 'demo') return;
   const maximum = Number($('maxStake').value || 5000);
   if (!Number.isFinite(stake) || stake <= 0 || stake > maximum) {
     autoLastError = `Enter a stake between $0.01 and ${money(maximum)} before Auto Bot can send an order.`;
@@ -897,25 +776,26 @@ const maybeAutoOrder = async (signal) => {
     return;
   }
   const ticksSinceLast = currentTick - lastAutoSignalTick;
-  if (ticksSinceLast < selectedAutoCooldown()) return;
+  // One current balance authorization is consumed per request; no fixed OU tick delay.
   autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
-  const trace=beginOrderAudit(signal.type==='OVER'?'DIGITOVER':'DIGITUNDER','auto',stake);
+  const trace=beginOrderAudit(signal.contractType,'auto',stake,signal);
+  authoritativeDecisionState='PROPOSAL';
   try {
-    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),browserAutoState:autoAuthorizationState,tradabilityMode,executionSessionId:parallelRunId,signalAt:executionNow(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:signal.type === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER', symbol:$('symbol').value.trim(), stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
+    const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),browserAutoState:autoAuthorizationState,tradabilityMode,executionSessionId:parallelRunId,signalAt:executionNow(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:trace.candidate.contractType, symbol:trace.candidate.market, stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
     const result = await response.json();
     if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode});
     acceptedOrderAudit(trace,result);
     lastAutoSignalTick = liveTickNumber;
     autoMomentumTrades += 1;
     autoContractIds.add(result.contractId);
-    autoAwaitingReset = momentumResetEnabled();
-    $('autoStatus').textContent = `ORDER ENTERED on digit ${result.lifecycle?.entryDigit??'pending from Deriv'}. Waiting for the next tick to settle. Auto bot will pause for ${selectedAutoCooldown()} ticks after this order.`;
+    autoAwaitingReset = false;
+    $('autoStatus').textContent = `ORDER ENTERED on digit ${result.lifecycle?.entryDigit??'pending from Deriv'}. Waiting for the next tick to settle. A new post-settlement balance state is required before another order.`;
     showOrderEntry(signal.type, result, 'Auto bot'); trackRecentOrder();
     updateCooldownMonitor();
   } catch (error) {
     // A rejected request must not silently turn the bot off. Keep it armed and
     // show the exact reason so the next LIVE SUPPORT signal can retry.
-    autoLastError = error.message || 'Deriv did not accept the Auto Bot order.';
+    autoLastError = error.message || 'Deriv did not accept the Auto Bot order.';authoritativeDecisionState='BLOCKED';authoritativeDecisionError=autoLastError;
     auditStage('execution-error',{...trace,type:signal.type,reason:autoLastError,riskCode:error.riskCode??null,proposalValidation:error.riskCode?'blocked by server risk before proposal/order':'not reported; failure stage unknown'});
     $('autoStatus').textContent = `Auto Bot is still ON. Request error: ${autoLastError}. Checking execution status before another purchase.`;
     trackRecentOrder();
@@ -943,11 +823,11 @@ updateAutoState = () => {
   else if (autoInFlight) $('autoStatus').textContent = 'LIVE SUPPORT confirmed. Sending Auto Bot order…';
   else if (!parallelAutoReady&&autoEnabled) $('autoStatus').textContent = `${autoAuthorizationState.replaceAll('_',' ')} · purchases paused. ${autoLastError||'Waiting for positive server acknowledgment.'}`;
   else if (autoLastError) $('autoStatus').textContent = `${parallelAutoReady?'Server-authorized Auto · last request rejected':'Auto stopped'}. ${autoLastError}. See Execution engine for the verified outcome.`;
-  else if (autoEnabled) $('autoStatus').textContent = `Auto Bot trades at or above your ${Number($('minimum').value || 65)}% minimum when LIVE SUPPORT appears, then pauses for the selected cooldown.`;
+  else if (autoEnabled) $('autoStatus').textContent = `Auto Bot uses the canonical Balance State. Each order consumes its authorization; only new post-settlement evidence can authorize another.`;
   else $('autoStatus').textContent = 'Auto bot is not active.';
   updateAutoIndicator();
 };
-$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('stake').addEventListener('change', () => { autoLastError = ''; scheduleFastPreparation(); }); $('symbol').addEventListener('change', () => { const selected = $('symbol').value.trim(); scheduleFastPreparation(); if (isRunning) { $('scannerStatus').textContent = `Changed to ${selected}. Loading its live feed now.`; startLive(); } }); $('autoCooldownTicks').addEventListener('change', updateCooldownMonitor); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('startAuto').onclick = () => { autoEnabled = true; autoAwaitingReset = false; autoMomentumTrades = 0; autoLastError = ''; lastAutoSignalTick = -Infinity; $('autoSwitchMarket').checked = true; setBotMode('auto'); $('autoStatus').textContent = 'Auto Bot started. Waiting for LIVE SUPPORT at or above your minimum confidence.'; updateCooldownMonitor(); scanMarkets(); }; $('stopAuto').onclick = () => { autoEnabled = false; autoAwaitingReset = false; autoMomentumTrades = 0; autoLastError = ''; lastAutoSignalTick = -Infinity; $('autoStatus').textContent = 'Auto Bot stopped. No new Auto orders will be sent.'; updateCooldownMonitor(); updateAutoState(); }; $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Automatic switching is armed for Auto bot mode only. It will switch to the scanner’s strongest selection, including the strongest consolidation fallback when no trend exists.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
+$('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelector').addEventListener('change', () => { showSelectedBalance(); updateDemoArmState(); updateAutoState(); prepareFastExecution(); }); $('stake').addEventListener('change', () => { autoLastError = ''; scheduleFastPreparation(); }); $('symbol').addEventListener('change', () => { const selected = $('symbol').value.trim(); scheduleFastPreparation(); if (isRunning) { $('scannerStatus').textContent = `Changed to ${selected}. Loading its live feed now.`; startLive(); } }); $('autoCooldownTicks').addEventListener('change', updateCooldownMonitor); $('executeOver').onclick = () => executeOrder('DIGITOVER'); $('executeUnder').onclick = () => executeOrder('DIGITUNDER'); $('startAuto').onclick = () => { autoEnabled = true; autoAwaitingReset = false; autoMomentumTrades = 0; autoLastError = ''; lastAutoSignalTick = -Infinity; $('autoSwitchMarket').checked = true; setBotMode('auto'); $('autoStatus').textContent = 'Auto Bot started. Waiting for LIVE SUPPORT at or above your minimum confidence.'; updateCooldownMonitor(); scanMarkets(); }; $('stopAuto').onclick = () => { autoEnabled = false; autoAwaitingReset = false; autoMomentumTrades = 0; autoLastError = ''; lastAutoSignalTick = -Infinity; $('autoStatus').textContent = 'Auto Bot stopped. No new Auto orders will be sent.'; updateCooldownMonitor(); updateAutoState(); }; $('scanMarkets').onclick = scanMarkets; $('useScannerMarket').onclick = () => { if (!scannerRecommendedSymbol) return; const before = $('symbol').value.trim(); useScannerMarket(scannerRecommendedSymbol); $('scannerStatus').textContent = before === scannerRecommendedSymbol ? `${scannerRecommendedSymbol} is already the active market.` : `Changed the live market from ${before} to ${scannerRecommendedSymbol}.`; }; $('autoSwitchMarket').addEventListener('change', () => { $('scannerStatus').textContent = $('autoSwitchMarket').checked ? 'Auto Pair Selection follows independently qualified digit balance candidates. Inspection does not change execution.' : 'Automatic switching is off. The scanner will only show its recommendation.'; });
 $('manualMode').onclick = () => setBotMode('manual'); $('autoMode').onclick = () => { setBotMode('auto'); $('autoStatus').textContent = 'Auto mode selected. The market scanner is running; press Start Auto Bot when you are ready to allow automatic orders.'; scanMarkets(); };
 $('resetTargetCycle').onclick = () => { targetRunBaseline = performanceStats.net; updatePerformance(); updateDemoArmState(); };
 $('deleteToday').onclick = () => {
@@ -963,11 +843,7 @@ $('clearActualPerformance').onclick = () => {
   accountOrderHistory = []; lastSettledOrder = null; localStorage.removeItem('derivAccountOrders'); updateActualPerformance(); update();
   $('actualEntryTick').textContent = '—'; $('actualEntryDigit').textContent = 'Entry price: —'; $('actualExitTick').textContent = '—'; $('actualExitDigit').textContent = 'Settlement price: —'; $('actualOrderOutcome').textContent = 'NO ORDER'; $('actualOrderOutcome').className = ''; $('actualOrderSide').textContent = 'Waiting for an accepted order';
 };
-$('momentumResetEnabled').addEventListener('change', () => {
-  if (!momentumResetEnabled()) autoAwaitingReset = false;
-  else if (autoMomentumTrades > 0) autoAwaitingReset = true;
-  updateCooldownMonitor(); updateAutoState();
-});
+// Balance authorization replaces legacy momentum-reset pacing.
 ['stake','maxStake','dailyLoss','dailyProfitTarget','maxTrades','maxConsecutiveLosses','maxTradesPerSetup'].forEach(id=>$(id).addEventListener('input', updateRiskSummary)); updateRiskSummary();
 updateActualPerformance();
 renderLastSettledOrder(lastSettledOrder);
@@ -976,15 +852,16 @@ $('exportBarrierAudit').onclick=()=>{auditStage('export-state',{risk:diagnosticR
 
 // Read-only presentation adapter. Rendering never advances analysis or submits orders.
 if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mountDashboard}) => {
-  mountDashboard(() => ({ticks, sequence:liveTickNumber, analysis:barrierSnapshot,
+  mountDashboard(() => ({ticks,authoritativeAutoDecision,authoritativeDecisionState, sequence:liveTickNumber, analysis:barrierSnapshot,
     market:$('symbol').value, account:selectedAccount(), connected:demoConnected,
     feedLive:socket?.readyState===1 && isRunning, botMode, autoEnabled:autoEnabled&&parallelAutoReady,
     active:autoInFlight||manualOrderPending||autoContractIds.size>0,
-    cooldown:Number.isFinite(lastAutoSignalTick)?Math.max(0,selectedAutoCooldown()-(liveTickNumber-lastAutoSignalTick)):0,
+    cooldown:0,
     awaitingReset:autoAwaitingReset, entryStability:entryStability.snapshot(), quotes, orders:accountOrderHistory,
     lastOrder:lastSettledOrder, flash:digitFlash, audit:barrierAudit,execution:executionView,executionTransportError,recheckExecution:()=>loadRecentOrder(true),
     minimum:Number($('minimum').value), persistence:Number($('barrierPersistence').value),
     stake:Number($('stake').value),tradability:tradabilityState()}));
+mountBalanceScale({book:balanceBook,evidence:balanceEvidence,getExecution:()=>({decision:authoritativeAutoDecision,decisionState:authoritativeDecisionState,decisionError:authoritativeDecisionError,feed:tradabilityMarkets.connection,feedError:tradabilityMarkets.errors.get(balanceBook.inspectedMarket),market:$('symbol').value,mode:botMode,authorization:autoAuthorizationState,account:selectedAccount(),busy:autoInFlight||manualHttpPending||executionBlocked()}),execute:candidate=>{if(botMode!=='manual')return;useScannerMarket(candidate.market);return executeOrder(candidate.contractType,candidate);}});
 }).catch(error => console.error('Dashboard presentation could not load',error));
 // The main Start/Stop remains the only AutoBot switch. Arm switches do not start it.
 for(const id of ['startAuto','stopAuto','manualMode']){

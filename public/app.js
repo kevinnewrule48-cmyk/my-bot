@@ -621,7 +621,7 @@ const startLive = () => {
   pauseFeedExecution('Waiting for a fresh live tick');
   liveFeedSymbol=symbol;
   const previous=socket;socket=null;previous?.close();
-  let feedSocket;
+  let feedSocket,brokerTime=null,brokerTimeReceived=0;
   const retry=reason=>{
     if(!feedWanted||(feedSocket&&socket!==feedSocket))return;
     clearTimeout(feedWatchdog);socket=null;feedSocket?.close();
@@ -636,6 +636,7 @@ const startLive = () => {
     feedSocket=socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');watch();
     feedSocket.onopen=()=>{
       if(socket!==feedSocket||!feedWanted)return;
+      feedSocket.send(JSON.stringify({time:1}));
       feedSocket.send(JSON.stringify({ticks:symbol,subscribe:1}));
       $('connection').textContent=`CONNECTING · ${symbol} · waiting for tick`;
     };
@@ -643,10 +644,11 @@ const startLive = () => {
     feedSocket.onmessage=e=>{
       if(socket!==feedSocket||!feedWanted)return;
       let data;try{data=JSON.parse(e.data);}catch{return;}
-      if(data.error){if(data.echo_req?.ticks)retry('Live subscription rejected');else logger('Live pricing request failed');return;}
+      if(Number.isFinite(data.time)){brokerTime=data.time*1000;brokerTimeReceived=performance.now();return;}
+      if(data.error){if(data.echo_req?.ticks||data.echo_req?.time)retry('Live subscription rejected');else logger('Live pricing request failed');return;}
       if(data.tick&&data.tick.symbol===symbol){
         const epoch=Number(data.tick.epoch),quote=Number(data.tick.quote);
-        if(!Number.isFinite(epoch)||!Number.isFinite(quote)||epoch<=lastEpoch||Math.abs(Date.now()-epoch*1000)>15000)return;
+        if(!Number.isFinite(epoch)||!Number.isFinite(quote)||epoch<=lastEpoch||brokerTime===null||Math.abs(brokerTime+performance.now()-brokerTimeReceived-epoch*1000)>15000)return;
         lastEpoch=epoch;watch();feedRetryCount=0;
         if(!isRunning){isRunning=true;void syncTradability();if(autoEnabled)void syncParallelControl();refreshPricing();}
         $('connection').textContent=`LIVE · ${symbol}`;$('connection').className='pill positive';

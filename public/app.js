@@ -597,20 +597,66 @@ const syncScannerTimer = () => {
   if (botMode === 'auto' && autoEnabled) scannerTimer = setInterval(scanMarkets, 30000);
 };
 let liveFeedSymbol = null;
+let feedWanted=false,feedRetryTimer=null,feedWatchdog=null,feedRetryCount=0;
+const pauseFeedExecution=reason=>{
+  isRunning=false;parallelAutoReady=false;
+  // Invalidate in-flight acknowledgments, but retain the user's Auto intent.
+  parallelRunId='';autoControlPending=false;tradabilitySyncKey=null;tradabilityServer=null;
+  autoAuthorizationState=autoEnabled?'AUTO_RECOVERING':'AUTO_OFF';autoLastError=reason;
+  differEngineState.candidate=null;differEngineState.signal=null;
+  renderParallel();updateAutoState();
+};
+const stopLiveFeed=()=>{
+  feedWanted=false;clearTimeout(feedRetryTimer);clearTimeout(feedWatchdog);
+  feedRetryTimer=null;const previous=socket;socket=null;previous?.close();
+  isRunning=false;
+};
 const startLive = () => {
   const symbol=$('symbol').value.trim();
-  // Mode/Start clicks must not replace an open (or connecting) subscription.
+  feedWanted=true;
   if(liveFeedSymbol===symbol&&socket&&(socket.readyState===0||socket.readyState===1))return;
-  balanceBook.executionMarket=symbol; // Selection must not reset analysis histories.
-  // Preserve same-market history across short reconnects. push() still resets
-  // on an actual data gap, invalid quote, or change of market.
-  tradabilityMarkets.start();
-  tradabilitySyncKey=null;tradabilityServer=null;
-  strengthSample = null;
-  if (botMode === 'manual') { autoEnabled = false; syncScannerTimer(); }
-  liveFeedSymbol=symbol; isRunning=false; if(socket) socket.close();
-  try { socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public'); const feedSocket=socket;socket.onopen=()=>{if(socket!==feedSocket)return;isRunning=true;void syncTradability();if(autoEnabled)void syncParallelControl(); socket.send(JSON.stringify({ticks:symbol,subscribe:1})); refreshPricing(); $('connection').textContent=`LIVE · ${symbol}`; $('connection').className='pill positive';}; socket.onmessage=e=>{if(socket!==feedSocket)return;const data=JSON.parse(e.data); if(data.error){logger(`<span class="negative">Feed error: ${data.error.message}</span>`); return;} if(data.tick&&data.tick.symbol===symbol)addTick(data.tick.quote,data.tick.epoch,data.tick.pip_size); if(data.proposal){const kind=data.echo_req?.contract_type === 'DIGITOVER' ? 'over' : 'under'; quotes[kind]={ask:Number(data.proposal.ask_price), payout:Number(data.proposal.payout)}; updatePricing();}}; socket.onerror=()=>{if(socket!==feedSocket)return;isRunning=false;void revokeExecution();$('connection').textContent='LIVE FEED ERROR';$('connection').className='pill negative';logger('<span class="negative">Could not connect to the live Deriv feed. No simulated prices will be shown.</span>');}; socket.onclose=()=>{if(socket!==feedSocket)return;if(socket?.readyState!==1){isRunning=false;void revokeExecution();}if(!isRunning){$('connection').textContent='DISCONNECTED';$('connection').className='pill negative';}};
-  } catch { $('connection').textContent='LIVE FEED ERROR'; $('connection').className='pill negative'; }
+  clearTimeout(feedRetryTimer);clearTimeout(feedWatchdog);feedRetryTimer=null;
+  balanceBook.executionMarket=symbol;
+  tradabilityMarkets.start();strengthSample=null;
+  pauseFeedExecution('Waiting for a fresh live tick');
+  liveFeedSymbol=symbol;
+  const previous=socket;socket=null;previous?.close();
+  let feedSocket;
+  const retry=reason=>{
+    if(!feedWanted||(feedSocket&&socket!==feedSocket))return;
+    clearTimeout(feedWatchdog);socket=null;feedSocket?.close();
+    pauseFeedExecution(reason);
+    $('connection').textContent='RECONNECTING · purchases paused';$('connection').className='pill negative';
+    auditStage('feed-reconnecting',{symbol,reason});
+    clearTimeout(feedRetryTimer);
+    feedRetryTimer=setTimeout(()=>{feedRetryTimer=null;if(feedWanted)startLive();},Math.min(30000,1000*2**Math.min(feedRetryCount++,5)));
+  };
+  const watch=()=>{clearTimeout(feedWatchdog);feedWatchdog=setTimeout(()=>retry('Live feed stalled: no fresh ticks'),15000);};
+  try {
+    feedSocket=socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');watch();
+    feedSocket.onopen=()=>{
+      if(socket!==feedSocket||!feedWanted)return;
+      feedSocket.send(JSON.stringify({ticks:symbol,subscribe:1}));
+      $('connection').textContent=`CONNECTING · ${symbol} · waiting for tick`;
+    };
+    let lastEpoch=0;
+    feedSocket.onmessage=e=>{
+      if(socket!==feedSocket||!feedWanted)return;
+      let data;try{data=JSON.parse(e.data);}catch{return;}
+      if(data.error){if(data.echo_req?.ticks)retry('Live subscription rejected');else logger('Live pricing request failed');return;}
+      if(data.tick&&data.tick.symbol===symbol){
+        const epoch=Number(data.tick.epoch),quote=Number(data.tick.quote);
+        if(!Number.isFinite(epoch)||!Number.isFinite(quote)||epoch<=lastEpoch||Math.abs(Date.now()-epoch*1000)>15000)return;
+        lastEpoch=epoch;watch();feedRetryCount=0;
+        if(!isRunning){isRunning=true;void syncTradability();if(autoEnabled)void syncParallelControl();refreshPricing();}
+        $('connection').textContent=`LIVE · ${symbol}`;$('connection').className='pill positive';
+        addTick(data.tick.quote,epoch,data.tick.pip_size);
+      }
+      if(data.proposal){const kind=data.echo_req?.contract_type==='DIGITOVER'?'over':'under';quotes[kind]={ask:Number(data.proposal.ask_price),payout:Number(data.proposal.payout)};updatePricing();}
+    };
+    feedSocket.onerror=()=>retry('Live feed connection error');
+    feedSocket.onclose=()=>retry('Live feed disconnected');
+  }catch{retry('Could not open live feed');}
 };
 const backtest = () => {
   const duration = Number($('duration').value) || 1, windowSize = Number($('window').value) || 200, threshold = Number($('minimum').value), cooldown = Number($('cooldown').value) || 10;
@@ -711,7 +757,7 @@ const loadAuthStatus = async () => {
   } catch { $('connect').textContent = 'Account sign-in unavailable'; }
 };
 $('connect').onclick=()=>{ window.location.assign('/api/auth/start'); };
-$('start').onclick=startLive; $('pricing').onclick=refreshPricing; $('backtest').onclick=backtest; $('stop').onclick=()=>{void revokeExecution();isRunning=false;clearTimeout(distributionTimer);distributionTimer=undefined;if(socket)socket.close();$('connection').textContent='STOPPED';$('connection').className='pill muted';};
+$('start').onclick=startLive; $('pricing').onclick=refreshPricing; $('backtest').onclick=backtest; $('stop').onclick=()=>{stopLiveFeed();void revokeExecution();isRunning=false;clearTimeout(distributionTimer);distributionTimer=undefined;if(socket)socket.close();$('connection').textContent='STOPPED';$('connection').className='pill muted';};
 ['window','minimum','duration','cooldown'].forEach(id=>$(id).addEventListener('change',()=>{ update(); updateReport(); })); updateReport(); update();
 updateDemoArmState = () => {
   const stake = Number($('stake').value || 0), maximum = Number($('maxStake').value || 0);
@@ -866,7 +912,7 @@ mountBalanceScale({book:balanceBook,evidence:balanceEvidence,getExecution:()=>({
 // The main Start/Stop remains the only AutoBot switch. Arm switches do not start it.
 for(const id of ['startAuto','stopAuto','manualMode']){
   const previous=$(id).onclick;
-  $(id).onclick=(event)=>{if(id!=='startAuto')void revokeExecution();parallelAutoReady=false;previous?.(event);differEngineState.candidate=null;differEngineState.signal=null;if(id==='startAuto'&&!isRunning)startLive();void syncParallelControl();};
+  $(id).onclick=(event)=>{if(id!=='startAuto')void revokeExecution();parallelAutoReady=false;previous?.(event);differEngineState.candidate=null;differEngineState.signal=null;if(id==='startAuto'&&!isRunning)startLive();if(isRunning||id!=='startAuto')void syncParallelControl();};
 }
 $('ouArm').onclick=()=>{overUnderEngineState.armed=!overUnderEngineState.armed;$('ouArm').setAttribute('aria-pressed',String(overUnderEngineState.armed));void syncParallelControl();renderParallel();};
 $('differArm').onclick=()=>{differEngineState.arm(!differEngineState.armed);$('differArm').setAttribute('aria-pressed',String(differEngineState.armed));void syncParallelControl();renderParallel();};
@@ -874,6 +920,6 @@ $('accountSelector').addEventListener('change',()=>{void revokeExecution();autoE
 renderParallel();
 setInterval(verifyAutoAuthorization,1500);
 setInterval(async()=>{if(tradabilityMode!=='auto-block'||!isRunning||!demoConnected)return;try{const key=tradabilitySyncKey;if(!key){void syncTradability();return;}const response=await fetch('/api/tradability/status',{cache:'no-store'});if(!response.ok)throw Error('Server guard unavailable');const result=await response.json();if(key===tradabilitySyncKey)tradabilityServer=result;}catch{tradabilityServer={allowed:false,reason:'Server guard unavailable'};}},2000);
-globalThis.addEventListener?.('pagehide',()=>{void revokeExecution();});
+globalThis.addEventListener?.('pagehide',()=>{stopLiveFeed();void revokeExecution();});
 loadAuthStatus();
 tradabilityMarkets.start();

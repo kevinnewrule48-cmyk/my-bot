@@ -61,7 +61,7 @@ export function assertCandidate(candidate,state,{type=candidate?.contractType,ba
  if(!actual||JSON.stringify(actual)!==JSON.stringify(candidate))reject('Candidate measurements or identity altered');
  if(!actual.ready||(!allowManual&&actual.id!==state.selected?.id))reject('Candidate is not currently authorized by analysis');
  if(type!==actual.contractType||barrier!==actual.barrier||symbol!==actual.market||actual.direction!==state.lean)reject('Analyzed direction, selected direction, contract type, barrier or market mismatch');
- if(now-state.createdAt>5000||state.createdAt>now+1000)reject('Expired balance state / stale feed');
+ if(!Number.isFinite(now)||now-state.createdAt>5000||state.createdAt>now+1000)reject('Expired balance state / stale feed');
  return actual;
 }
 export function continuationAllowed(candidate,state,previous){
@@ -74,7 +74,7 @@ export function continuationAllowed(candidate,state,previous){
  return candidate.strength+1e-9>=prior.strength&&candidate.clearance+1e-9>=prior.clearance&&state.fine[dangerous]<=before.fine[dangerous]+1e-9&&Math.abs(state.position)+1e-9>=Math.abs(before.position);
 }
 export class BalanceBook{
- constructor(){this.histories=new Map();this.states=new Map();this.consumed=new Set();this.settlementFloor=new Map();this.inspectedMarket='R_100';this.executionMarket='R_100';this.manualSelection={direction:null,barrier:null};this.listeners=new Set();this.lastConsumed=null;this.lastSettled=null;}
+ constructor({now=()=>Date.now()}={}){this.now=now;this.histories=new Map();this.states=new Map();this.consumed=new Set();this.settlementFloor=new Map();this.inspectedMarket='R_100';this.executionMarket='R_100';this.manualSelection={direction:null,barrier:null};this.listeners=new Set();this.lastConsumed=null;this.lastSettled=null;}
  push(market,tick){if(!BALANCE_MARKETS.includes(market))return null;const h=this.histories.get(market)??[],epoch=tick.epoch??tick.time;
   if(!Number.isFinite(epoch)||epoch<=(h.at(-1)?.epoch??-Infinity)||!Number.isInteger(tick.digit)||tick.digit<0||tick.digit>9)return null;
   if(h.length&&epoch-h.at(-1).epoch>60)h.length=0;
@@ -84,8 +84,8 @@ export class BalanceBook{
  inspect(market){if(!BALANCE_MARKETS.includes(market))throw Error('Unsupported inspected market');this.inspectedMarket=market;this.emit();}
  manual(direction,barrier){if(!BARRIERS.some(x=>x.direction===direction&&x.barrier===barrier))throw Error('Unsupported manual candidate');this.manualSelection={direction,barrier};this.emit();}
  current(market=this.executionMarket){return this.states.get(market)??null;}
- available(candidate,now=Date.now()){const state=this.current(candidate?.market);try{assertCandidate(candidate,state,{now,allowManual:true});return continuationAllowed(candidate,state,this.lastSettled)&&!this.consumed.has(state.id)&&state.createdAt>(this.settlementFloor.get('*')??-Infinity);}catch{return false;}}
- best(now=Date.now()){const a=[...this.states.values()].map(s=>s.selected).filter(c=>this.available(c,now)).sort((a,b)=>b.strength-a.strength||b.excessSupport-a.excessSupport);if(a.length>1&&a[0].strength===a[1].strength&&a[0].excessSupport===a[1].excessSupport)return a.find(c=>c.market===this.executionMarket)??null;return a[0]??null;}
- consume(candidate,now=Date.now()){if(!this.available(candidate,now))throw Error('Balance authorization expired or consumed');this.lastConsumed={candidate,balanceState:this.current(candidate.market)};this.consumed.add(candidate.balanceStateId);if(this.consumed.size>2000)this.consumed.delete(this.consumed.values().next().value);this.emit();}
- settled(market,at=Date.now()){this.settlementFloor.set('*',at);this.lastSettled=this.lastConsumed;this.emit();}
+ available(candidate,now=this.now()){const state=this.current(candidate?.market);try{assertCandidate(candidate,state,{now,allowManual:true});return continuationAllowed(candidate,state,this.lastSettled)&&!this.consumed.has(state.id)&&state.createdAt>(this.settlementFloor.get('*')??-Infinity);}catch{return false;}}
+ best(now=this.now()){const a=[...this.states.values()].map(s=>s.selected).filter(c=>this.available(c,now)).sort((a,b)=>b.strength-a.strength||b.excessSupport-a.excessSupport);if(a.length>1&&a[0].strength===a[1].strength&&a[0].excessSupport===a[1].excessSupport)return a.find(c=>c.market===this.executionMarket)??null;return a[0]??null;}
+ consume(candidate,now=this.now()){if(!this.available(candidate,now))throw Error('Balance authorization expired or consumed');this.lastConsumed={candidate,balanceState:this.current(candidate.market)};this.consumed.add(candidate.balanceStateId);if(this.consumed.size>2000)this.consumed.delete(this.consumed.values().next().value);this.emit();}
+ settled(market,at=this.now()){this.settlementFloor.set('*',at);this.lastSettled=this.lastConsumed;this.emit();}
 }

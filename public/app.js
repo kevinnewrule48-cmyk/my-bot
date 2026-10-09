@@ -31,7 +31,11 @@ const regimeAttempt = (attemptId,type,mode,stake,barrier) => { try { observeDigi
   existing:{barrier:barrierSnapshot,barrierConfig:barrierEngine.config,minimumConfidence:Number($('minimum').value),requiredPersistence:Number($('barrierPersistence').value),
     entryStrength:{display:$('entryStrength').textContent,recovery:entryStability.snapshot(),sample:strengthSample},differ:{candidate:differEngineState.candidate,signal:differEngineState.signal,status:differEngineState.status},risk:diagnosticRisk()}
 }); } catch(error) { console.warn('Shadow snapshot unavailable; execution unchanged',error.message); } };
-const balanceBook=new BalanceBook();
+// Broker epochs use a monotonic reference, independent of the computer clock.
+let marketClockAnchor=null;
+const marketNow=()=>marketClockAnchor?marketClockAnchor.epochMs+performance.now()-marketClockAnchor.receivedAt:NaN;
+const syncMarketClock=epoch=>{if(Number.isFinite(epoch)&&epoch>0)marketClockAnchor={epochMs:epoch*1000,receivedAt:performance.now()};};
+const balanceBook=new BalanceBook({now:marketNow});
 const balanceEvidence=new BalanceEvidence();
 const balanceSeenSettlements=new Set();
 const tradabilityEvents=[];
@@ -50,7 +54,7 @@ const syncTradability=async()=>{
   finally{if(tradabilitySyncKey===key||tradabilitySyncKey===null)tradabilitySyncing=false;}
 };
 const tradabilityBlocked=()=>tradabilityMode==='auto-block'&&(tradabilitySyncing||!tradabilityServer?.allowed||tradabilityBlocks(tradabilityEngine.snapshot,'auto-block',tradabilityEngine.config.warmupPolicy));
-const tradabilityState=()=>({engine:tradabilityEngine,markets:tradabilityMarkets.snapshots(),connection:tradabilityMarkets.connection,mode:tradabilityMode,server:tradabilityServer,syncing:tradabilitySyncing,events:tradabilityEvents,
+const tradabilityState=()=>({engine:tradabilityEngine,markets:tradabilityMarkets.snapshots(),environments:tradabilityMarkets.environment.states,now:marketNow(),connection:tradabilityMarkets.connection,mode:tradabilityMode,server:tradabilityServer,syncing:tradabilitySyncing,events:tradabilityEvents,
  selectWindow:size=>{tradabilityMarkets.selectWindow(size);tradabilityServer=null;void syncTradability();},
  setMode:mode=>{tradabilityMode=mode;tradabilityServer=null;void syncTradability();}});
 const overUnderEngineState={armed:true,status:'ANALYZING'};
@@ -152,8 +156,9 @@ const diagnosticRisk=()=>({connected:demoConnected,accountType:selectedAccount()
   configuredCooldown:selectedAutoCooldown(),stake:Number($('stake').value),maximumStake:Number($('maxStake').value),
   realAutoEnabled:false,dailyAccountLimits:'Demo server session ledger; not account-wide daily limits',requestedDemoLimits:demoRiskLimits()});
 const beginOrderAudit=(type,mode,stake,candidate)=>{
-  const balanceState=balanceBook.current(candidate.market);assertCandidate(candidate,balanceState,{type,now:Date.now(),allowManual:mode==='manual'});balanceBook.consume(candidate);balanceEvidence.attempt(candidate,balanceState);
-  const decision=createTradeDecision(candidate,balanceState,{mode,regime:globalThis.partOneRegimeSnapshot?.(candidate.market)??null});
+  const balanceState=balanceBook.current(candidate.market);assertCandidate(candidate,balanceState,{type,now:marketNow(),allowManual:mode==='manual'});
+  const decision=createTradeDecision(candidate,balanceState,{mode,now:marketNow(),regime:globalThis.partOneRegimeSnapshot?.(candidate.market)??null});
+  balanceBook.consume(candidate);balanceEvidence.attempt(candidate,balanceState);
   if(mode==='auto'){authoritativeAutoDecision=decision;authoritativeDecisionState='LOCKED';authoritativeDecisionError='';}
   auditStage('decision-locked',{decision});
   const decisionId=decision.decisionId;
@@ -243,7 +248,7 @@ const saveMarketTicks = (symbol, history = ticks) => {
 };
 const restoreMarketTicks = (symbol) => {
   const saved = marketTickMemory.get(symbol);
-  if (!saved?.length) return false;
+  if (!saved?.length) { ticks=[];distributionDigits=[];return false; }
   ticks = cloneTicks(saved);
   distributionDigits = cloneTicks(saved);
   return true;
@@ -328,7 +333,7 @@ const showOrderEntry = (type, result, source) => {
 };
 const showContractResult = (type, result, source) => {
   observeDigitRegime('receipt',{receipt:result});
-  balanceEvidence.receipt(result);if(result.candidate&&!balanceSeenSettlements.has(String(result.contractId))){balanceSeenSettlements.add(String(result.contractId));balanceBook.settled(result.symbol,Date.now());if(authoritativeAutoDecision?.decisionId===result.decisionId)authoritativeDecisionState='SETTLED';}
+  balanceEvidence.receipt(result);if(result.candidate&&!balanceSeenSettlements.has(String(result.contractId))){balanceSeenSettlements.add(String(result.contractId));balanceBook.settled(result.symbol);if(authoritativeAutoDecision?.decisionId===result.decisionId)authoritativeDecisionState='SETTLED';}
   if(result.lifecycle?.accountId&&result.lifecycle.accountId!==selectedAccount()?.accountId)return;
   liveDigitWheel.settle(result);
   const record=liveDigitWheel.contracts.accept(result);
@@ -579,8 +584,7 @@ const renderMarketScan = () => {
 };
 const useScannerMarket = symbol => {
  if(!symbol||$('symbol').value===symbol||autoInFlight||manualHttpPending||executionBlocked()||autoContractIds.size)return;
- saveMarketTicks($('symbol').value);$('symbol').value=symbol;balanceBook.executionMarket=symbol;
- restoreMarketTicks(symbol);quotes.over=null;quotes.under=null;startLive();
+ $('symbol').value=symbol;balanceBook.executionMarket=symbol;startLive();
 };
 const scanMarkets = async () => {tradabilityMarkets.start();renderMarketScan();balanceCycle();};
 const balanceCycle = () => {
@@ -616,6 +620,12 @@ const startLive = () => {
   feedWanted=true;
   if(liveFeedSymbol===symbol&&socket&&(socket.readyState===0||socket.readyState===1))return;
   clearTimeout(feedRetryTimer);clearTimeout(feedWatchdog);feedRetryTimer=null;
+  if(liveFeedSymbol!==symbol){
+    saveMarketTicks(liveFeedSymbol);restoreMarketTicks(symbol);
+    clearTimeout(distributionTimer);distributionTimer=undefined;quotes.over=null;quotes.under=null;
+    $('price').textContent='—';$('tickTime').textContent='Waiting for selected market';
+    $('priceDigitCursor').textContent=`Waiting for ${symbol} live price`;update();
+  }
   balanceBook.executionMarket=symbol;
   tradabilityMarkets.start();strengthSample=null;
   pauseFeedExecution('Waiting for a fresh live tick');
@@ -644,7 +654,7 @@ const startLive = () => {
     feedSocket.onmessage=e=>{
       if(socket!==feedSocket||!feedWanted)return;
       let data;try{data=JSON.parse(e.data);}catch{return;}
-      if(Number.isFinite(data.time)){brokerTime=data.time*1000;brokerTimeReceived=performance.now();return;}
+      if(Number.isFinite(data.time)){brokerTime=data.time*1000;brokerTimeReceived=performance.now();syncMarketClock(data.time);return;}
       if(data.error){if(data.echo_req?.ticks||data.echo_req?.time)retry('Live subscription rejected');else logger('Live pricing request failed');return;}
       if(data.tick&&data.tick.symbol===symbol){
         const epoch=Number(data.tick.epoch),quote=Number(data.tick.quote);
@@ -714,7 +724,7 @@ const loadRecentOrder = async (reconcile=false) => {
     liveDigitWheel.observeExecution(result.execution);
     const order=result.order;
     if(order?.decision?.mode==='auto'){authoritativeAutoDecision=order.decision;authoritativeDecisionState=order.state==='settled'?'SETTLED':order.contractId?'PURCHASED':order.state==='rejected'?'BLOCKED':'PROPOSAL';authoritativeDecisionError=order.error??'';}
-    if(order){observeDigitRegime('receipt',{receipt:order});balanceEvidence.receipt(order);if(order.candidate&&order.state==='settled'&&!balanceSeenSettlements.has(String(order.contractId))){balanceSeenSettlements.add(String(order.contractId));balanceBook.settled(order.symbol,Date.now());if(authoritativeAutoDecision?.decisionId===order.decisionId)authoritativeDecisionState='SETTLED';}}
+    if(order){observeDigitRegime('receipt',{receipt:order});balanceEvidence.receipt(order);if(order.candidate&&order.state==='settled'&&!balanceSeenSettlements.has(String(order.contractId))){balanceSeenSettlements.add(String(order.contractId));balanceBook.settled(order.symbol);if(authoritativeAutoDecision?.decisionId===order.decisionId)authoritativeDecisionState='SETTLED';}}
     if(order?.strategy==='DIFFER'){
       if(!differEngineState.attemptId){differEngineState.pending(order.attemptId);differEngineState.pendingCooldown=Number($('autoCooldownTicks').value)||5;}
       differEngineState.observe(order);
@@ -796,7 +806,7 @@ const executeOrder = async (type,chosen=null) => {
   try {
     const intentResponse=await fetch('/api/execution/manual-intent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,intent:'manual-click',attemptId:trace.attemptId,accountId:account.accountId,type})});
     const intent=await intentResponse.json();if(!intentResponse.ok)throw Error(intent.error||'Manual authorization failed');
-    assertCandidate(candidate,balanceBook.current(candidate.market),{type,now:Date.now(),allowManual:true});
+    assertCandidate(candidate,balanceBook.current(candidate.market),{type,now:marketNow(),allowManual:true});
     const submitted = fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),tradabilityMode,executionSessionId:intent.executionSessionId,armed:true, type, symbol:trace.candidate.market, stake, accountId:account.accountId, accountType:account.accountType, realConfirmed:$('realConfirm').checked,mode:'manual',riskLimits:demoRiskLimits() }) });
     trackRecentOrder();
     const response = await submitted;
@@ -826,9 +836,10 @@ const maybeAutoOrder = async (signal) => {
   const ticksSinceLast = currentTick - lastAutoSignalTick;
   // One current balance authorization is consumed per request; no fixed OU tick delay.
   autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
-  const trace=beginOrderAudit(signal.contractType,'auto',stake,signal);
-  authoritativeDecisionState='PROPOSAL';
+  let trace;
   try {
+    trace=beginOrderAudit(signal.contractType,'auto',stake,signal);
+    authoritativeDecisionState='PROPOSAL';
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),browserAutoState:autoAuthorizationState,tradabilityMode,executionSessionId:parallelRunId,signalAt:executionNow(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:trace.candidate.contractType, symbol:trace.candidate.market, stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
     const result = await response.json();
     if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode});

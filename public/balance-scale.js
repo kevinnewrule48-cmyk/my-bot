@@ -31,13 +31,13 @@ export function mountBalanceScale({book,evidence,getExecution=()=>({}),execute=(
  el('balanceManual').onchange=()=>{if(!el('balanceManual').value){book.manualSelection={direction:null,barrier:null};render();return;}const [direction,b]=el('balanceManual').value.split(':');book.manual(direction,Number(b));render();};
  el('balanceManualExecute').onclick=()=>{const c=book.current(book.inspectedMarket)?.candidates.find(c=>c.direction===book.manualSelection.direction&&c.barrier===book.manualSelection.barrier);if(c&&book.available(c))execute(c);};
  el('balanceExport').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(evidence.report(),null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='part-one-balance-evidence.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
- function render(){const s=book.current(book.inspectedMarket),x=getExecution(),age=s?Date.now()-s.createdAt:Infinity;
+ function render(){const s=book.current(book.inspectedMarket),x=getExecution(),now=book.now(),age=s?now-s.createdAt:Infinity;
   put('balanceExecutionMarket',`Execution: ${x.market??book.executionMarket} · ${x.mode??'manual'}`);
-  put('balanceStatus',x.feedError?'FEED ERROR':!s?(x.feed??'COLLECTING DATA'):age>5000?'FEED STALE':s.status);
+  put('balanceStatus',x.feedError?'FEED ERROR':!Number.isFinite(now)?'WAITING FOR LIVE CLOCK':!s?(x.feed??'COLLECTING DATA'):age>5000?'FEED STALE':s.status);
   const pos=s?.position??0;el('balanceWeight').style.left=`${50+pos/2}%`;put('balancePosition',pos.toFixed(1));
   const candidate=s?.candidates.find(c=>c.direction===book.manualSelection.direction&&c.barrier===book.manualSelection.barrier);
   put('balanceHeadline',s?`${s.market} · ${s.lean} lean · current analysis candidate ${s.selected?.label??'NONE'} · latest analysis ${new Date(s.createdAt).toLocaleTimeString()}`:(x.feedError??'Waiting for normalized ticks.'));
-  const decision=x.decision,dc=decision?.candidate,decisionDisplayState=decision&&Date.now()>decision.expiresAt&&!['PURCHASED','SETTLED','BLOCKED'].includes(x.decisionState)?'EXPIRED · NO NEW PURCHASE':x.decisionState;
+  const decision=x.decision,dc=decision?.candidate,decisionDisplayState=decision&&(!Number.isFinite(now)||now>decision.expiresAt)&&!['PURCHASED','SETTLED','BLOCKED'].includes(x.decisionState)?'EXPIRED · NO NEW PURCHASE':x.decisionState;
   put('authoritativeAutoDecision',decision?`AUTO DECISION · ${decisionDisplayState}\n${dc.market} · ${dc.label} · support ${(100*dc.observed).toFixed(1)}%\nDecision: ${decision.decisionId}\n${x.decisionError??''}`:'AUTO DECISION · ANALYZING · no locked decision');
   const b=s?.broadBalance,f=s?.fine,c=s?.selected??s?.candidates.filter(c=>c.direction===s.lean).sort((a,b)=>b.excessSupport-a.excessSupport)[0];
   const metrics={'Low boundary':b?.lowPressure,'High boundary':b?.highPressure,'Middle support':b?.middleSupport,'Circulation changes':f?.circulation.changes,'Stability':f?.stability,'Candidate strength':c?.strength};

@@ -331,9 +331,16 @@ const showOrderEntry = (type, result, source) => {
   clearTimeout(digitFlashTimer); digitFlash = { entryDigit:lastSettledOrder.entryDigit }; digitFlashTimer = setTimeout(() => { digitFlash = null; update(); }, 800);
   renderLastSettledOrder(lastSettledOrder); update();
 };
+const balanceSettlementWatermark = result => {
+  const raw = Number(result?.exitTickTime ?? result?.lifecycle?.exitTickTime);
+  if(Number.isFinite(raw)&&raw>0)return raw<1e12?raw*1000:raw;
+  // A receipt without broker settlement time still advances from the latest
+  // accepted balance tick; the next tick must create newer evidence.
+  return balanceBook.current(result?.symbol)?.createdAt ?? Date.now();
+};
 const showContractResult = (type, result, source) => {
   observeDigitRegime('receipt',{receipt:result});
-  balanceEvidence.receipt(result);if(result.candidate&&!balanceSeenSettlements.has(String(result.contractId))){balanceSeenSettlements.add(String(result.contractId));balanceBook.settled(result.symbol);if(authoritativeAutoDecision?.decisionId===result.decisionId)authoritativeDecisionState='SETTLED';}
+  balanceEvidence.receipt(result);if(result.candidate&&!balanceSeenSettlements.has(String(result.contractId))){balanceSeenSettlements.add(String(result.contractId));balanceBook.settled(result.symbol,balanceSettlementWatermark(result));if(authoritativeAutoDecision?.decisionId===result.decisionId)authoritativeDecisionState='SETTLED';}
   if(result.lifecycle?.accountId&&result.lifecycle.accountId!==selectedAccount()?.accountId)return;
   liveDigitWheel.settle(result);
   const record=liveDigitWheel.contracts.accept(result);
@@ -732,7 +739,7 @@ const loadRecentOrder = async (reconcile=false) => {
     liveDigitWheel.observeExecution(result.execution);
     const order=result.order;
     if(order?.decision?.mode==='auto'){authoritativeAutoDecision=order.decision;authoritativeDecisionState=order.state==='settled'?'SETTLED':order.contractId?'PURCHASED':order.state==='rejected'?'BLOCKED':'PROPOSAL';authoritativeDecisionError=order.error??'';}
-    if(order){observeDigitRegime('receipt',{receipt:order});balanceEvidence.receipt(order);if(order.candidate&&order.state==='settled'&&!balanceSeenSettlements.has(String(order.contractId))){balanceSeenSettlements.add(String(order.contractId));balanceBook.settled(order.symbol);if(authoritativeAutoDecision?.decisionId===order.decisionId)authoritativeDecisionState='SETTLED';}}
+    if(order){observeDigitRegime('receipt',{receipt:order});balanceEvidence.receipt(order);if(order.candidate&&order.state==='settled'&&!balanceSeenSettlements.has(String(order.contractId))){balanceSeenSettlements.add(String(order.contractId));balanceBook.settled(order.symbol,balanceSettlementWatermark(order));if(authoritativeAutoDecision?.decisionId===order.decisionId)authoritativeDecisionState='SETTLED';}}
     if(order?.strategy==='DIFFER'){
       if(!differEngineState.attemptId){differEngineState.pending(order.attemptId);differEngineState.pendingCooldown=Number($('autoCooldownTicks').value)||5;}
       differEngineState.observe(order);

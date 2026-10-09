@@ -99,7 +99,19 @@ const verifyAutoAuthorization=async()=>{
     else if(a?.state==='AUTO_RECOVERING'){parallelAutoReady=false;autoAuthorizationState='AUTO_RECOVERING';tradabilitySyncKey=null;tradabilityServer=null;auditStage('AUTO AUTH LOST',{server:a,browserState:autoAuthorizationState});await syncParallelControl(true);if(parallelAutoReady)void syncTradability();}
     else if(a?.state==='AUTO_AUTHORIZED'){parallelAutoReady=isRunning&&botMode==='auto';autoAuthorizationState=parallelAutoReady?'AUTO_AUTHORIZED':'AUTO_OFF';}
     else throw Error('Unknown server Auto state');
-  }catch(error){if(runId===parallelRunId){parallelAutoReady=false;autoAuthorizationState='AUTO_ERROR';autoLastError=error.message;}}
+  }catch(error){if(runId===parallelRunId){
+    parallelAutoReady=false;autoAuthorizationState='AUTO_ERROR';autoLastError=error.message;
+    // The OAuth cookie can expire while the account selector still displays
+    // the previously loaded account list. Clear that stale UI state so the
+    // user gets an accurate reconnect action instead of a misleading pause.
+    if(/session expired|reconnect your account/i.test(error.message??'')){
+      demoConnected=false;autoEnabled=false;parallelRunId='';availableAccounts=[];
+      const button=$('connect');if(button){button.disabled=false;button.textContent='Reconnect account';}
+      const selector=$('accountSelector');if(selector){selector.innerHTML='';const option=document.createElement('option');option.textContent='Reconnect your Deriv account first';option.disabled=true;option.selected=true;selector.append(option);selector.disabled=true;}
+      $('entryExecutionStatus').textContent='SESSION EXPIRED · Reconnect your Deriv demo account.';
+      $('entryExecutionStatus').className='entryExecutionStatus negative';
+    }
+  }}
   finally{autoStatusPending=false;renderParallel();updateAutoState();}
 };
 const renderParallel=()=>{

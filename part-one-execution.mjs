@@ -35,7 +35,7 @@ event(id,a,stage,details={}){const account=this.account(id);const e={timestamp:t
   if(this.channels.get(key)?.ws.readyState===1)return this.channels.get(key);
   if(this.connecting.has(key))return this.connecting.get(key);
   const promise=(async()=>{const ws=await this.connect(credentials),ch={ws,generation:randomUUID(),requests:new Map(),warm:new Map(),warmConfig:null,tickSymbols:new Set(),latestTicks:new Map()};this.channels.set(key,ch);
-   ws.addEventListener('message',e=>{try{this.receive(id,ch,JSON.parse(e.data));}catch(error){const a=this.current(id);this.event(id,a,'HANDLER_ERROR',{error:{code:error.code??'HANDLER',message:error.message}});if(a)this.unresolved(id,a,{code:'HANDLER_ERROR',message:error.message});}});
+   ws.addEventListener('message',e=>{try{this.receive(id,ch,JSON.parse(e.data));}catch(error){const a=this.current(id);this.event(id,a,'HANDLER_ERROR',{error:{code:error.code??'HANDLER',message:error.message}});if(a){if(a.buySent)this.unresolved(id,a,{code:'HANDLER_ERROR',message:error.message});else this.reject(id,a,{code:error.code??'HANDLER_ERROR',message:error.message});}}});
    let closed=false;const disconnect=()=>{if(closed||this.channels.get(key)!==ch)return;closed=true;this.onDisconnect(id);if(this.channels.get(key)===ch)this.channels.delete(key);ch.warm.clear();if(ws.readyState===1)ws.close();this.event(id,this.current(id),'SOCKET_DISCONNECTED');const a=this.current(id);if(!a)return;if(!a.buySent)this.reject(id,a,{code:'DISCONNECTED_BEFORE_BUY',message:'Connection lost before BUY; no purchase sent'});else{this.unresolved(id,a,{code:'DISCONNECTED_AFTER_BUY',message:'Connection lost after BUY; reconciling without buying again'});void this.reconcile(credentials,a).catch(e=>this.event(id,a,'RECONNECT_ERROR',{error:{code:e.code,message:e.message}}));}};
    ws.addEventListener('close',disconnect);ws.addEventListener('error',disconnect);this.event(id,this.current(id),'SOCKET_CONNECTED');return ch;
   })();this.connecting.set(key,promise);try{return await promise;}finally{this.connecting.delete(key);}
@@ -46,7 +46,12 @@ event(id,a,stage,details={}){const account=this.account(id);const e={timestamp:t
   return allowed;
  }
  send(id,ch,payload,meta={}){if(Object.hasOwn(payload,'buy')&&meta.attemptId){const a=this.find(id,meta.attemptId);if(a?.request.decision)validateTradeDecision(a.request.decision,a.request,this.now(),this.current(id)?.request.decision?.decisionId);if(a?.request.candidate){validateBalancePurchase(a.request,ch.latestTicks.get(a.request.symbol),this.now());if(a.proposalBinding?.candidateId!==a.request.candidate.id||payload.buy!==a.proposalBinding.proposalId||a.proposalBinding.type!==a.request.candidate.contractType||a.proposalBinding.barrier!==a.request.candidate.barrier)throw decisionMismatch('BUY proposal binding',a.proposalBinding,{proposalId:payload.buy,decisionId:this.current(id)?.request.decisionId});}}if(Object.hasOwn(payload,'buy')&&!this.purchaseAllowed(id,meta.attemptId?this.find(id,meta.attemptId):null))throw Object.assign(Error('PURCHASE BLOCKED: current execution authorization required'),{code:'PURCHASE_BLOCKED'});const req_id=++this.data.requestSequence;this.save();ch.requests.set(req_id,{...meta,payload,req_id});if(ch.requests.size>500){for(const [key,m] of ch.requests)if(!m.subscribe&&m.kind!=='buy'){ch.requests.delete(key);break;}}
-  const a=meta.attemptId?this.find(id,meta.attemptId):null;this.event(id,a,'REQUEST_PREPARED',{kind:meta.kind,req_id,echo_req:{...payload,req_id}});ch.ws.send(JSON.stringify({...payload,req_id}));this.event(id,a,'REQUEST_SENT',{kind:meta.kind,req_id});return req_id;}
+  const a=meta.attemptId?this.find(id,meta.attemptId):null;this.event(id,a,'REQUEST_PREPARED',{kind:meta.kind,req_id,echo_req:{...payload,req_id}});
+  // Mark durable purchase intent only after every final validation has passed
+  // and immediately before transport. A validation failure above is therefore
+  // a clean pre-BUY rejection, while a transport failure remains uncertain.
+  if(meta.kind==='buy'&&a&&!a.buySent){a.buySubmittedAt=this.now();a.buySent=true;this.state(id,a,'BUY_PENDING');this.watch(id,a,'BUY_PENDING');this.event(id,a,'AUTHORIZATION_TO_BUY',{authorizedAt:a.startedAt,buySubmittedAt:a.buySubmittedAt,elapsedMs:a.buySubmittedAt-a.startedAt,purchaseTick:a.purchaseTick});}
+  ch.ws.send(JSON.stringify({...payload,req_id}));this.event(id,a,'REQUEST_SENT',{kind:meta.kind,req_id});return req_id;}
  forget(id,ch,subscription){if(subscription&&ch.ws.readyState===1)this.send(id,ch,{forget:subscription},{kind:'forget'});}
  cleanup(id,a){const ch=this.channels.get(this.key(id));if(ch)for(const [key,m] of ch.requests)if(m.attemptId===a.attemptId){this.forget(id,ch,m.subscription);ch.requests.delete(key);}this.cancelTimer(a);this.event(id,a,'CLEANUP_COMPLETE',{authorizationAfterCleanup:this.authorizationState(id)});}
  reject(id,a,error){if(terminal(a))return;a.error=safe(error);a.blocking=false;this.state(id,a,'REJECTED',{error});this.cleanup(id,a);const e=Object.assign(Error(error.message),{...error,orderNotSubmitted:true,attemptId:a.attemptId});const f=this.callbacks(id,a);f.entry.reject(e);f.settlement.reject(e);this.onRejected(id,a);this.event(id,a,'STATE_RESET',{execution:'IDLE',outcome:'NOT_PURCHASED'});}
@@ -75,9 +80,7 @@ event(id,a,stage,details={}){const account=this.account(id);const e={timestamp:t
   // Persist the intent BEFORE sending. A crash here requires review, never a replacement BUY.
   const observed=ch.latestTicks.get(a.request.symbol);
   a.purchaseTick=observed&&this.now()-observed.receivedAt<=5000?{...observed,history:undefined}:null;
-  a.buySubmittedAt=this.now();
-  a.buySent=true;this.state(id,a,'BUY_PENDING');this.watch(id,a,'BUY_PENDING');this.send(id,ch,buy,{kind:'buy',attemptId:a.attemptId});
-  this.event(id,a,'AUTHORIZATION_TO_BUY',{authorizedAt:a.startedAt,buySubmittedAt:a.buySubmittedAt,elapsedMs:a.buySubmittedAt-a.startedAt,purchaseTick:a.purchaseTick});
+  this.send(id,ch,buy,{kind:'buy',attemptId:a.attemptId});
  }
  receive(id,ch,data){if(this.channels.get(this.key(id))!==ch)return;const meta=ch.requests.get(data.req_id);const a=meta?.attemptId?this.find(id,meta.attemptId):null;
   if(!meta){if(data.subscription?.id)this.forget(id,ch,data.subscription.id);this.event(id,null,'UNMATCHED_RESPONSE_IGNORED',{req_id:data.req_id,msg_type:data.msg_type,contractId:data.proposal_open_contract?.contract_id,error:data.error?{code:data.error.code,message:data.error.message,echo_req:safe(data.echo_req)}:null});return;}

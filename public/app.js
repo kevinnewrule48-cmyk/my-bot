@@ -507,6 +507,16 @@ const calculateSignal = (history) => {
 };
 const update = () => {
   const windowSize = Number($('window').value) || 200; ticks = ticks.slice(-windowSize); distributionDigits = distributionDigits.slice(-windowSize);
+  // Cached history is retained for reconnect continuity, but it is never
+  // presented as current analysis before this page has received a fresh tick
+  // from an explicitly started live-feed socket.
+  if(!isRunning || !hasFreshLiveTick){
+   $('sample').textContent='0'; $('sampleNote').textContent='Start Live Feed for current analysis';
+   $('price').textContent='—'; $('tickTime').textContent='Waiting for live feed';
+   $('priceDigitCursor').textContent='Live feed is off'; $('digits').innerHTML='';
+   showSignal(null); updateEntryStrength();
+   return;
+  }
   const canonical=analyzeBoth();updateSideScores({type:canonical.lean,options:{over1:canonical.candidates.find(c=>c.label==='OVER 1'),under8:canonical.candidates.find(c=>c.label==='UNDER 8')}});
   if (typeof updateDemoArmState === 'function') updateDemoArmState();
   updateCooldownMonitor();
@@ -572,7 +582,17 @@ const useScannerMarket = symbol => {
  if(!symbol||$('symbol').value===symbol||autoInFlight||manualHttpPending||executionBlocked()||autoContractIds.size)return;
  $('symbol').value=symbol;balanceBook.executionMarket=symbol;startLive();
 };
-const scanMarkets = async () => {tradabilityMarkets.start();renderMarketScan();balanceCycle();};
+// Scanner analysis is a live-feed feature.  Do not subscribe to market data or
+// advance the balance engines while the user has not explicitly started Feed.
+const scanMarkets = async () => {
+ if(!isRunning || socket?.readyState!==WebSocket.OPEN){
+  $('scannerRecommendation').textContent='LIVE FEED OFF';
+  $('scannerRecommendationNote').textContent='Start Live Feed to analyze markets.';
+  $('marketScanResults').textContent='Waiting for an explicit live-feed start.';
+  return;
+ }
+ tradabilityMarkets.start();renderMarketScan();balanceCycle();
+};
 const balanceCycle = () => {
  renderMarketScan();const current=analyzeBoth();showSignal(current.selected);updateEntryStrength();renderParallel();
  if(botMode!=='auto'||!autoEnabled)return;
@@ -587,9 +607,9 @@ const syncScannerTimer = () => {
   if (botMode === 'auto' && autoEnabled) scannerTimer = setInterval(scanMarkets, 30000);
 };
 let liveFeedSymbol = null;
-let feedWanted=false,feedRetryTimer=null,feedWatchdog=null,feedRetryCount=0;
+let feedWanted=false,feedRetryTimer=null,feedWatchdog=null,feedRetryCount=0,hasFreshLiveTick=false;
 const pauseFeedExecution=reason=>{
-  isRunning=false;parallelAutoReady=false;
+  isRunning=false;hasFreshLiveTick=false;parallelAutoReady=false;
   // Invalidate in-flight acknowledgments, but retain the user's Auto intent.
   parallelRunId='';autoControlPending=false;tradabilitySyncKey=null;tradabilityServer=null;
   autoAuthorizationState=autoEnabled?'AUTO_RECOVERING':'AUTO_OFF';autoLastError=reason;
@@ -613,6 +633,9 @@ const startLive = () => {
     $('priceDigitCursor').textContent=`Waiting for ${symbol} live price`;update();
   }
   balanceBook.executionMarket=symbol;
+  // This is the single point where the independent scanner is allowed to
+  // subscribe.  Page load and Auto intent alone must never create a live feed.
+  tradabilityMarkets.start();
   tradabilityMarkets.start();strengthSample=null;
   pauseFeedExecution('Waiting for a fresh live tick');
   liveFeedSymbol=symbol;
@@ -647,6 +670,7 @@ const startLive = () => {
         if(!Number.isFinite(epoch)||!Number.isFinite(quote)||epoch<=lastEpoch||brokerTime===null||Math.abs(brokerTime+performance.now()-brokerTimeReceived-epoch*1000)>15000)return;
         lastEpoch=epoch;watch();feedRetryCount=0;
         if(!isRunning){isRunning=true;void syncTradability();if(autoEnabled)void syncParallelControl();refreshPricing();}
+        hasFreshLiveTick=true;
         $('connection').textContent=`LIVE · ${symbol}`;$('connection').className='pill positive';
         addTick(data.tick.quote,epoch,data.tick.pip_size);
       }
@@ -919,4 +943,3 @@ setInterval(verifyAutoAuthorization,1500);
 setInterval(async()=>{if(tradabilityMode!=='auto-block'||!isRunning||!demoConnected)return;try{const key=tradabilitySyncKey;if(!key){void syncTradability();return;}const response=await fetch('/api/tradability/status',{cache:'no-store'});if(!response.ok)throw Error('Server guard unavailable');const result=await response.json();if(key===tradabilitySyncKey)tradabilityServer=result;}catch{tradabilityServer={allowed:false,reason:'Server guard unavailable'};}},2000);
 globalThis.addEventListener?.('pagehide',()=>{stopLiveFeed();void revokeExecution();});
 loadAuthStatus();
-tradabilityMarkets.start();

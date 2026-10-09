@@ -17,7 +17,7 @@ const source=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
 test('real dashboard polling: late settlement releases Auto lock, survives Stop and storage failure, no duplicate result',async()=>{
  const fields=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],{value:'0',checked:false,textContent:'',classList:{toggle(){},add(){},remove(){}},addEventListener(){},setCustomValidity(){},querySelector(){return null;},replaceChildren(){},append(){}}]));
- for(const [k,v] of Object.entries({symbol:'R_100',window:200,minimum:65,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo1',duration:1}))fields[k].value=String(v);
+ for(const [k,v] of Object.entries({symbol:'R_100',window:200,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo1',duration:1}))fields[k].value=String(v);
  let receipt=null,clearCount=0,orders=0;
  const context=vm.createContext({createTradeDecision,BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,TradabilityMarkets:class{start(){} stop(){} snapshot(){return null;}},TradabilityMarkets:class extends TradabilityMarkets {start(){}},TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,URLSearchParams,console,document:{getElementById:id=>fields[id]},localStorage:{getItem:()=>null,setItem(){throw Error('Storage full');}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){clearCount++;},fetch:async url=>{
    if(url.startsWith('/api/orders/recent'))return {ok:true,json:async()=>receipt};

@@ -15,7 +15,7 @@ test('Shadow disconnected, active and throwing observers preserve actual Part On
  for(const observerMode of ['absent','active','throws']) for(const type of ['OVER','UNDER']){
  const research=new RegimeResearch();
  const fields=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],{value:'0',checked:false,textContent:'',classList:{toggle(){},add(){},remove(){}},addEventListener(){},setCustomValidity(){},querySelector(){return null;},replaceChildren(){},append(){}}]));
- for(const [k,v] of Object.entries({symbol:'R_100',window:200,minimum:65,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo1',duration:1}))fields[k].value=String(v);
+ for(const [k,v] of Object.entries({symbol:'R_100',window:200,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo1',duration:1}))fields[k].value=String(v);
  const requests=[];
  const context=vm.createContext({performance,createTradeDecision,BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,partOneRegimeObserver:observerMode==='absent'?undefined:observerMode==='throws'?()=>{throw Error('Injected observer failure');}:(event,data)=>research.observe(event,data),TradabilityMarkets:class extends TradabilityMarkets {start(){}},TradabilityEngine,tradabilityBlocks,DifferEngine,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,console:{...console,warn(){}},document:{getElementById:id=>fields[id]},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async(url,options)=>{
  if(url==='/api/order'){requests.push(JSON.parse(options.body));return {ok:true,json:async()=>({contractId:'mock',entryTick:'100.03'})};}

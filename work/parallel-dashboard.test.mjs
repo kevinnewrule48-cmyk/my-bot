@@ -32,7 +32,7 @@ test('load OFF then authenticate account without starting feed: no executable pr
 });
 async function fixture(ou,differ,connected=false){
  const fields=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],{value:'0',checked:false,textContent:'',classList:{toggle(){},add(){},remove(){}},addEventListener(){},setAttribute(){},setCustomValidity(){},querySelector(){return null;},replaceChildren(){},append(){}}]));
- for(const [k,v] of Object.entries({symbol:'R_100',window:100,minimum:65,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo',duration:1}))fields[k].value=String(v);
+ for(const [k,v] of Object.entries({symbol:'R_100',window:100,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo',duration:1}))fields[k].value=String(v);
  const requests=[],urls=[];
  const context=vm.createContext({performance,createTradeDecision,TradabilityMarkets:class extends TradabilityMarkets{start(){}},BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,URLSearchParams,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,console,document:{getElementById:id=>fields[id],createElement:()=>({})},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async(url,options)=>{
   if(url==='/api/order'){requests.push(JSON.parse(options.body));return new Promise(()=>{});}

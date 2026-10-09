@@ -34,3 +34,16 @@ test('continuation compares clearance at the same barrier when moving from OVER1
 test('BUY with another proposal ID is blocked before transport send',async()=>{const socket=new Socket(),engine=new PartOneExecution({connect:async()=>socket,now:()=>1000000}),r={...request(state('UNDER 7')),attemptId:'buy-binding-mismatch'},flow=engine.execute(credentials,r);await flush();socket.reply(socket.last('ticks'),{tick:{symbol:'R_100',epoch:1000,quote:100,pip_size:2}});const a=engine.find(credentials.accountId,r.attemptId);a.proposalBinding={candidateId:r.candidate.id,type:r.type,barrier:r.barrier,proposalId:'correct'};assert.throws(()=>engine.send(credentials.accountId,engine.channels.get(engine.key(credentials.accountId)),{buy:'wrong',price:1},{kind:'buy',attemptId:r.attemptId}),e=>e.code==='AUTHORITATIVE_DECISION_MISMATCH');assert.equal(socket.sent.some(r=>r.buy),false);engine.reject(credentials.accountId,a,{code:'TEST_FINISHED',message:'Mock cleanup'});await assert.rejects(flow.entry);});
 
 test('expired pre-proposal decision releases risk reservation; never creates an uncertain purchase lock',async()=>{const ledger=new DemoRiskLedger(),engine=new PartOneExecution({connect:async()=>{throw Error('Must not connect');},now:()=>1006000}),r={...request(state('UNDER 7')),attemptId:'expired-before-proposal'};await assert.rejects(guardedDemoOrder(ledger,credentials.accountId,r,()=>engine.execute(credentials,r)),e=>e.orderNotSubmitted===true);assert.equal(ledger.status(credentials.accountId).pending,null);assert.equal(ledger.status(credentials.accountId).trades,0);assert.equal(engine.snapshot(credentials.accountId).blocking,false);});
+
+test('broker clock drives selection, consumption and post-settlement eligibility with skewed computer time',()=>{
+ for(const offset of [-3600000,3600000]){
+  let brokerNow=Date.now()+offset;const end=Math.floor(brokerNow/1000);brokerNow=end*1000;
+  const book=new BalanceBook({now:()=>brokerNow});for(const t of state('OVER 2',end).ticks)book.push('R_100',t);
+  const candidate=book.best();assert.ok(candidate);assert.throws(()=>assertCandidate(candidate,book.current(),{now:brokerNow-offset}),/stale/);
+  const decision=createTradeDecision(candidate,book.current(),{now:book.now()});assert.equal(decision.lockedAt,brokerNow);
+  book.consume(candidate);assert.equal(book.best(),null);book.settled('R_100');
+  brokerNow+=2000;book.push('R_100',{digit:3,epoch:end+2});assert.ok(book.best());
+  brokerNow+=6000;assert.equal(book.best(),null);assert.equal(book.available(book.current().selected),false);
+ }
+});
+test('missing trusted clock fails closed even when strategy is qualified',()=>{const s=state('OVER 2'),book=new BalanceBook({now:()=>NaN});for(const t of s.ticks)book.push('R_100',t);assert.equal(book.current().selected.ready,true);assert.equal(book.best(),null);assert.throws(()=>createTradeDecision(s.selected,s,{now:NaN}),/stale/);});

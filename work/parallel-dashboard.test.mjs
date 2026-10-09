@@ -34,12 +34,12 @@ async function fixture(ou,differ,connected=false){
  const fields=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],{value:'0',checked:false,textContent:'',classList:{toggle(){},add(){},remove(){}},addEventListener(){},setAttribute(){},setCustomValidity(){},querySelector(){return null;},replaceChildren(){},append(){}}]));
  for(const [k,v] of Object.entries({symbol:'R_100',window:100,minimum:65,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo',duration:1}))fields[k].value=String(v);
  const requests=[],urls=[];
- const context=vm.createContext({createTradeDecision,TradabilityMarkets:class extends TradabilityMarkets{start(){}},BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,URLSearchParams,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,console,document:{getElementById:id=>fields[id],createElement:()=>({})},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async(url,options)=>{
+ const context=vm.createContext({performance,createTradeDecision,TradabilityMarkets:class extends TradabilityMarkets{start(){}},BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,URLSearchParams,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,console,document:{getElementById:id=>fields[id],createElement:()=>({})},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async(url,options)=>{
   if(url==='/api/order'){requests.push(JSON.parse(options.body));return new Promise(()=>{});}
   urls.push(url);return {ok:true,json:async()=>({connected,configured:true,pageId:'fresh-page',accounts:connected?[{accountId:'demo',accountType:'demo',currency:'USD',balance:1000}]:[]})};
  }});
  vm.runInContext(source.replace(/^import[^\n]*\n/gm,''),context);await flush();
- if(!connected)vm.runInContext(`demoConnected=true;availableAccounts=[{accountId:'demo',accountType:'demo'}];botMode='auto';autoEnabled=true;parallelAutoReady=true;isRunning=true;socket={readyState:1};overUnderEngineState.armed=${ou};differEngineState.arm(${differ});quotes.over={ask:1,payout:1.1};quotes.under={ask:1,payout:1.1};`,context);
+ if(!connected)vm.runInContext(`syncMarketClock(Date.now()/1000);demoConnected=true;availableAccounts=[{accountId:'demo',accountType:'demo'}];botMode='auto';autoEnabled=true;parallelAutoReady=true;isRunning=true;socket={readyState:1};overUnderEngineState.armed=${ou};differEngineState.arm(${differ});quotes.over={ask:1,payout:1.1};quotes.under={ask:1,payout:1.1};`,context);
  return {context,requests,fields,urls};
 }
 for(const [ou,differ] of [[true,true],[true,false],[false,true],[false,false]]){
@@ -64,4 +64,12 @@ test('Stop switch prevents new DIFFER requests and clears jump candidate',async(
  f.fields.stopAuto.onclick();await flush();
  vm.runInContext('addTick(100.07,1001,2)',f.context);assert.equal(f.requests.length,0);
  assert.equal(vm.runInContext('differEngineState.candidate',f.context),null);
+});
+
+test('failed decision creation releases Auto in-flight lock and keeps Auto intent',async()=>{
+ const f=await fixture(true,false);vm.runInContext('autoEnabled=false',f.context);
+ for(let i=0;i<200;i++){f.context.price=100+[3,5,7,8,9][i%5]/100;vm.runInContext('tradabilityMarkets.push("R_100",price,Math.floor(Date.now()/1000)-199+liveTickNumber,2,true);addTick(price,Math.floor(Date.now()/1000)-199+liveTickNumber,2)',f.context);}
+ f.context.assertCandidate=()=>{throw Error('Injected decision validation failure');};
+ vm.runInContext('autoEnabled=true',f.context);await vm.runInContext('maybeAutoOrder(analyzeBoth().selected)',f.context);
+ assert.equal(vm.runInContext('autoInFlight',f.context),false);assert.equal(vm.runInContext('autoEnabled',f.context),true);assert.equal(f.requests.length,0);assert.match(vm.runInContext('autoLastError',f.context),/Injected decision/);
 });

@@ -1,4 +1,4 @@
-import {readFileSync,writeFileSync} from 'node:fs';import {analyzeBalance} from '../public/balance-engine.js';import {analyzeEnvironment,analyzeAdaptive} from '../public/edge-environment.js';
+import {readFileSync,writeFileSync} from 'node:fs';import {analyzeBalance} from './fixtures/strict-balance-v1.js';import {analyzeEnvironment,analyzeAdaptive} from '../public/edge-environment.js';
 const datasets={recorded:JSON.parse(readFileSync('work/fixtures/balance-public-digits.json','utf8')).markets,heldout:JSON.parse(readFileSync('../../outputs/edge-heldout-capture.json','utf8')).markets};
 const simulated=Array.from({length:200},(_,i)=>i%10).concat(Array.from({length:150},(_,i)=>[3,5,7,8,9][i%5]),Array.from({length:80},(_,i)=>i%2?9:0),Array.from({length:150},(_,i)=>[6,4,2,1,0][i%5]),Array.from({length:100},(_,i)=>i%10));
 datasets.simulated={R_100:simulated.map((digit,i)=>({digit,epoch:1000+i,price:100+digit/100}))};

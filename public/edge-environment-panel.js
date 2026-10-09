@@ -1,5 +1,5 @@
 export function mountEnvironmentPanel(host,read){
- host.className='panel edge-environment-panel';host.innerHTML='<div class="card-heading"><h2>Edge & price environment</h2><span>OBSERVATION ONLY</span></div><p class="hint">Edge score: lower is calmer. Price magnitude and stability are separate. Click a market for details.</p><div class="environment-rows"></div><details><summary>Selected market measurements</summary><pre class="environment-detail"></pre></details><p class="hint">Adaptive balance is a research comparison. It cannot submit orders. No score predicts the next digit.</p>';
+ host.className='panel edge-environment-panel';host.innerHTML='<div class="card-heading"><h2>Edge & price environment</h2><span>EDGE → ENTRY</span></div><p class="hint">Low/high edge pressure and avoidance feed the entry scale. Overall edge score and price volatility add context; neither has an entry cutoff.</p><div class="environment-rows"></div><details><summary>Selected market measurements</summary><pre class="environment-detail"></pre></details><p class="hint">Demo entries follow current scale direction and consecutive avoidance of the chosen losing digits. No minimum score or support percentage. No score predicts the next digit.</p>';
  let selected='R_100';const rows=host.querySelector('.environment-rows'),detail=host.querySelector('.environment-detail');const buttons=new Map();
  for(const m of ['R_10','R_25','R_50','R_75','R_100']){const b=document.createElement('button');b.type='button';b.className='environment-row';b.innerHTML='<span></span><meter min="0" max="100"></meter><small></small>';b.onclick=()=>{selected=m;host.querySelector('details').open=true;render();};b.setAttribute('aria-label','Inspect environment '+m);buttons.set(m,b);rows.append(b);}
  const fmt=n=>Number.isFinite(n)?n.toFixed(2):n===Infinity?'infinite':'—';
@@ -18,6 +18,6 @@ export function mountEnvironmentPanel(host,read){
  'PRICE mean absolute tick range '+fmt(e.price.short?.tickRange)+' · variance '+fmt(e.price.short?.variance)+' · standard deviation '+fmt(e.price.short?.stddev),
  'Baseline deviation '+fmt(e.price.deviation)+' · ratio '+fmt(e.price.ratio)+' · '+e.price.expansion,
  'PRICE '+e.price.level+' / '+e.price.stability,
- ...s.adaptive.candidates.map(c=>'RESEARCH '+c.label+' · '+c.state+' · '+(c.rejections.join('; ')||'Proposed conditions pass — shadow only'))].join('\n');}
+ 'Entry evidence: low edge avoided '+e.low.separation+' ticks; high edge avoided '+e.high.separation+' ticks. See the scale for the authoritative candidate and execution state.'].join('\n');}
  return render;
 }

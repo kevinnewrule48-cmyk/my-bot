@@ -21,7 +21,7 @@ export function validateBalancePurchase(request,observed,now=Date.now()){
   const fresh=history.filter(t=>t.epoch>last.epoch);
   const next=analyzeBalance(request.symbol,[...request.balanceState.ticks,...fresh]);
   const matching=next.candidates.find(c=>c.direction===candidate.direction&&c.barrier===candidate.barrier);
-  if(next.createdAt!==observed.epoch*1000||!matching?.ready||next.lean!==candidate.direction||matching.strength<candidate.strength||matching.clearance<candidate.clearance)throw Object.assign(Error('Balance deteriorated between analysis and purchase'),{code:'BALANCE_DETERIORATED'});
+  if(next.createdAt!==observed.epoch*1000||!matching?.ready||next.lean!==candidate.direction)throw Object.assign(Error('Balance deteriorated between analysis and purchase'),{code:'BALANCE_DETERIORATED'});
  }
 
  return true;

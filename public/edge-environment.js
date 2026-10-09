@@ -6,7 +6,7 @@ const cross=(a,b)=>low(a)&&high(b)||high(a)&&low(b);
 const same=(a,b)=>a!==b&&(low(a)&&low(b)||high(a)&&high(b));
 const weighted=a=>{let sum=0,w=0;a.forEach((v,i)=>{const k=.85**(a.length-1-i);sum+=v*k;w+=k;});return w?sum/w:0;};
 const trend=x=>x>1e-9?'RISING':x< -1e-9?'FALLING':'STABLE';
-function side(d,predicate){
+export function edgeSide(d,predicate){
  const visits=d.flatMap((x,i)=>predicate(x)?[i]:[]),gaps=visits.slice(1).map((v,i)=>v-visits[i]);
  const pressure=100*weighted(d.slice(-10).map(x=>+predicate(x))),prior=100*weighted(d.slice(-11,-1).map(x=>+predicate(x))),before=100*weighted(d.slice(-12,-2).map(x=>+predicate(x)));
  const recent=d.slice(-5),prior5=d.slice(-10,-5),previous5=d.slice(-15,-10);
@@ -29,7 +29,7 @@ export function analyzeEnvironment(rows){
  const stabilityRatio=short&&medium?(medium.tickRange?short.tickRange/medium.tickRange:short.tickRange?Infinity:1):null;
  return {sample:rows.length,lastEpoch:rows.at(-1)?.epoch,windows:EDGE_WINDOWS.map(n=>({size:n,sample:Math.min(n,d.length),low:100*avg(d.slice(-n).map(x=>+low(x))),high:100*avg(d.slice(-n).map(x=>+high(x)))})),
  frequencies:Object.fromEntries([0,1,8,9].map(k=>[k,100*avg(r.map(x=>+(x===k)))])),score,category:score<=20?'VERY LOW':score<=40?'LOW':score<=60?'MODERATE':score<=80?'HIGH':'EXTREME',
- occupancy,weightedCross,weightedSame,crossRate,sameRate,low:{...side(d,low),secondsSince:(()=>{const t=rows.findLast(t=>low(t.digit));return t?rows.at(-1).epoch-t.epoch:null;})()},high:{...side(d,high),secondsSince:(()=>{const t=rows.findLast(t=>high(t.digit));return t?rows.at(-1).epoch-t.epoch:null;})()},
+ occupancy,weightedCross,weightedSame,crossRate,sameRate,low:{...edgeSide(d,low),secondsSince:(()=>{const t=rows.findLast(t=>low(t.digit));return t?rows.at(-1).epoch-t.epoch:null;})()},high:{...edgeSide(d,high),secondsSince:(()=>{const t=rows.findLast(t=>high(t.digit));return t?rows.at(-1).epoch-t.epoch:null;})()},
  price:{short,medium,long,baseline,ratio,deviation,expansion:ratio===null?'UNKNOWN':ratio>1?'EXPANDING':ratio<1?'COMPRESSING':'UNCHANGED',
  level:ratio===null?'UNKNOWN':ratio<.75?'LOW':ratio<=1.25?'MEDIUM':ratio<=2?'HIGH':'EXTREME',
  stability:stabilityRatio===null?'UNKNOWN':stabilityRatio>=.8&&stabilityRatio<=1.25?'STABLE':stabilityRatio>=.5&&stabilityRatio<=2?'TRANSITION':'UNSTABLE'}};

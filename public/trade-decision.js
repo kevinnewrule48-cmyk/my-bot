@@ -5,7 +5,7 @@ export function createTradeDecision(candidate,balanceState,{mode='auto',regime=n
  assertCandidate(candidate,balanceState,{now,allowManual:mode==='manual'});
  return freeze({schema:DECISION_SCHEMA,decisionId:candidate.id,mode,lockedAt:now,expiresAt:candidate.createdAt+5000,
   candidate,balanceState,regime:regime?structuredClone(regime):null,
-  selectionReason:mode==='manual'?'Explicit manual click on this independently qualified candidate':'All required conditions passed; rank by excess support over each barrier baseline, then clearance. No direction quota.',
+  selectionReason:mode==='manual'?'Explicit manual click on this independently qualified candidate':'Current edge avoidance follows scale direction; rank by recency-weighted support relative to each barrier baseline, then clearance. No minimum strength or support target.',
   considered:balanceState.candidates.map(c=>({direction:c.direction,barrier:c.barrier,support:100*c.observed,ready:c.ready,rejections:c.checks.filter(k=>!k.pass).map(k=>k.name)}))});
 }
 export function validateTradeDecision(decision,request,now=Date.now(),activeDecisionId=decision?.decisionId){

@@ -24,7 +24,7 @@
       <section class="panel controls">
         <label>Market <select id="symbol"><option value="R_10">R10 Index</option><option value="R_25">R25 Index</option><option value="R_50">R50 Index</option><option value="R_75">R75 Index</option><option value="R_100" selected>R100 Index</option></select></label>
         <label>Tick window <input id="window" type="number" min="50" max="1000" value="200" /></label>
-        <label>Minimum confidence <input id="minimum" type="number" min="55" max="95" value="65" /><span>%</span></label>
+
         <button id="start">Start live feed</button><button class="secondary" id="pricing">Refresh live pricing</button><button class="secondary" id="backtest" hidden>Backtest collected ticks</button><button class="secondary" id="stop">Stop</button>
       </section>
       <section class="entryDeck">
@@ -102,7 +102,7 @@
       <section class="panel hidden"><h2>Research-test log — not Demo contracts</h2><p class="hint">This log checks sample signals only. It does not show money orders. Real Demo-order entry and settlement digits appear in Suggested entry above.</p><div id="log" class="log"><p class="empty">No signals yet.</p></div></section>
       <section class="grid metrics movedMetrics">
         <article class="panel"><p>Latest market price</p><strong id="price">—</strong><small id="tickTime">Waiting for data</small></article>
-        <article class="panel"><p>Ticks sampled</p><strong id="sample">0</strong><small id="sampleNote">Need at least 50</small></article>
+        <article class="panel"><p>Ticks sampled</p><strong id="sample">0</strong><small id="sampleNote">Waiting for a tick sequence</small></article>
         <article class="panel"><p>Requested demo session limits</p><strong id="riskSummary">$5,000 / $5,000 / 5,000</strong><small>Stake · loss allowance · session trades. Server may retain tighter limits.</small></article>
       </section>
       <section class="panel orderPerformancePanel">

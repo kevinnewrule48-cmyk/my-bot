@@ -1,3 +1,4 @@
+import {mountEnvironmentPanel} from './edge-environment-panel.js';
 import {dashboardStatus,heatMap,summarizeOrders,barrierView} from './premium-model.js';
 import {diagnoseSnapshot} from './part-one-diagnostics.js';
 import {DEFAULTS} from './digit-barrier-engine.js';
@@ -25,6 +26,8 @@ export function mountDashboard(readState){
   const wheelPanel=document.createElement('section');wheelPanel.className='panel live-wheel-panel';
   byId('marketColumn').prepend(wheelPanel);
   const disposeWheel=mountDigitWheel(wheelPanel);
+  const environmentPanel=document.createElement('section');
+  const renderEnvironment=mountEnvironmentPanel(environmentPanel,()=>readState().tradability?.environments);
   document.querySelector('.digit-hero').hidden=true;
   const enginePanel=document.createElement('section');enginePanel.className='panel';
   enginePanel.innerHTML='<div class="card-heading"><h2>Execution engine</h2><span id="executionEngineState">NO ACCOUNT</span></div><p id="executionStrategyState"></p><pre id="executionEngineDetails" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px"></pre><button id="recheckExecution" class="secondary">Recheck execution · no purchase</button><details><summary>Recent trade attempts</summary><div id="executionAttemptHistory"></div></details><details><summary>Execution event log</summary><pre id="executionEventLog" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:11px"></pre></details>';
@@ -52,6 +55,8 @@ export function mountDashboard(readState){
     ['.gate-card','.cooldownPanel','.controls-chart-stack'],
     ['.modePanel','.live-wheel-panel','.barrier-card']
   ]){const column=document.createElement('div');column.className='compact-column';compactWorkspace.append(column);for(const selector of selectors)column.append(layout.querySelector(selector));}
+  wheelPanel.after(environmentPanel);
+  const oldResearch=document.getElementById('digitRegimePanel');if(oldResearch)oldResearch.hidden=true;
   move('.orderPerformancePanel','lowerPanels');move('.movedMetrics','lowerPanels');
   const diagnostic=byId('barrierDiagnostics').closest('section');byId('lowerPanels').append(diagnostic);
   document.querySelector('.entryDeck').classList.add('compact-entry');
@@ -73,6 +78,8 @@ export function mountDashboard(readState){
   const series=[];let previousSequence=-1,previousContext='',lastRenderKey='';
   function render(){
     renderTradability();
+    const trustedNow=readState().tradability?.now;if(Number.isFinite(trustedNow))environmentPanel.dataset.brokerNow=String(trustedNow);
+    renderEnvironment();
     const s=readState(),context=s.analysis?.context||s.market;
     if(previousContext!==context){series.length=0;previousSequence=-1;previousContext=context;}
     if(s.sequence!==previousSequence&&s.analysis){if(s.analysis.candidates.length)series.push([s.analysis.candidates.find(c=>c.type==='OVER'&&c.barrier===1),s.analysis.candidates.find(c=>c.type==='UNDER'&&c.barrier===8)].filter(Boolean));if(series.length>120)series.shift();previousSequence=s.sequence;}

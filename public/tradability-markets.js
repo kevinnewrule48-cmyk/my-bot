@@ -1,10 +1,11 @@
+import {EnvironmentBook} from './edge-environment.js';
 import {TradabilityEngine} from './tradability-engine.js';
 import {extractLastDigit} from './digit-barrier-engine.js';
 export const TRADABILITY_MARKETS=['R_10','R_25','R_50','R_75','R_100'];
 // Analysis owns its subscription, independently of execution mode/market.
 export class TradabilityMarkets {
  constructor({Socket=globalThis.WebSocket,onChange=()=>{},onEvent=()=>{},onTick=()=>{},setTimer=(fn,ms)=>setTimeout(fn,ms),clearTimer=id=>clearTimeout(id)}={}){
-  Object.assign(this,{Socket,onChange,onTick,setTimer,clearTimer});this.engines=new Map(TRADABILITY_MARKETS.map(symbol=>{const engine=new TradabilityEngine({},onEvent);engine.reset(symbol);return [symbol,engine];}));this.connection='STOPPED';this.errors=new Map();this.closed=true;
+  this.environment=new EnvironmentBook();Object.assign(this,{Socket,onChange,onTick,setTimer,clearTimer});this.engines=new Map(TRADABILITY_MARKETS.map(symbol=>{const engine=new TradabilityEngine({},onEvent);engine.reset(symbol);return [symbol,engine];}));this.connection='STOPPED';this.errors=new Map();this.closed=true;
  }
  engine(symbol){return this.engines.get(symbol);}
  selectWindow(size){for(const engine of this.engines.values())engine.selectWindow(size);this.onChange();}
@@ -27,5 +28,5 @@ export class TradabilityMarkets {
   socket.onerror=()=>socket.close();
   socket.onclose=()=>{if(this.socket!==socket||this.closed)return;this.connection='RECONNECTING';this.onChange();this.timer=this.setTimer(()=>this.connect(),2000);};
  }
- push(symbol,quote,epoch,precision,historical=false){const engine=this.engine(symbol);if(!engine)return;try{const {digit}=extractLastDigit(quote,precision);const result=engine.push({symbol,digit,epoch});if(result.accepted){this.errors.delete(symbol);this.onTick({market:symbol,symbol,digit,epoch,time:epoch,price:Number(quote).toFixed(precision),historical});}}catch{/* Await a quote with verified decimal precision. */}}
+ push(symbol,quote,epoch,precision,historical=false){const engine=this.engine(symbol);if(!engine)return;try{const {digit}=extractLastDigit(quote,precision);const result=engine.push({symbol,digit,epoch});if(result.accepted){this.environment.push({market:symbol,digit,epoch,price:Number(quote),historical});this.errors.delete(symbol);this.onTick({market:symbol,symbol,digit,epoch,time:epoch,price:Number(quote).toFixed(precision),historical});}}catch{/* Await a quote with verified decimal precision. */}}
 }

@@ -1,4 +1,5 @@
 import {analyzeEnvironment,edgeSide} from './edge-environment.js';
+import {environmentEvidence} from './environment-ranking.js';
 // Deterministic descriptive analysis. Scores are condition measurements, never win probabilities.
 export const BALANCE_VERSION='part-one-edge-balance-v2';
 export const BALANCE_MARKETS=Object.freeze(['R_10','R_25','R_50','R_75','R_100']);
@@ -85,7 +86,12 @@ export class BalanceBook{
  manual(direction,barrier){if(!BARRIERS.some(x=>x.direction===direction&&x.barrier===barrier))throw Error('Unsupported manual candidate');this.manualSelection={direction,barrier};this.emit();}
  current(market=this.executionMarket){return this.states.get(market)??null;}
  available(candidate,now=this.now()){const state=this.current(candidate?.market);try{assertCandidate(candidate,state,{now,allowManual:true});return continuationAllowed(candidate,state,this.lastSettled)&&!this.consumed.has(state.id)&&state.createdAt>(this.settlementFloor.get('*')??-Infinity);}catch{return false;}}
- best(now=this.now()){const a=[...this.states.values()].map(s=>s.selected).filter(c=>this.available(c,now)).sort((a,b)=>b.excessSupport-a.excessSupport||b.clearance-a.clearance);if(a.length>1&&a[0].excessSupport===a[1].excessSupport&&a[0].clearance===a[1].clearance)return a.find(c=>c.market===this.executionMarket)??null;return a[0]??null;}
+ best(now=this.now()){
+  const score=c=>environmentEvidence(this.current(c.market),c).advantage;
+  const a=[...this.states.values()].map(s=>s.selected).filter(c=>this.available(c,now));
+  a.sort((a,b)=>score(b)-score(a)||Number(b.market===this.executionMarket)-Number(a.market===this.executionMarket)||a.market.localeCompare(b.market));
+  return a[0]??null;
+ }
  consume(candidate,now=this.now()){if(!this.available(candidate,now))throw Error('Balance authorization expired or consumed');this.lastConsumed={candidate,balanceState:this.current(candidate.market)};this.consumed.add(candidate.balanceStateId);if(this.consumed.size>2000)this.consumed.delete(this.consumed.values().next().value);this.emit();}
  settled(market,at=this.now()){this.settlementFloor.set('*',at);this.lastSettled=this.lastConsumed;this.emit();}
 }

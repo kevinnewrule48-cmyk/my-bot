@@ -1,4 +1,5 @@
 import {createTradeDecision} from './trade-decision.js';
+import {environmentEvidence} from './environment-ranking.js';
 import {BalanceBook,assertCandidate,analyzeBalance} from './balance-engine.js';
 import {mountBalanceScale,BalanceEvidence} from './balance-scale.js';
 import {DigitBarrierEngine,extractLastDigit,proposalRequest} from './digit-barrier-engine.js';
@@ -592,9 +593,9 @@ const refreshPricing = () => {
 const renderMarketScan = () => {
  const best=balanceBook.best();scannerRecommendedSymbol=best?.market??null;
  $('scannerRecommendation').textContent=best?`${best.market} · ${best.label}`:'NO QUALIFIED MARKET';
- $('scannerRecommendationNote').textContent='Independent digit balance analysis; no price-trend fallback or direction quota.';
+ $('scannerRecommendationNote').textContent='Ranks fresh qualified setups by 50/200-tick losing-digit avoidance relative to each barrier baseline. Ranking is descriptive, not a win probability. Price volatility is context, not a digit prediction.';
  $('useScannerMarket').disabled=!best;
- $('marketScanResults').textContent=[...balanceBook.states.values()].map(s=>`${s.market}: ${s.selected?.label??s.status}`).join(' · ');
+ $('marketScanResults').textContent=[...balanceBook.states.values()].map(s=>{const e=environmentEvidence(s);return `${s.market}: ${s.selected?.label??s.status}${e?` · ${balanceBook.available(s.selected)?'AVAILABLE':'UNAVAILABLE'} · relative evidence ${e.advantage.toFixed(1)} pp · losing digits ${Math.round(e.short.lossRate*100)}% / ${Math.round(e.long.lossRate*100)}% over ${e.short.sample}/${e.long.sample} ticks`:''}`;}).join(' · ');
  return {best,bestIsTrend:false};
 };
 const useScannerMarket = symbol => {

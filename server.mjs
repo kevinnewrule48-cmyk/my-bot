@@ -10,7 +10,7 @@ import {DemoRiskLedger,guardedDemoOrder,RiskRejection} from './part-one-risk.mjs
 import {PartOneExecution} from './part-one-execution.mjs';
 import {strategyForType} from './public/strategy-proposal.js';
 import {qualifiesDifferFrequency} from './public/differ-engine.js';
-import {resetExecution,purchasePermission,suspendExecution,autoAuthorization,authEvent} from './execution-permission.mjs';
+import {resetExecution,purchasePermission,suspendExecution,autoAuthorization,authEvent,setAutoEligibility} from './execution-permission.mjs';
 import {TradabilityAuthority} from './part-one-tradability.mjs';
 const tradability=new TradabilityAuthority({log:event=>console.log(JSON.stringify(event))});
 
@@ -102,6 +102,14 @@ const server = http.createServer(async (req, res) => {
     const session=getSession(req);if(!session)return json(res,401,{error:'Account session expired; reconnect your account.'});
     return json(res,200,{authorization:autoAuthorization(session)});
   }
+  if(url.pathname==='/api/auto/eligibility'&&req.method==='POST'){
+    const session=getSession(req);if(!session)return json(res,401,{error:'Connect account first'});
+    try{const c=await readJson(req);if(!session.executionPageId||c.pageId!==session.executionPageId)throw Error('Stale page');
+      if(!Number.isSafeInteger(c.revision)||c.revision<=(session.autoEligibilityRevision??-1))throw Error('Superseded eligibility configuration');
+      setAutoEligibility(session,c.eligibility);session.autoEligibilityRevision=c.revision;session.autoEligibilityChangedAt=Date.now();
+      return json(res,200,{ok:true,eligibility:session.autoEligibility});
+    }catch(error){return json(res,400,{error:error.message});}
+  }
   if(url.pathname==='/api/auto/control'&&req.method==='POST'){
     const session=getSession(req);if(!session)return json(res,401,{error:'Connect your account first'});
     try{
@@ -111,6 +119,11 @@ const server = http.createServer(async (req, res) => {
       if(c.revision<=Math.max(session.autoControl?.revision??-1,session.autoControlRevision??-1))return json(res,409,{error:'Superseded Auto control',authorization:autoAuthorization(session)});
       if(c.running&&(!c.accountId||c.live!==true))return json(res,403,{error:'A live, intentionally started session is required'});
       if(c.recover&&(!session.autoControl?.running||session.autoControl.runId!==c.runId||session.autoControl.accountId!==c.accountId))return json(res,403,{error:'Prior Auto intent no longer exists; explicitly start Auto.',authorization:autoAuthorization(session)});
+      if(c.eligibility!==undefined){
+        if(!Number.isSafeInteger(c.eligibilityRevision)||c.eligibilityRevision<(session.autoEligibilityRevision??-1))throw Error('Superseded eligibility configuration');
+        if(c.eligibilityRevision===session.autoEligibilityRevision&&JSON.stringify(c.eligibility)!==JSON.stringify(session.autoEligibility))throw Error('Eligibility revision mismatch');
+        setAutoEligibility(session,c.eligibility);session.autoEligibilityRevision=c.eligibilityRevision;
+      }
       session.executionGeneration=(session.executionGeneration??0)+1;
       if(session.autoControl)session.autoControl={...session.autoControl,suspended:true};
       authEvent(session,'auto-control request','Purchases paused while control update is verified');
@@ -171,7 +184,8 @@ const server = http.createServer(async (req, res) => {
       if(strategy==='OVER_UNDER')validateBalanceRequest({candidate,balanceState,type,barrier,symbol,mode,decisionId});
       const requiredChecks=['Barrier','Momentum','Zone','Stability','Score','Persistence','Confidence','Quality'];
       const verifiedGate=gatePassed===true&&(type==='DIGITDIFF'||candidate?.ready===true||(strategyEvidence?.selected===(type==='DIGITOVER'?'OVER':'UNDER')&&requiredChecks.every(name=>strategyEvidence?.checks?.some(c=>c.name===name&&c.pass===true))));
-      const permission=purchasePermission(session,{mode,executionSessionId,attemptId:clientAttemptId,accountId,type,strategy,decisionId,signalAt,gatePassed:verifiedGate});
+      if(mode==='auto'&&strategy==='OVER_UNDER'&&decision.lockedAt<(session.autoEligibilityChangedAt??0))throw Error('TRADE BLOCKED — eligibility changed after decision');
+      const permission=purchasePermission(session,{mode,executionSessionId,attemptId:clientAttemptId,accountId,type,barrier,symbol,strategy,decisionId,signalAt,gatePassed:verifiedGate});
       const gate=()=>tradability.status(session,accountId,symbol,tradabilityMode);
       const authorizePurchase=()=>permission()&&gate().allowed&&!riseFall.busy(accountId);
       authorizePurchase.snapshot=()=>({...permission.snapshot(),tradability:gate()});

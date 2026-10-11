@@ -1,12 +1,14 @@
 import {validateTradeDecision,decisionMismatch} from './public/trade-decision.js';
 import {analyzeBalance,assertCandidate} from './public/balance-engine.js';
+import {assessCandidate} from './public/decision-brain.js';
 export function validateBalanceRequest(request,now=Date.now()){
  if(request.decision)validateTradeDecision(request.decision,request,now);
  const state=request.balanceState,candidate=request.candidate;
  if(!state||!candidate)throw Object.assign(Error('Canonical balance state and candidate required'),{code:'BALANCE_REQUIRED'});
  const rebuilt=analyzeBalance(state.market,state.ticks);
  if(JSON.stringify(rebuilt)!==JSON.stringify(state))throw Object.assign(Error('Balance state does not match its digit evidence'),{code:'BALANCE_MISMATCH'});
- assertCandidate(candidate,rebuilt,{type:request.type,barrier:request.barrier,symbol:request.symbol,now,allowManual:request.mode==='manual'});
+ assertCandidate(candidate,rebuilt,{type:request.type,barrier:request.barrier,symbol:request.symbol,now,allowManual:true});
+ if(request.mode==='auto'&&assessCandidate(rebuilt,candidate).action!=='TAKE')throw Error('TRADE BLOCKED — DECISION BRAIN requires coherent established evidence');
  if(request.decisionId!==candidate.id)throw Object.assign(Error('Decision ID does not match selected candidate'),{code:'BALANCE_MISMATCH'});
  return candidate;
 }
@@ -22,6 +24,7 @@ export function validateBalancePurchase(request,observed,now=Date.now()){
   const next=analyzeBalance(request.symbol,[...request.balanceState.ticks,...fresh]);
   const matching=next.candidates.find(c=>c.direction===candidate.direction&&c.barrier===candidate.barrier);
   if(next.createdAt!==observed.epoch*1000||!matching?.ready||next.lean!==candidate.direction)throw Object.assign(Error('Balance deteriorated between analysis and purchase'),{code:'BALANCE_DETERIORATED'});
+  if(request.mode==='auto'&&assessCandidate(next,matching).action!=='TAKE')throw Object.assign(Error('Decision Brain rejected current pre-BUY evidence'),{code:'BALANCE_DETERIORATED'});
  }
 
  return true;

@@ -1,4 +1,7 @@
 import {randomUUID} from 'node:crypto';
+import {ALL_BARRIERS,eligibility} from './public/decision-brain.js';
+export function setAutoEligibility(session,mask){const next=eligibility(mask);if(JSON.stringify(next)!==JSON.stringify(session.autoEligibility??ALL_BARRIERS)){session.autoEligibilityGeneration=(session.autoEligibilityGeneration??0)+1;}session.autoEligibility=next;}
+const barrierAllowed=(session,r)=>r.mode!=='auto'||r.strategy==='DIFFER'||(session.autoEligibility??ALL_BARRIERS)[`${r.type==='DIGITOVER'?'OVER':'UNDER'}:${r.barrier}`]===true;
 // Volatile permission only: never serialize or restore this object.
 export function authEvent(session,event,reason) {
   const previous=session.autoLastEvent?.currentState??'AUTO_OFF';
@@ -20,6 +23,7 @@ export function resetExecution(session,reason='Explicit execution reset / page i
   session.executionGeneration=(session.executionGeneration??0)+1;
   session.autoControl=null;
   session.autoControlRevision=undefined;
+  session.autoEligibilityRevision=undefined;
   session.manualIntent=null;
   session.tradabilityControl=null;
   session.tradabilityPending=false;
@@ -29,16 +33,22 @@ export function resetExecution(session,reason='Explicit execution reset / page i
 }
 export function purchasePermission(session,request,now=Date.now) {
   const generation=session.executionGeneration??0;
+  const eligibilityGeneration=session.autoEligibilityGeneration??0;
+  const eligibilityChanged=()=>request.mode==='auto'&&request.strategy!=='DIFFER'&&(session.autoEligibilityGeneration??0)!==eligibilityGeneration;
   const started=now();
   const control=session.autoControl;
   const intent=session.manualIntent;
   if(request.mode==='manual')session.manualIntent=null; // one request only
   const allowed=()=>{
+    if(!barrierAllowed(session,request))return false;
+    if(eligibilityChanged())return false;
     if(!Number.isFinite(session.expiresAt)||session.expiresAt<=now()||(session.executionGeneration??0)!==generation||now()-started>5000)return false;
     if(request.mode==='manual')return !!intent&&intent.id===request.executionSessionId&&intent.attemptId===request.attemptId&&intent.accountId===request.accountId&&intent.type===request.type&&intent.expiresAt>now();
     return request.mode==='auto'&&!!control&&session.autoControl===control&&control.running===true&&!control.suspended&&control.live===true&&control.accountId===request.accountId&&control.runId===request.executionSessionId&&control[request.strategy==='DIFFER'?'differ':'overUnder']===true&&typeof request.decisionId==='string'&&request.decisionId.length>0&&Number.isFinite(request.signalAt)&&request.signalAt>=control.startedAt&&request.signalAt<=now()+1000&&now()-request.signalAt<=5000&&request.gatePassed===true;
   };
   allowed.failureReason=()=>{
+    if(!barrierAllowed(session,request))return 'TRADE BLOCKED — BARRIER DISABLED';
+    if(eligibilityChanged())return 'TRADE BLOCKED — eligibility changed; fresh decision required';
     if(!Number.isFinite(session.expiresAt)||session.expiresAt<=now())return 'Account session expired; reconnect your account.';
     if((session.executionGeneration??0)!==generation)return 'Execution was reset after this request.';
     if(now()-started>5000)return 'Execution request exceeded its 5-second freshness limit.';
@@ -52,6 +62,6 @@ export function purchasePermission(session,request,now=Date.now) {
     if(!Number.isFinite(request.signalAt)||request.signalAt<control.startedAt||request.signalAt>now()+1000||now()-request.signalAt>5000)return 'Signal timestamp is stale or outside server time; check the device clock.';
     return allowed()?null:'Missing signal identifier.';
   };
-  allowed.snapshot=()=>({authorization:autoAuthorization(session),botState:session.autoControl?.running===true&&!session.autoControl?.suspended,autoTrading:request.mode==='auto'&&session.autoControl?.running===true&&!session.autoControl?.suspended,liveFeed:session.autoControl?.live===true,executionSessionId:request.executionSessionId??null,signalId:request.decisionId??null,generationCurrent:(session.executionGeneration??0)===generation,failureReason:allowed.failureReason()});
+  allowed.snapshot=()=>({authorization:autoAuthorization(session),market:request.symbol,direction:request.type,barrier:request.barrier,eligibility:session.autoEligibility??ALL_BARRIERS,botState:session.autoControl?.running===true&&!session.autoControl?.suspended,autoTrading:request.mode==='auto'&&session.autoControl?.running===true&&!session.autoControl?.suspended,liveFeed:session.autoControl?.live===true,executionSessionId:request.executionSessionId??null,signalId:request.decisionId??null,generationCurrent:(session.executionGeneration??0)===generation,failureReason:allowed.failureReason()});
   return allowed;
 }

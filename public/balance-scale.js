@@ -15,7 +15,7 @@ export class BalanceEvidence{
   return {records:[...this.records.values()],groups,warning:this.warning,note:'Descriptive retained broker outcomes; no proven relationship between greater displacement and accuracy. Mock results excluded. No automatic tuning.'};
  }
 }
-export function mountBalanceScale({book,evidence,getExecution=()=>({}),execute=()=>{},container}){
+export function mountBalanceScale({book,evidence,getExecution=()=>({}),execute=()=>{},container,onEligibility=mask=>book.setEligibility(mask)}){
  const root=document.createElement('section');root.className='balance-instrument';root.id='balanceInstrument';
  root.innerHTML=`<header><div><span class="balance-eyebrow">PART ONE · DIGIT BALANCE</span><h2>AI Balance Scale</h2></div><strong id="balanceStatus">COLLECTING DATA</strong></header>
  <div class="balance-controls"><label>Inspect market<select id="balanceInspect">${BALANCE_MARKETS.map(s=>`<option ${s===book.inspectedMarket?'selected':''}>${s}</option>`).join('')}</select></label><span id="balanceExecutionMarket"></span></div>
@@ -24,14 +24,19 @@ export function mountBalanceScale({book,evidence,getExecution=()=>({}),execute=(
  <p class="balance-caption" id="balanceHeadline">Waiting for independent live market analysis.</p><div id="balanceMetrics" class="balance-metrics"></div>
  <div class="balance-decision" id="authoritativeAutoDecision" aria-live="polite"></div><div class="balance-controls"><label>Manual exploration<select id="balanceManual"><option value="">Choose candidate</option>${BARRIERS.map(c=>`<option value="${c.direction}:${c.barrier}" >${c.direction} ${c.barrier}</option>`).join('')}</select></label><button type="button" id="balanceManualExecute">Execute inspected candidate · Demo</button></div>
  <p id="balancePermission"></p><details><summary>Four candidates · why no trade?</summary><div id="balanceChecks"></div></details><details><summary>Entry markers, settled results and accuracy by scale region</summary><pre id="balanceEvidence"></pre><button id="balanceExport" type="button">Export balance evidence</button></details>
- <p class="balance-caption">Entry follows scale direction and consecutive edge avoidance. No 65 score or 90% support target. Price and edge score provide context, not extra gates. No next-digit prediction. Inspecting a market never changes Auto execution.</p>`;
+ <p class="balance-caption">The scale measures direction. The Decision Brain checks broad, recent and prior evidence before authorizing an enabled candidate. Manual Exploration stays separate. These measurements do not predict the next digit. Inspecting a market never changes Auto execution.</p>`;
  (container??document.querySelector('.compact-column')??document.getElementById('analysisColumn')??document.querySelector('main')).prepend(root);
+ const controls=document.createElement('fieldset');controls.className='balance-controls';
+ const legend=document.createElement('legend');legend.textContent='AUTO TRADE ELIGIBILITY';controls.append(legend);
+ for(const c of BARRIERS){const key=`${c.direction}:${c.barrier}`,label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=book.autoEligibility[key];input.setAttribute('aria-label',`Auto eligibility ${c.direction} ${c.barrier}`);input.onchange=()=>onEligibility({...book.autoEligibility,[key]:input.checked});label.append(input,document.createTextNode(`${c.direction} ${c.barrier}`));controls.append(label);}
+ const conclusion=document.createElement('p');conclusion.setAttribute('aria-live','polite');controls.append(conclusion);root.querySelector('.balance-decision').before(controls);
  const el=id=>root.querySelector('#'+id),put=(id,v)=>{const e=el(id);if(e.textContent!==String(v))e.textContent=String(v);};
  el('balanceInspect').onchange=()=>{book.inspect(el('balanceInspect').value);globalThis.partOneRegimeObserver?.('inspect',{market:book.inspectedMarket});render();};
  el('balanceManual').onchange=()=>{if(!el('balanceManual').value){book.manualSelection={direction:null,barrier:null};render();return;}const [direction,b]=el('balanceManual').value.split(':');book.manual(direction,Number(b));render();};
  el('balanceManualExecute').onclick=()=>{const c=book.current(book.inspectedMarket)?.candidates.find(c=>c.direction===book.manualSelection.direction&&c.barrier===book.manualSelection.barrier);if(c&&book.available(c))execute(c);};
  el('balanceExport').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(evidence.report(),null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='part-one-balance-evidence.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
  function render(){const s=book.current(book.inspectedMarket),x=getExecution(),now=book.now(),age=s?now-s.createdAt:Infinity;
+  const brain=book.brain(book.executionMarket);conclusion.textContent=`DECISION: ${brain?.action==='TAKE'?'TAKE — '+brain.selected.label:brain?.action==='WAIT'?'WAIT':'NO TRADE'} · ${book.executionMarket}\n${x.eligibilityPending?'ELIGIBILITY SYNC PENDING — new OU purchases paused.':!Object.values(book.autoEligibility).some(Boolean)?'AUTO OU: NO BARRIERS ENABLED':brain?.reason??'Waiting for independent market history.'}`;
   put('balanceExecutionMarket',`Execution: ${x.market??book.executionMarket} · ${x.mode??'manual'}`);
   put('balanceStatus',x.feedError?'FEED ERROR':!Number.isFinite(now)?'WAITING FOR LIVE CLOCK':!s?(x.feed??'COLLECTING DATA'):age>5000?'FEED STALE':s.status);
   const pos=s?.position??0;el('balanceWeight').style.left=`${50+pos/2}%`;put('balancePosition',pos.toFixed(1));
@@ -46,7 +51,7 @@ export function mountBalanceScale({book,evidence,getExecution=()=>({}),execute=(
   const allowed=!!candidate&&book.available(candidate)&&x.mode==='manual'&&x.account?.accountType==='demo'&&!x.busy;
   el('balanceManualExecute').disabled=!allowed;
   put('balancePermission',`Manual ${candidate?.label??(book.manualSelection.direction?book.manualSelection.direction+' '+book.manualSelection.barrier:'not selected')}: ${candidate?.status??'CHOOSE A CANDIDATE'} · clearance ${candidate?.clearance.toFixed(2)??'—'} · ${candidate?.deterioration?'DETERIORATING':'no deterioration veto'} · Authorization: ${allowed?'CURRENT MANUAL CLICK AVAILABLE':x.authorization??'OFF'}`);
-  el('balanceChecks').replaceChildren(...(s?.candidates??[]).map(c=>{const p=document.createElement('p');p.textContent=`${c.label} · ${c.status} · ${c.checks.map(k=>`${k.name}: ${Number.isFinite(k.value)?k.value.toFixed(2):String(k.value??'unknown')} / ${k.required} [${k.pass?'PASS':'FAIL'}]`).join(' · ')}`;return p;}));
+  el('balanceChecks').replaceChildren(...(s?.candidates??[]).map(c=>{const p=document.createElement('p');const assessment=book.brain(book.inspectedMarket)?.evaluations.find(e=>e.candidateId===c.id);p.textContent=`${c.label} · ${assessment?.enabled?'AUTO ENABLED':'AUTO DISABLED'} · ${assessment?.phase??'COLLECTING'} · ${assessment?.reason??''} · ${c.status} · ${c.checks.map(k=>`${k.name}: ${Number.isFinite(k.value)?k.value.toFixed(2):String(k.value??'unknown')} / ${k.required} [${k.pass?'PASS':'FAIL'}]`).join(' · ')}`;return p;}));
   if(el('balanceEvidence').closest('details').open)put('balanceEvidence',JSON.stringify(evidence.report(),null,2));
   const markers=[...evidence.records.values()].filter(r=>r.candidate.market===book.inspectedMarket).slice(-6);
   el('balanceMarkers').replaceChildren(...markers.map(r=>{const m=document.createElement('span');m.className='balance-marker '+(r.status??'entry');m.style.left=`${50+r.candidate.scalePosition/2}%`;m.textContent=r.status==='won'?'W':r.status==='lost'?'L':'E';m.title=`${r.contractId} · ${r.candidate.label} · ${r.status??'entry'}`;return m;}));

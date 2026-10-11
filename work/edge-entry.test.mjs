@@ -8,7 +8,9 @@ import {validateBalanceRequest,validateBalancePurchase} from '../balance-authori
 import {PartOneExecution} from '../part-one-execution.mjs';
 const rows=(digits,end=1000)=>digits.map((digit,i)=>({digit,epoch:end-digits.length+1+i,price:100+digit/100}));
 const digits=[...Array.from({length:198},(_,i)=>i%10),5,6];
-const request=s=>({candidate:s.selected,balanceState:s,decision:createTradeDecision(s.selected,s,{now:s.createdAt}),decisionId:s.selected.id,type:s.selected.contractType,barrier:s.selected.barrier,symbol:s.market,mode:'auto',stake:1,currency:'USD',authorizePurchase:()=>true});
+// These legacy weak setups remain analyzable/manual; Auto now requires the Brain.
+const request=s=>({candidate:s.selected,balanceState:s,decision:createTradeDecision(s.selected,s,{mode:'manual',now:s.createdAt}),decisionId:s.selected.id,type:s.selected.contractType,barrier:s.selected.barrier,symbol:s.market,mode:'manual',stake:1,currency:'USD',authorizePurchase:()=>true});
+test('legacy short-burst qualification no longer authorizes Auto',()=>{const s=analyzeBalance('R_100',rows(digits));assert.ok(s.selected);assert.throws(()=>createTradeDecision(s.selected,s,{now:s.createdAt}),/DECISION BRAIN/);});
 test('edge is attached to entry; old support/strength failures no longer prevent a current avoidance setup',()=>{
  for(const ds of [digits,digits.map(d=>9-d)]){
   const t=rows(ds),s=analyzeBalance('R_100',t),old=strict('R_100',t),e=analyzeEnvironment(t);
@@ -39,7 +41,7 @@ test('price context is included but never creates a price or edge-score cutoff; 
  assert.ok(Buffer.byteLength(JSON.stringify(wire))<30000,'leave room within the existing 32768-byte request limit');
 });
 class Socket{readyState=1;sent=[];listeners={};addEventListener(n,f){(this.listeners[n]??=[]).push(f);}send(x){this.sent.push(JSON.parse(x));}last(k){return this.sent.findLast(x=>k in x);}reply(req,data){for(const f of this.listeners.message??[])f({data:JSON.stringify({req_id:req.req_id,echo_req:req,...data})});}}
-test('newly eligible edge setups complete repeated real executor mock lifecycles after wins and losses',async()=>{
+test('legacy edge setups retain manual mock lifecycles after wins and losses',async()=>{
  let now=1000000;const socket=new Socket(),events=[],engine=new PartOneExecution({connect:async()=>socket,now:()=>now,log:e=>events.push(e)}),book=new BalanceBook({now:()=>now});
  const credentials={accountId:'edge-demo',accountType:'demo',token:'MOCK'};
  for(let i=0;i<6;i++){

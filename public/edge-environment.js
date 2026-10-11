@@ -23,11 +23,13 @@ export function analyzeEnvironment(rows){
  const d=rows.map(t=>t.digit),r=d.slice(-25),pairs=r.slice(1).map((x,i)=>[r[i],x]),crossRate=100*avg(pairs.map(([a,b])=>+cross(a,b))),sameRate=100*avg(pairs.map(([a,b])=>+same(a,b)));
  const occupancy=100*weighted(r.map(x=>+edge(x))),weightedCross=100*weighted(pairs.map(([a,b])=>+cross(a,b))),weightedSame=100*weighted(pairs.map(([a,b])=>+same(a,b)));
  const score=.5*occupancy+.35*weightedCross+.15*weightedSame;
+ const allPairs=d.slice(1).map((x,i)=>[d[i],x]);
+ const establishedActivity=100*(.5*avg(d.map(x=>+edge(x)))+.35*avg(allPairs.map(([a,b])=>+cross(a,b)))+.15*avg(allPairs.map(([a,b])=>+same(a,b))));
  const short=range(rows.slice(-10)),medium=range(rows.slice(-50)),long=range(rows.slice(-200)),baseline=range(rows.slice(-200,-50));
  const ratio=short&&baseline?(baseline.tickRange?short.tickRange/baseline.tickRange:short.tickRange?Infinity:1):null;
  const deviation=short&&baseline?short.tickRange-baseline.tickRange:null;
  const stabilityRatio=short&&medium?(medium.tickRange?short.tickRange/medium.tickRange:short.tickRange?Infinity:1):null;
- return {sample:rows.length,lastEpoch:rows.at(-1)?.epoch,windows:EDGE_WINDOWS.map(n=>({size:n,sample:Math.min(n,d.length),low:100*avg(d.slice(-n).map(x=>+low(x))),high:100*avg(d.slice(-n).map(x=>+high(x)))})),
+ return {sample:rows.length,lastEpoch:rows.at(-1)?.epoch,establishedActivity,windows:EDGE_WINDOWS.map(n=>({size:n,sample:Math.min(n,d.length),low:100*avg(d.slice(-n).map(x=>+low(x))),high:100*avg(d.slice(-n).map(x=>+high(x)))})),
  frequencies:Object.fromEntries([0,1,8,9].map(k=>[k,100*avg(r.map(x=>+(x===k)))])),score,category:score<=20?'VERY LOW':score<=40?'LOW':score<=60?'MODERATE':score<=80?'HIGH':'EXTREME',
  occupancy,weightedCross,weightedSame,crossRate,sameRate,low:{...edgeSide(d,low),secondsSince:(()=>{const t=rows.findLast(t=>low(t.digit));return t?rows.at(-1).epoch-t.epoch:null;})()},high:{...edgeSide(d,high),secondsSince:(()=>{const t=rows.findLast(t=>high(t.digit));return t?rows.at(-1).epoch-t.epoch:null;})()},
  price:{short,medium,long,baseline,ratio,deviation,expansion:ratio===null?'UNKNOWN':ratio>1?'EXPANDING':ratio<1?'COMPRESSING':'UNCHANGED',

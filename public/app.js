@@ -1,5 +1,4 @@
 import {createTradeDecision} from './trade-decision.js';
-import {environmentEvidence} from './environment-ranking.js';
 import {BalanceBook,assertCandidate,analyzeBalance} from './balance-engine.js';
 import {mountBalanceScale,BalanceEvidence} from './balance-scale.js';
 import {DigitBarrierEngine,extractLastDigit,proposalRequest} from './digit-barrier-engine.js';
@@ -37,6 +36,21 @@ let marketClockAnchor=null;
 const marketNow=()=>marketClockAnchor?marketClockAnchor.epochMs+performance.now()-marketClockAnchor.receivedAt:NaN;
 const syncMarketClock=epoch=>{if(Number.isFinite(epoch)&&epoch>0)marketClockAnchor={epochMs:epoch*1000,receivedAt:performance.now()};};
 const balanceBook=new BalanceBook({now:marketNow});
+let eligibilityRevision=0,eligibilityPending=false;
+try{const saved=JSON.parse(localStorage.getItem('partOneAutoEligibility')??'null');if(saved)balanceBook.setEligibility(saved);}catch{}
+const updateAutoEligibility=async mask=>{
+ balanceBook.setEligibility(mask);eligibilityPending=true;
+ try{localStorage.setItem('partOneAutoEligibility',JSON.stringify(mask));}catch{}
+ if(authoritativeAutoDecision&&!['PURCHASED','SETTLED'].includes(authoritativeDecisionState)){authoritativeDecisionState='BLOCKED';authoritativeDecisionError='Eligibility changed; fresh decision required';}
+ const revision=++eligibilityRevision;
+ try{await executionReset;
+  if(!executionPageId){eligibilityPending=false;return;}
+  const r=await fetch('/api/auto/eligibility',{method:'POST',signal:globalThis.AbortSignal?.timeout?.(15000),headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,revision,eligibility:mask})});
+  const result=await r.json();if(!r.ok)throw Error(result.error);
+  if(revision===eligibilityRevision)eligibilityPending=false;
+ }catch(error){autoLastError='Eligibility not confirmed: '+error.message;}
+ auditStage('auto-eligibility',{eligibility:mask,revision,pending:eligibilityPending});
+};
 const balanceEvidence=new BalanceEvidence();
 const balanceSeenSettlements=new Set();
 const tradabilityEvents=[];
@@ -79,7 +93,7 @@ const syncParallelControl=async(recover=false)=>{
   autoControlPending=true;autoAuthorizationState=recover?'AUTO_RECOVERING':'AUTO_REQUESTING';
   try{
     await executionReset;if(parallelRunId!==runId)return;
-    const response=await fetch('/api/auto/control',{method:'POST',signal:globalThis.AbortSignal?.timeout?.(15000),headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,runId,recover,revision:++parallelRevision,running:autoEnabled&&botMode==='auto'&&isRunning,live:isRunning&&socket?.readyState===1,accountId:selectedAccount()?.accountId,overUnder:overUnderEngineState.armed,differ:differEngineState.armed})});
+    const response=await fetch('/api/auto/control',{method:'POST',signal:globalThis.AbortSignal?.timeout?.(15000),headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,runId,recover,revision:++parallelRevision,running:autoEnabled&&botMode==='auto'&&isRunning,live:isRunning&&socket?.readyState===1,accountId:selectedAccount()?.accountId,overUnder:overUnderEngineState.armed,differ:differEngineState.armed,eligibility:balanceBook.autoEligibility,eligibilityRevision})});
     const controlResult=await response.json();
     if(!response.ok)throw Error(controlResult.error||`Auto acknowledgment failed (${response.status})`);
     if(Number.isFinite(controlResult.serverTime))serverClockOffsetMs=controlResult.serverTime-Date.now();
@@ -169,8 +183,8 @@ const diagnosticRisk=()=>({connected:demoConnected,accountType:selectedAccount()
   configuredCooldown:selectedAutoCooldown(),stake:Number($('stake').value),maximumStake:Number($('maxStake').value),
   realAutoEnabled:false,dailyAccountLimits:'Demo server session ledger; not account-wide daily limits',requestedDemoLimits:demoRiskLimits()});
 const beginOrderAudit=(type,mode,stake,candidate)=>{
-  const balanceState=balanceBook.current(candidate.market);assertCandidate(candidate,balanceState,{type,now:marketNow(),allowManual:mode==='manual'});
-  const decision=createTradeDecision(candidate,balanceState,{mode,now:marketNow(),regime:globalThis.partOneRegimeSnapshot?.(candidate.market)??null});
+  const balanceState=balanceBook.current(candidate.market);assertCandidate(candidate,balanceState,{type,now:marketNow(),allowManual:true});
+  const decision=createTradeDecision(candidate,balanceState,{mode,now:marketNow(),autoEligibility:balanceBook.autoEligibility,selection:balanceBook.selectionReason,regime:globalThis.partOneRegimeSnapshot?.(candidate.market)??null});
   balanceBook.consume(candidate);balanceEvidence.attempt(candidate,balanceState);
   if(mode==='auto'){authoritativeAutoDecision=decision;authoritativeDecisionState='LOCKED';authoritativeDecisionError='';}
   auditStage('decision-locked',{decision});
@@ -593,9 +607,9 @@ const refreshPricing = () => {
 const renderMarketScan = () => {
  const best=balanceBook.best();scannerRecommendedSymbol=best?.market??null;
  $('scannerRecommendation').textContent=best?`${best.market} · ${best.label}`:'NO QUALIFIED MARKET';
- $('scannerRecommendationNote').textContent='Ranks fresh qualified setups by 50/200-tick losing-digit avoidance relative to each barrier baseline. Ranking is descriptive, not a win probability. Price volatility is context, not a digit prediction.';
+ $('scannerRecommendationNote').textContent='Compares enabled, actionable candidates using independent market histories. Keeps a valid market unless a challenger has stronger broad, recent and prior evidence beyond one-observation differences. Reasons are included in the audit export; no win probability is implied.';
  $('useScannerMarket').disabled=!best;
- $('marketScanResults').textContent=[...balanceBook.states.values()].map(s=>{const e=environmentEvidence(s);return `${s.market}: ${s.selected?.label??s.status}${e?` · ${balanceBook.available(s.selected)?'AVAILABLE':'UNAVAILABLE'} · relative evidence ${e.advantage.toFixed(1)} pp · losing digits ${Math.round(e.short.lossRate*100)}% / ${Math.round(e.long.lossRate*100)}% over ${e.short.sample}/${e.long.sample} ticks`:''}`;}).join(' · ');
+ $('marketScanResults').textContent=[...balanceBook.states.values()].map(s=>{const b=balanceBook.brain(s.market);return `${s.market}: analyzer ${s.selected?.label??s.status} · DECISION ${b.action} ${b.selected?.label??''} · ${b.reason}`;}).join(' · ');
  return {best,bestIsTrend:false};
 };
 const useScannerMarket = symbol => {
@@ -616,9 +630,12 @@ const scanMarkets = async () => {
 const balanceCycle = () => {
  renderMarketScan();const current=analyzeBoth();showSignal(current.selected);updateEntryStrength();renderParallel();
  if(botMode!=='auto'||!autoEnabled)return;
- const best=$('autoSwitchMarket').checked?balanceBook.best():balanceBook.current($('symbol').value)?.selected;
+ const best=$('autoSwitchMarket').checked?balanceBook.best():balanceBook.autoCandidate($('symbol').value);
  if(!best)return;
- if(best.market!==$('symbol').value){useScannerMarket(best.market);return;}
+ if(best.market!==$('symbol').value){
+  if(autoInFlight||manualHttpPending||executionBlocked()||autoContractIds.size)return;
+  balanceBook.selectExecution(best);auditStage('auto-pair-switch',balanceBook.selectionReason);useScannerMarket(best.market);return;
+ }
  analyzeBoth();void maybeAutoOrder(best);
 };
 
@@ -850,7 +867,7 @@ const maybeAutoOrder = async (signal) => {
   if(tradabilityBlocked()){auditStage('tradability-block',{strategy:'OVER_UNDER',state:tradabilityEngine.snapshot?.state});return;}
   if(!overUnderEngineState.armed||!parallelAutoReady)return;
   if(differEngineState.executionLock){if(overUnderEngineState.blockedSequence!==liveTickNumber){overUnderEngineState.blockedSequence=liveTickNumber;auditStage('account-purchase-lock',{strategy:'OVER_UNDER',reason:'DIFFER execution unresolved; analysis continues, no delayed purchase'});}return;}
-  if(analyzeBoth().selected?.id!==signal.id||!balanceBook.available(signal))return;
+  if(eligibilityPending||balanceBook.autoCandidate(signal.market)?.id!==signal.id||!balanceBook.available(signal))return;
   auditStage('risk-manager',{type:signal.type,connected:demoConnected,mode:botMode,armed:autoEnabled,pending:autoInFlight||autoContractIds.size>0,reset:autoAwaitingReset,cooldown:0});
   if(!signal.ready)return;
   const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = liveTickNumber;
@@ -935,7 +952,7 @@ $('clearActualPerformance').onclick = () => {
 updateActualPerformance();
 renderLastSettledOrder(lastSettledOrder);
 $('barrierPersistence').onchange=()=>{barrierEngine.reset();update();};
-$('exportBarrierAudit').onclick=()=>{auditStage('export-state',{risk:diagnosticRisk()});const blob=new Blob([JSON.stringify({schema:'part-one-barrier-audit-v3',exportedAt:Date.now(),capacity:2000,droppedEvents:auditDropped,defaults:barrierEngine.config,experimentalConfidenceUsedForTrading:false,execution:executionView,records:barrierAudit},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='part-one-barrier-audit.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('exportBarrierAudit').onclick=()=>{auditStage('export-state',{risk:diagnosticRisk()});const blob=new Blob([JSON.stringify({schema:'part-one-barrier-audit-v3',exportedAt:Date.now(),capacity:2000,droppedEvents:auditDropped,defaults:barrierEngine.config,experimentalConfidenceUsedForTrading:false,execution:executionView,autoEligibility:balanceBook.autoEligibility,decisionBrain:balanceBook.brainLog,marketSwitches:balanceBook.switchLog,records:barrierAudit},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='part-one-barrier-audit.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 
 // Read-only presentation adapter. Rendering never advances analysis or submits orders.
 if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mountDashboard}) => {
@@ -948,7 +965,7 @@ if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mount
     lastOrder:lastSettledOrder, flash:digitFlash, audit:barrierAudit,execution:executionView,executionTransportError,recheckExecution:()=>loadRecentOrder(true),
     minimum:null, persistence:Number($('barrierPersistence').value),
     stake:Number($('stake').value),tradability:tradabilityState()}));
-mountBalanceScale({book:balanceBook,evidence:balanceEvidence,getExecution:()=>({decision:authoritativeAutoDecision,decisionState:authoritativeDecisionState,decisionError:authoritativeDecisionError,feed:tradabilityMarkets.connection,feedError:tradabilityMarkets.errors.get(balanceBook.inspectedMarket),market:$('symbol').value,mode:botMode,authorization:autoAuthorizationState,account:selectedAccount(),busy:autoInFlight||manualHttpPending||executionBlocked()}),execute:candidate=>{if(botMode!=='manual')return;useScannerMarket(candidate.market);return executeOrder(candidate.contractType,candidate);}});
+mountBalanceScale({book:balanceBook,evidence:balanceEvidence,onEligibility:updateAutoEligibility,getExecution:()=>({eligibilityPending,decision:authoritativeAutoDecision,decisionState:authoritativeDecisionState,decisionError:authoritativeDecisionError,feed:tradabilityMarkets.connection,feedError:tradabilityMarkets.errors.get(balanceBook.inspectedMarket),market:$('symbol').value,mode:botMode,authorization:autoAuthorizationState,account:selectedAccount(),busy:autoInFlight||manualHttpPending||executionBlocked()}),execute:candidate=>{if(botMode!=='manual')return;useScannerMarket(candidate.market);return executeOrder(candidate.contractType,candidate);}});
 }).catch(error => console.error('Dashboard presentation could not load',error));
 // The main Start/Stop remains the only AutoBot switch. Arm switches do not start it.
 for(const id of ['startAuto','stopAuto','manualMode']){

@@ -1,11 +1,14 @@
 import {freeze,assertCandidate} from './balance-engine.js';
+import {evaluateBrain,ALL_BARRIERS} from './decision-brain.js';
 export const DECISION_SCHEMA=1;
 export function decisionMismatch(field,expected,actual){return Object.assign(Error(`TRADE BLOCKED — AUTHORITATIVE DECISION MISMATCH · ${field}: expected ${JSON.stringify(expected)}, received ${JSON.stringify(actual)}`),{code:'AUTHORITATIVE_DECISION_MISMATCH',mismatch:{field,expected,actual}});}
-export function createTradeDecision(candidate,balanceState,{mode='auto',regime=null,now=Date.now()}={}){
- assertCandidate(candidate,balanceState,{now,allowManual:mode==='manual'});
+export function createTradeDecision(candidate,balanceState,{mode='auto',regime=null,now=Date.now(),autoEligibility=ALL_BARRIERS,selection=null}={}){
+ assertCandidate(candidate,balanceState,{now,allowManual:true});
+ const brain=mode==='auto'?evaluateBrain(balanceState,autoEligibility):null;
+ if(brain&&brain.selected?.id!==candidate.id)throw Error('TRADE BLOCKED — DECISION BRAIN: '+brain.reason);
  return freeze({schema:DECISION_SCHEMA,decisionId:candidate.id,mode,lockedAt:now,expiresAt:candidate.createdAt+5000,
-  candidate,balanceState,regime:regime?structuredClone(regime):null,
-  selectionReason:mode==='manual'?'Explicit manual click on this independently qualified candidate':'Current edge avoidance follows scale direction; rank by recency-weighted support relative to each barrier baseline, then clearance. No minimum strength or support target.',
+  candidate,balanceState,brain,selection:selection?structuredClone(selection):null,regime:regime?structuredClone(regime):null,
+  selectionReason:mode==='manual'?'Explicit manual click on this independently qualified candidate':brain.reason,
   considered:balanceState.candidates.map(c=>({direction:c.direction,barrier:c.barrier,support:100*c.observed,ready:c.ready,rejections:c.checks.filter(k=>!k.pass).map(k=>k.name)}))});
 }
 export function validateTradeDecision(decision,request,now=Date.now(),activeDecisionId=decision?.decisionId){
@@ -15,6 +18,11 @@ export function validateTradeDecision(decision,request,now=Date.now(),activeDeci
  if(!Number.isFinite(decision.lockedAt)||decision.expiresAt!==c.createdAt+5000||now>decision.expiresAt||now<decision.lockedAt-1000)throw Object.assign(Error('TRADE BLOCKED — DECISION EXPIRED; require fresh current analysis'),{code:'DECISION_EXPIRED'});
  if(request.candidate&&JSON.stringify(request.candidate)!==JSON.stringify(c))throw decisionMismatch('candidate snapshot',c,request.candidate);
  if(request.balanceState&&JSON.stringify(request.balanceState)!==JSON.stringify(decision.balanceState))throw decisionMismatch('balance snapshot ID',decision.balanceState.id,request.balanceState.id);
- assertCandidate(c,decision.balanceState,{now,allowManual:decision.mode==='manual'});
+ assertCandidate(c,decision.balanceState,{now,allowManual:true});
+ if(decision.mode==='auto'){
+  if(!decision.brain)throw decisionMismatch('brain','verified decision brain',null);
+  const rebuilt=evaluateBrain(decision.balanceState,decision.brain.eligibility);
+  if(rebuilt.selected?.id!==c.id||JSON.stringify(rebuilt)!==JSON.stringify(decision.brain))throw decisionMismatch('brain','recomputed actionable candidate',c.id);
+ }
  return decision;
 }

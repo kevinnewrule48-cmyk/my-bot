@@ -52,3 +52,24 @@ test('accounting failure is visible and read-only recheck records settlement bef
  fail=false;await f.engine.resume(credentials,true);await flow.settlement;
  assert.equal(recorded,1);assert.equal(f.engine.snapshot(credentials.accountId).state,'IDLE');assert.equal(s.sent.filter(r=>r.buy).length,1);
 });
+
+
+test('InvalidContractProposal after BUY is rejected, not unconfirmed; next fresh attempt settles',async()=>{
+ const {executionOutcome}=await import('../public/premium-model.js');
+ const f=fixture(),first=await proposed(f,'invalid-proposal-buy');
+ first.s.reply(first.buy,{error:{code:'InvalidContractProposal',message:'Unknown contract proposal'}});
+ await assert.rejects(first.flow.entry,e=>e.code==='InvalidContractProposal'&&e.orderNotSubmitted);
+ const snapshot=f.engine.snapshot(credentials.accountId);
+ assert.equal(snapshot.state,'IDLE');assert.equal(snapshot.blocking,false);
+ assert.equal(snapshot.last.buySent,true);assert.equal(snapshot.last.state,'REJECTED');
+ assert.equal(executionOutcome(snapshot.last).buy,'REJECTED · NO CONTRACT PURCHASED');
+ assert.equal(executionOutcome(snapshot.last).settlement,'NOT APPLICABLE · NO CONTRACT');
+ assert.equal(first.s.sent.filter(r=>r.buy).length,1);
+ const next=await proposed(f,'fresh-after-invalid-proposal'),monitor=bought(next.s,next.buy,82);
+ settled(next.s,monitor,82);await next.flow.settlement;
+ assert.equal(f.engine.snapshot(credentials.accountId).state,'IDLE');
+ assert.equal(next.s.sent.filter(r=>r.buy).length,2);
+ assert.equal(executionOutcome({state:'RECONCILIATION_REQUIRED',buySent:true,error:{code:'InvalidContractProposal'}}).buy,'SENT · OUTCOME UNCONFIRMED');
+ assert.equal(executionOutcome({state:'REJECTED',buySent:false}).settlement,'NOT APPLICABLE · NO CONTRACT');
+ assert.equal(executionOutcome({state:'CONTRACT_OPEN',buySent:true,contractId:82}).settlement,'WAITING');
+});

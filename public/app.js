@@ -887,7 +887,7 @@ const maybeAutoOrder = async (signal) => {
     authoritativeDecisionState='PROPOSAL';
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),browserAutoState:autoAuthorizationState,tradabilityMode,executionSessionId:parallelRunId,signalAt:executionNow(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:trace.candidate.contractType, symbol:trace.candidate.market, stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
     const result = await response.json();
-    if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode});
+    if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode,executionCode:result.executionCode,attemptId:result.attemptId,uncertain:result.uncertain});
     acceptedOrderAudit(trace,result);
     lastAutoSignalTick = liveTickNumber;
     autoMomentumTrades += 1;
@@ -900,7 +900,7 @@ const maybeAutoOrder = async (signal) => {
     // A rejected request must not silently turn the bot off. Keep it armed and
     // show the exact reason so the next LIVE SUPPORT signal can retry.
     autoLastError = error.message || 'Deriv did not accept the Auto Bot order.';authoritativeDecisionState='BLOCKED';authoritativeDecisionError=autoLastError;
-    auditStage('execution-error',{...trace,type:signal.type,reason:autoLastError,riskCode:error.riskCode??null,proposalValidation:error.riskCode?'blocked by server risk before proposal/order':'not reported; failure stage unknown'});
+    auditStage('execution-error',{...trace,type:signal.type,reason:autoLastError,riskCode:error.riskCode??null,executionCode:error.executionCode??null,uncertain:error.uncertain??null,proposalValidation:error.riskCode?'blocked by server risk before proposal/order':'not reported; failure stage unknown'});
     $('autoStatus').textContent = `Auto Bot is still ON. Request error: ${autoLastError}. Checking execution status before another purchase.`;
     trackRecentOrder();
   }

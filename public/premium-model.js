@@ -1,4 +1,12 @@
 // Presentation-only calculations; no orders, prediction, or candidate selection.
+export function executionOutcome(attempt) {
+  const rejected=attempt?.state==='REJECTED'&&!attempt.contractId;
+  return {
+    failure:attempt?.failureKind??(rejected?(attempt?.error?.echo_req?.proposal?'PROPOSAL_REJECTED':attempt.buySent?'BUY_REJECTED':'LOCAL_EXECUTION_FAILURE'):null),
+    buy:attempt?.contractId?'CONFIRMED':rejected?(attempt.buySent?'REJECTED · NO CONTRACT PURCHASED':'NOT SENT · REQUEST REJECTED'):attempt?.buySent?'SENT · OUTCOME UNCONFIRMED':'NOT SENT',
+    settlement:attempt?.result?attempt.result.status.toUpperCase()+' · P/L '+attempt.result.profit:rejected?'NOT APPLICABLE · NO CONTRACT':attempt?.contractId?'WAITING':attempt?.buySent?'NOT STARTED · BUY OUTCOME UNCONFIRMED':'NOT STARTED'
+  };
+}
 export function dashboardStatus(s) {
   if(s.executionTransportError)return 'STATUS UNAVAILABLE';
   if(s.execution?.blocking)return s.execution.state.replaceAll('_',' ');

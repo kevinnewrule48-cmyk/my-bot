@@ -1,5 +1,5 @@
 import {mountEnvironmentPanel} from './edge-environment-panel.js';
-import {dashboardStatus,heatMap,summarizeOrders,barrierView} from './premium-model.js';
+import {dashboardStatus,heatMap,summarizeOrders,barrierView,executionOutcome} from './premium-model.js';
 import {diagnoseSnapshot} from './part-one-diagnostics.js';
 import {DEFAULTS} from './digit-barrier-engine.js';
 import {liveDigitWheel,mountDigitWheel} from './live-digit-wheel.js';
@@ -91,8 +91,8 @@ export function mountDashboard(readState){
     const execution=s.execution,lastAttempt=execution?.last;
     put('executionEngineState',s.executionTransportError?'STATUS UNAVAILABLE':execution?.state??(s.connected?'CHECKING':'NO ACCOUNT'));
     put('executionStrategyState',`Strategy: ${s.analysis?.selected?'GO AHEAD · '+s.analysis.selected.label:'NOT READY'} · Strategy permission is not a purchase.${execution?.errorSummary?' '+execution.errorSummary:''}`);
-    put('executionEngineDetails',lastAttempt?`Last trade: #${String(lastAttempt.number).padStart(3,'0')}\nAttempt: ${lastAttempt.attemptId}\nProposal: ${lastAttempt.proposalId??'WAITING'}\nBuy: ${lastAttempt.contractId?'CONFIRMED':lastAttempt.buySent?'SENT · OUTCOME UNCONFIRMED':'NOT SENT'}\nContract ID: ${lastAttempt.contractId??'—'}\nSettlement: ${lastAttempt.result?lastAttempt.result.status.toUpperCase()+' · P/L '+lastAttempt.result.profit:'WAITING'}\n${lastAttempt.error?'Last error: '+lastAttempt.error.code+' · '+lastAttempt.error.message:''}\n${s.executionTransportError||''}`:s.executionTransportError||'No recorded account order attempt.');
-    byId('executionAttemptHistory').replaceChildren(...(execution?.attempts??[]).slice().reverse().map(a=>{const row=document.createElement('p');row.textContent=`#${String(a.number).padStart(3,'0')} · ${a.contractId?'BUY CONFIRMED':a.buySent?'BUY SENT':'NO BUY'} → ${a.result?.status?.toUpperCase()??a.state}${a.error?' · '+a.error.code:''}`;return row;}));
+    put('executionEngineDetails',lastAttempt?`Last trade: #${String(lastAttempt.number).padStart(3,'0')}\nAttempt: ${lastAttempt.attemptId}\nProposal: ${lastAttempt.proposalId??'WAITING'}\nFailure: ${executionOutcome(lastAttempt).failure?.replaceAll('_',' ')??'NONE'}\nBuy: ${executionOutcome(lastAttempt).buy}\nContract ID: ${lastAttempt.contractId??'—'}\nSettlement: ${executionOutcome(lastAttempt).settlement}\n${lastAttempt.error?'Last error: '+lastAttempt.error.code+' · '+lastAttempt.error.message:''}\n${s.executionTransportError||''}`:s.executionTransportError||'No recorded account order attempt.');
+    byId('executionAttemptHistory').replaceChildren(...(execution?.attempts??[]).slice().reverse().map(a=>{const row=document.createElement('p');row.textContent=`#${String(a.number).padStart(3,'0')} · ${executionOutcome(a).buy} → ${a.result?.status?.toUpperCase()??a.state}${a.error?' · '+a.error.code:''}`;return row;}));
     put('executionEventLog',(execution?.events??[]).slice(-80).map(e=>JSON.stringify(e)).join('\n'));
     put('heroMarket',s.market);const newDigit=String(s.ticks.at(-1)?.digit??'—');if(byId('heroDigit').textContent!==newDigit){put('heroDigit',newDigit);if(!matchMedia('(prefers-reduced-motion: reduce)').matches)byId('heroDigit').animate([{opacity:.6,transform:'translateY(3px)'},{opacity:1,transform:'translateY(0)'}],{duration:180});}put('heroPrice',s.ticks.at(-1)?.price??'Waiting for a verified price');
     byId('recentStream').innerHTML=s.ticks.slice(-10).reverse().map(t=>`<span>${t.digit}</span>`).join('');

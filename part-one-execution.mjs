@@ -85,7 +85,7 @@ event(id,a,stage,details={}){const account=this.account(id);const e={timestamp:t
  receive(id,ch,data){if(this.channels.get(this.key(id))!==ch)return;const meta=ch.requests.get(data.req_id);const a=meta?.attemptId?this.find(id,meta.attemptId):null;
   if(!meta){if(data.subscription?.id)this.forget(id,ch,data.subscription.id);this.event(id,null,'UNMATCHED_RESPONSE_IGNORED',{req_id:data.req_id,msg_type:data.msg_type,contractId:data.proposal_open_contract?.contract_id,error:data.error?{code:data.error.code,message:data.error.message,echo_req:safe(data.echo_req)}:null});return;}
   if(data.subscription?.id)meta.subscription=data.subscription.id;
-  if(data.error){const error={code:data.error.code??'DERIV_ERROR',message:data.error.message??'Deriv rejected request',req_id:data.req_id,echo_req:safe(data.echo_req)};this.event(id,a,'API_ERROR',{error});
+  if(data.error){if(a){a.derivRejection=safe({receivedAt:this.now(),stage:meta.kind,proposalId:a.proposalId??null,request:{...meta.payload,req_id:data.req_id},response:data});if(meta.kind==='buy'||meta.kind==='proposal')a.failureKind=meta.kind==='buy'?'BUY_REJECTED':'PROPOSAL_REJECTED';}const error={code:data.error.code??'DERIV_ERROR',message:data.error.message??'Deriv rejected request',req_id:data.req_id,echo_req:safe(data.echo_req)};this.event(id,a,'API_ERROR',{error});
    if(meta.kind==='warm'){ch.warm.delete(meta.key);ch.warmConfig=null;}
    if(!meta.subscribe)ch.requests.delete(data.req_id);
    if(a&&!terminal(a)){if(meta.kind==='proposal'||meta.kind==='buy'&&!a.contractId)this.reject(id,a,error);else if(meta.kind==='contract'){this.unresolved(id,a,error);void this.reconcile(this.credentials.get(this.key(id)),a).catch(e=>this.event(id,a,'RECONCILE_ERROR',{error:{message:e.message}}));}}return;

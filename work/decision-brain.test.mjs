@@ -66,12 +66,12 @@ test('one/few tick ranking leads do not bounce execution; deterioration releases
  for(let i=0;i<200;i++){b.push('R_10',{digit:incumbent[i],epoch:801+i});b.push('R_25',{digit:challenger[i],epoch:801+i});}
  assert.ok(b.autoCandidate('R_10'));assert.ok(b.autoCandidate('R_25'));assert.equal(b.best().market,'R_10');
  for(let j=1;j<=3;j++){b.push('R_25',{digit:9,epoch:1000+j});assert.equal(b.best(1000000+j*1000).market,'R_10');}
- b.push('R_10',{digit:0,epoch:1003});const next=b.best(1003000);assert.equal(next.market,'R_25');b.selectExecution(next,1003000);assert.equal(b.selectionReason.reason,'CURRENT MARKET DETERIORATED');
+ b.push('R_10',{digit:0,epoch:1003});assert.equal(b.best(1003000),null);b.push('R_10',{digit:0,epoch:1004});const next=b.best(1004000);assert.equal(next.market,'R_25');b.selectExecution(next,1004000);assert.equal(b.selectionReason.reason,'CONFIRMED DETERIORATION');
 });
 test('material superiority in both blocks and broad history can replace a still-valid market',()=>{
  const b=new BalanceBook({now:()=>1000000});b.setEligibility(mask(['OVER:1']));b.executionMarket='R_10';
- for(let i=0;i<200;i++){b.push('R_10',{digit:i%8===0?0:8,epoch:801+i});b.push('R_25',{digit:9,epoch:801+i});}
- assert.ok(b.autoCandidate('R_10'));assert.equal(b.best().market,'R_25');b.selectExecution(b.best());assert.equal(b.selectionReason.reason,'STRONGER ESTABLISHED OPPORTUNITY');
+ for(let i=0;i<200;i++){b.push('R_10',{digit:i%7===0?0:8,epoch:801+i});b.push('R_25',{digit:9,epoch:801+i});}
+ assert.equal(b.best(),null);for(let i=1;i<=2;i++){b.push('R_10',{digit:8,epoch:1000+i});b.push('R_25',{digit:9,epoch:1000+i});b.best(1000000+i*1000);}const next=b.best(1002000);assert.equal(next.market,'R_25');b.selectExecution(next,1002000);assert.equal(b.selectionReason.reason,'PERSISTENT STRONGER CHALLENGER');
 });
 test('each displayed bar reads only its named market accumulated value',()=>{
  const previous=globalThis.document;const buttons=[];

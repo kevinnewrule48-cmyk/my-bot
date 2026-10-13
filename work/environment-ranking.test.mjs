@@ -16,11 +16,12 @@ test('mirrored barriers have equal evidence and missing candidates have none',()
  assert.equal(environmentEvidence({ticks:[]}),null);
 });
 test('actual book selects sustained evidence and excludes stale or consumed setups',()=>{
- const b=new BalanceBook({now:()=>200000});
+ let now=200000;const b=new BalanceBook({now:()=>now});
  for(let i=1;i<=200;i++){
  b.push('R_10',{epoch:i,digit:5});
  b.push('R_100',{epoch:i,digit:i>198?5:(i%2?0:9)});
  }
+ assert.equal(b.best(),null);for(let i=201;i<=203;i++){now=i*1000;b.push('R_10',{epoch:i,digit:5});b.push('R_100',{epoch:i,digit:i%2?0:9});b.best();}
  assert.equal(b.best().market,'R_10');
  b.consume(b.best());assert.notEqual(b.best()?.market,'R_10');
  assert.equal(b.best(206000),null);

@@ -30,8 +30,8 @@ export function mountDashboard(readState){
   const renderEnvironment=mountEnvironmentPanel(environmentPanel,()=>readState().tradability?.environments);
   document.querySelector('.digit-hero').hidden=true;
   const enginePanel=document.createElement('section');enginePanel.className='panel';
-  enginePanel.innerHTML='<div class="card-heading"><h2>Execution engine</h2><span id="executionEngineState">NO ACCOUNT</span></div><p id="executionStrategyState"></p><pre id="executionEngineDetails" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px"></pre><button id="recheckExecution" class="secondary">Recheck execution · no purchase</button><details><summary>Recent trade attempts</summary><div id="executionAttemptHistory"></div></details><details><summary>Execution event log</summary><pre id="executionEventLog" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:11px"></pre></details>';
-  byId('executionColumn').prepend(enginePanel);byId('recheckExecution').onclick=()=>readState().recheckExecution();
+  enginePanel.innerHTML='<div class="card-heading"><h2>Execution engine</h2><span id="executionEngineState">NO ACCOUNT</span></div><p id="executionStrategyState" class="compact-status"></p><details><summary>Execution Diagnostics</summary><pre id="executionEngineDetails" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px"></pre><button id="recheckExecution" class="secondary">Recheck execution · no purchase</button><details><summary>Recent trade attempts</summary><div id="executionAttemptHistory"></div></details><details><summary>Execution event log</summary><pre id="executionEventLog" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:11px"></pre></details></details>';
+  const watchdog=document.createElement('section');watchdog.className='panel no-trade-panel';watchdog.innerHTML='<h2 id=watchdogTitle>No-trade monitor</h2><p id=watchdogReason class=compact-status></p><details><summary>Why No Trade?</summary><pre id=watchdogDetails></pre></details>';byId('executionColumn').prepend(watchdog);byId('executionColumn').prepend(enginePanel);byId('recheckExecution').onclick=()=>readState().recheckExecution();
   const move=(selector,target)=>{const el=document.querySelector(selector);if(el)byId(target).append(el);};
   move('.controls','marketColumn');move('.scannerPanel','marketColumn');
   const tradabilityPanel=document.createElement('section');tradabilityPanel.className='panel';byId('marketColumn').append(tradabilityPanel);
@@ -74,6 +74,13 @@ export function mountDashboard(readState){
   byId('autoCooldownTicks').closest('label').firstChild.textContent='DIFFER cooldown only';
   document.querySelector('.cooldownPanel > p').textContent='Fresh balance authorization';
   document.querySelector('.scannerPanel > p').textContent='Five independent digit analyzers. Pair selection follows qualified balance candidates; no price-trend fallback.';
+  const fold=(node,title)=>{if(!node)return;const details=document.createElement('details');details.className='panel compact-details';const summary=document.createElement('summary');summary.textContent=title;node.before(details);details.append(summary,node);};
+  fold(document.querySelector('.comparison'),'Candidate Diagnostics');
+  fold(tradabilityPanel,'Market Evidence');
+  fold(environmentPanel,'Edge & Price Environment');
+  fold(document.querySelector('.chart-panel'),'Advanced Metrics');
+  fold(diagnostic,'Candidate Audit');
+  for(const node of layout.querySelectorAll('.hint')){if(!node.closest('details'))fold(node,'About these measurements');}
   const series=[];let previousSequence=-1,previousContext='',lastRenderKey='';
   function render(){
     renderTradability();
@@ -88,6 +95,7 @@ export function mountDashboard(readState){
     put('premiumAccount',s.connected&&s.account?s.account.accountType.toUpperCase()+' ACCOUNT':'NO ACCOUNT');
     byId('premiumAccount').className=s.connected&&s.account?.accountType==='real'?'real-account':'demo-account';
     put('premiumMarket',s.market.replace('R_','Volatility ')+' Index');put('premiumStatus',dashboardStatus(s));
+    const monitor=s.noTrade;put('watchdogTitle',monitor?.active?`No purchase · ${Math.floor((monitor.noPurchaseMs??0)/60000)}m`:'No-trade monitor · inactive');put('watchdogReason',monitor?.latest?`${monitor.latest.kind==='system'?'NO TRADE — SYSTEM/EXECUTION BLOCK':monitor.latest.kind==='purchase'?'PURCHASED':'NO TRADE — MARKET CONDITIONS'} · ${monitor.latest.category}`:'Waiting for Auto analysis');if(byId('watchdogDetails').closest('details').open)put('watchdogDetails',JSON.stringify({...monitor,ledgerWarning:s.ledgerWarning,pairOwnership:s.pairOwnership},null,2));
     const execution=s.execution,lastAttempt=execution?.last;
     put('executionEngineState',s.executionTransportError?'STATUS UNAVAILABLE':execution?.state??(s.connected?'CHECKING':'NO ACCOUNT'));
     put('executionStrategyState',`Strategy: ${s.analysis?.selected?'GO AHEAD · '+s.analysis.selected.label:'NOT READY'} · Strategy permission is not a purchase.${execution?.errorSummary?' '+execution.errorSummary:''}`);

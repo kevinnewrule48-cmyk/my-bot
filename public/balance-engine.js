@@ -1,3 +1,4 @@
+import {PairSelectionController} from './pair-selection.js';
 import {analyzeEnvironment,edgeSide} from './edge-environment.js';
 import {environmentEvidence} from './environment-ranking.js';
 import {evaluateBrain,eligibility,ALL_BARRIERS} from './decision-brain.js';
@@ -76,7 +77,7 @@ export function continuationAllowed(candidate,state,previous){
  return !!candidate?.ready&&candidate.balanceStateId===state?.id&&candidate.direction===state?.lean;
 }
 export class BalanceBook{
- autoEligibility={...ALL_BARRIERS};switchLog=[];selectionReason=null;brainCache=new Map();brainLog=[];
+ pairSelection=new PairSelectionController();autoEligibility={...ALL_BARRIERS};switchLog=[];selectionReason=null;brainCache=new Map();brainLog=[];
  setEligibility(mask){this.autoEligibility=eligibility(mask);this.emit();}
  brain(market=this.executionMarket){
   const s=this.current(market);if(!s)return null;
@@ -101,25 +102,25 @@ export class BalanceBook{
   const a=[...this.states.values()].map(s=>this.autoCandidate(s.market,now)).filter(Boolean);
   a.sort((a,b)=>score(b)-score(a)||Number(b.market===this.executionMarket)-Number(a.market===this.executionMarket)||a.market.localeCompare(b.market));
   const current=a.find(c=>c.market===this.executionMarket),challenger=a[0];
-  if(!challenger)return null;
-  if(current&&challenger.market!==current.market){
-   const evidence=c=>this.brain(c.market).evaluations.find(e=>e.candidateId===c.id).evidence;
-   const x=evidence(challenger),y=evidence(current);
-   // Require agreement across two nonoverlapping blocks and the broad window,
-   // beyond the effect of replacing a single digit in each sample.
-   const superior=['broad','recent','prior'].every(k=>
-    (x[k].support-x.reference.support)-(y[k].support-y.reference.support)>1/x[k].sample+1/y[k].sample&&
-    x[k].clearance-x.reference.clearance>y[k].clearance-y.reference.clearance);
-   if(!superior)return current;
-  }
-  return challenger;
+  let superior=false,evidence=null;
+  if(current&&challenger&&challenger.market!==current.market){
+   const measure=c=>this.brain(c.market).evaluations.find(e=>e.candidateId===c.id).evidence;
+   const x=measure(challenger),y=measure(current);
+   superior=['broad','recent','prior'].every(k=>(x[k].support-x.reference.support)-(y[k].support-y.reference.support)>1/x[k].sample+1/y[k].sample&&x[k].clearance-x.reference.clearance>y[k].clearance-y.reference.clearance);
+   evidence={superior,current:environmentEvidence(this.current(current.market),current),challenger:environmentEvidence(this.current(challenger.market),challenger),currentBlocks:y,challengerBlocks:x};
+  }else if(challenger)evidence={superior:false,challenger:environmentEvidence(this.current(challenger.market),challenger)};
+  const state=this.current(),brain=this.brain(),owned=this.pairSelection.currentCandidate;
+  const observed=brain?.selected??state?.selected??state?.candidates.find(c=>c.direction+':'+c.barrier===owned)??state?.candidates.find(c=>c.direction===state.lean);
+  // Two current-market observations must confirm the existing deterioration evidence.
+  const deteriorating=!!observed&&(observed.deterioration||brain?.evaluations.find(e=>e.candidateId===observed.id)?.phase==='DETERIORATING');
+  return this.pairSelection.evaluate({market:this.executionMarket,state,current,observed,challenger,superior,evidence,deteriorating,now});
  }
  selectExecution(candidate,now=this.now()){
   if(!candidate||!this.available(candidate,now))return false;
   if(candidate.market===this.executionMarket)return true;
-  const old=this.current(),brain=this.brain(),reason=!old||now-old.createdAt>5000?'CURRENT MARKET UNAVAILABLE':old.candidates.some(c=>c.direction===old.lean&&c.deterioration)?'CURRENT MARKET DETERIORATED':!brain?.selected?'CURRENT MARKET LOST QUALIFICATION':'STRONGER ESTABLISHED OPPORTUNITY';
-  this.selectionReason={from:this.executionMarket,to:candidate.market,reason,at:now,candidateId:candidate.id,eligibility:{...this.autoEligibility}};
-  this.switchLog.push(this.selectionReason);if(this.switchLog.length>200)this.switchLog.shift();this.executionMarket=candidate.market;return true;
+  if(this.pairSelection.proposedMarket!==candidate.market)return false;
+  this.selectionReason={from:this.executionMarket,to:candidate.market,reason:this.pairSelection.switchReason,at:now,candidateId:candidate.id,eligibility:{...this.autoEligibility},ownership:this.pairSelection.snapshot(now)};
+  this.switchLog.push(this.selectionReason);if(this.switchLog.length>200)this.switchLog.shift();this.executionMarket=candidate.market;this.pairSelection.adopt(candidate.market,now);return true;
  }
  consume(candidate,now=this.now()){if(!this.available(candidate,now))throw Error('Balance authorization expired or consumed');this.lastConsumed={candidate,balanceState:this.current(candidate.market)};this.consumed.add(candidate.balanceStateId);if(this.consumed.size>2000)this.consumed.delete(this.consumed.values().next().value);this.emit();}
  settled(market,at=this.now()){this.settlementFloor.set('*',at);this.lastSettled=this.lastConsumed;this.emit();}

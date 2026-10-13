@@ -1,3 +1,4 @@
+import {AutoDiagnostics,CompactTradeLedger,stopCategory} from './auto-diagnostics.js';
 import {createTradeDecision} from './trade-decision.js';
 import {BalanceBook,assertCandidate,analyzeBalance} from './balance-engine.js';
 import {mountBalanceScale,BalanceEvidence} from './balance-scale.js';
@@ -164,6 +165,8 @@ const $ = (id) => document.getElementById(id);
 const demoRiskLimits=()=>({maxStake:Number($('maxStake').value),maxSessionLoss:Number($('dailyLoss').value),maxTrades:Number($('maxTrades').value),maxConsecutiveLosses:Number($('maxConsecutiveLosses').value),cooldownTicks:Number($('autoCooldownTicks').value)});
 const barrierEngine = new DigitBarrierEngine();
 const barrierAudit = [];
+const autoDiagnostics=new AutoDiagnostics(),compactLedger=new CompactTradeLedger(),diagnosticExecutionSeen=new Set();
+const diagnosticStop=(candidate,category,reason=category)=>autoDiagnostics.record(candidate,category,'system',reason);
 let barrierSnapshot = null;
 let auditEventSequence=0,auditDropped=0,currentDecisionId=null;
 const orderDecisionIds=new Map();
@@ -200,6 +203,7 @@ const beginOrderAudit=(type,mode,stake,candidate)=>{
   return {decisionId:decision.decisionId,requestId,attemptId,decision,candidate:decision.candidate,balanceState:decision.balanceState};
 };
 const acceptedOrderAudit=(trace,result)=>{
+  compactLedger.receipt(result);if(trace.decision?.mode==='auto')autoDiagnostics.purchase(trace.candidate,result.contractId);
   if(authoritativeAutoDecision?.decisionId===trace.decisionId)authoritativeDecisionState='PURCHASED';
   observeDigitRegime('receipt',{attemptId:trace.attemptId,receipt:result});balanceEvidence.receipt(result);
   auditStage('proposal-validation',{...trace,validation:result.proposalValidation??null,status:result.proposalValidation?.validated?'validated':'not reported'});
@@ -366,6 +370,7 @@ const balanceSettlementWatermark = result => {
   return balanceBook.current(result?.symbol)?.createdAt ?? Date.now();
 };
 const showContractResult = (type, result, source) => {
+  compactLedger.receipt(result);
   observeDigitRegime('receipt',{receipt:result});
   balanceEvidence.receipt(result);if(result.candidate&&!balanceSeenSettlements.has(String(result.contractId))){balanceSeenSettlements.add(String(result.contractId));balanceBook.settled(result.symbol,balanceSettlementWatermark(result));if(authoritativeAutoDecision?.decisionId===result.decisionId)authoritativeDecisionState='SETTLED';}
   if(result.lifecycle?.accountId&&result.lifecycle.accountId!==selectedAccount()?.accountId)return;
@@ -629,12 +634,14 @@ const scanMarkets = async () => {
 };
 const balanceCycle = () => {
  renderMarketScan();const current=analyzeBoth();showSignal(current.selected);updateEntryStrength();renderParallel();
- if(botMode!=='auto'||!autoEnabled)return;
+ if(botMode!=='auto'||!autoEnabled){autoDiagnostics.active=false;return;}
  const best=$('autoSwitchMarket').checked?balanceBook.best():balanceBook.autoCandidate($('symbol').value);
- if(!best)return;
+ autoDiagnostics.observe({states:balanceBook.states.values(),brain:m=>balanceBook.brain(m),market:balanceBook.executionMarket,auto:autoEnabled,healthy:isRunning&&socket?.readyState===1&&Number.isFinite(marketNow())&&marketNow()-(current.createdAt??0)<=5000,block:!parallelAutoReady?'AUTO NOT AUTHORIZED':autoContractIds.size?'EXISTING CONTRACT / SETTLEMENT BLOCK':autoInFlight||manualHttpPending||executionBlocked()?'EXECUTION LOCK ACTIVE':null});
+ if(!best){const c=balanceBook.brain()?.selected;if(c)diagnosticStop(c,'SIGNAL EXPIRED','Current evidence is consumed, stale or not newer than settlement.');return;}
  if(best.market!==$('symbol').value){
-  if(autoInFlight||manualHttpPending||executionBlocked()||autoContractIds.size)return;
-  balanceBook.selectExecution(best);auditStage('auto-pair-switch',balanceBook.selectionReason);useScannerMarket(best.market);return;
+  if(autoInFlight||manualHttpPending||executionBlocked()||autoContractIds.size){diagnosticStop(best,'EXECUTION LOCK ACTIVE');return;}
+  if(!balanceBook.selectExecution(best)){diagnosticStop(best,'CURRENT PAIR HELD / CHALLENGER NOT CONFIRMED');return;}
+  autoDiagnostics.counts.pairSwitches++;auditStage('auto-pair-switch',balanceBook.selectionReason);useScannerMarket(best.market);return;
  }
  analyzeBoth();void maybeAutoOrder(best);
 };
@@ -767,7 +774,8 @@ const loadRecentOrder = async (reconcile=false) => {
     executionTransportError='';
     if(result.execution){executionView=result.execution;autoContractIds.clear();if(executionView.blocking&&executionView.last?.request.mode==='auto'&&executionView.last.request.strategy!=='DIFFER'&&executionView.last.contractId)autoContractIds.add(executionView.last.contractId);manualOrderPending=executionView.blocking||manualHttpPending;}
     liveDigitWheel.observeExecution(result.execution);
-    const order=result.order;
+    for(const attempt of result.execution?.attempts??[]){compactLedger.receipt({...attempt,accountId:account.accountId});if(attempt.request?.mode==='auto'&&attempt.request?.candidate){if(attempt.contractId)autoDiagnostics.purchase(attempt.request.candidate,attempt.contractId);else if(attempt.error&&!diagnosticExecutionSeen.has(attempt.attemptId+':'+attempt.error.code)){diagnosticExecutionSeen.add(attempt.attemptId+':'+attempt.error.code);if(diagnosticExecutionSeen.size>10000)diagnosticExecutionSeen.delete(diagnosticExecutionSeen.values().next().value);diagnosticStop(attempt.request.candidate,stopCategory({...attempt.error,stage:attempt.derivRejection?.stage,failureKind:attempt.failureKind}),attempt.error.message);}}}
+    const order=result.order;if(order)compactLedger.receipt({...order,accountId:account.accountId});
     if(order?.decision?.mode==='auto'){authoritativeAutoDecision=order.decision;authoritativeDecisionState=order.state==='settled'?'SETTLED':order.contractId?'PURCHASED':order.state==='rejected'?'BLOCKED':'PROPOSAL';authoritativeDecisionError=order.error??'';}
     if(order){observeDigitRegime('receipt',{receipt:order});balanceEvidence.receipt(order);if(order.candidate&&order.state==='settled'&&!balanceSeenSettlements.has(String(order.contractId))){balanceSeenSettlements.add(String(order.contractId));balanceBook.settled(order.symbol,balanceSettlementWatermark(order));if(authoritativeAutoDecision?.decisionId===order.decisionId)authoritativeDecisionState='SETTLED';}}
     if(order?.strategy==='DIFFER'){
@@ -864,17 +872,17 @@ const executeOrder = async (type,chosen=null) => {
   finally{manualHttpPending=false;}
 };
 const maybeAutoOrder = async (signal) => {
-  if(tradabilityBlocked()){auditStage('tradability-block',{strategy:'OVER_UNDER',state:tradabilityEngine.snapshot?.state});return;}
-  if(!overUnderEngineState.armed||!parallelAutoReady)return;
-  if(differEngineState.executionLock){if(overUnderEngineState.blockedSequence!==liveTickNumber){overUnderEngineState.blockedSequence=liveTickNumber;auditStage('account-purchase-lock',{strategy:'OVER_UNDER',reason:'DIFFER execution unresolved; analysis continues, no delayed purchase'});}return;}
-  if(eligibilityPending||balanceBook.autoCandidate(signal.market)?.id!==signal.id||!balanceBook.available(signal))return;
+  if(tradabilityBlocked()){diagnosticStop(signal,'OTHER EXECUTION FAILURE','Existing tradability gate blocked execution');auditStage('tradability-block',{strategy:'OVER_UNDER',state:tradabilityEngine.snapshot?.state});return;}
+  if(!overUnderEngineState.armed||!parallelAutoReady){diagnosticStop(signal,'AUTO NOT AUTHORIZED');return;}
+  if(differEngineState.executionLock){diagnosticStop(signal,'EXECUTION LOCK ACTIVE','DIFFER execution unresolved');if(overUnderEngineState.blockedSequence!==liveTickNumber){overUnderEngineState.blockedSequence=liveTickNumber;auditStage('account-purchase-lock',{strategy:'OVER_UNDER',reason:'DIFFER execution unresolved; analysis continues, no delayed purchase'});}return;}
+  if(eligibilityPending||balanceBook.autoCandidate(signal.market)?.id!==signal.id||!balanceBook.available(signal)){diagnosticStop(signal,eligibilityPending?'AUTO NOT AUTHORIZED':'STALE SIGNAL');return;}
   auditStage('risk-manager',{type:signal.type,connected:demoConnected,mode:botMode,armed:autoEnabled,pending:autoInFlight||autoContractIds.size>0,reset:autoAwaitingReset,cooldown:0});
-  if(!signal.ready)return;
+  if(!signal.ready){diagnosticStop(signal,'NO CANDIDATE QUALIFIED');return;}
   const account = selectedAccount(), stake = Number($('stake').value || 0), currentTick = liveTickNumber;
-  if (botMode !== 'auto' || !isRunning || socket?.readyState!==1 || !autoEnabled || autoInFlight || autoContractIds.size > 0 || executionBlocked() || !demoConnected || account?.accountType !== 'demo') return;
+  if (botMode !== 'auto' || !isRunning || socket?.readyState!==1 || !autoEnabled || autoInFlight || autoContractIds.size > 0 || executionBlocked() || !demoConnected || account?.accountType !== 'demo') {diagnosticStop(signal,autoContractIds.size?'EXISTING CONTRACT / SETTLEMENT BLOCK':autoInFlight||executionBlocked()?'EXECUTION LOCK ACTIVE':'AUTO NOT AUTHORIZED');return;}
   const maximum = Number($('maxStake').value || 5000);
   if (!Number.isFinite(stake) || stake <= 0 || stake > maximum) {
-    autoLastError = `Enter a stake between $0.01 and ${money(maximum)} before Auto Bot can send an order.`;
+    diagnosticStop(signal,'OTHER EXECUTION FAILURE','Invalid configured stake');autoLastError = `Enter a stake between $0.01 and ${money(maximum)} before Auto Bot can send an order.`;
     updateAutoState();
     return;
   }
@@ -899,7 +907,7 @@ const maybeAutoOrder = async (signal) => {
   } catch (error) {
     // A rejected request must not silently turn the bot off. Keep it armed and
     // show the exact reason so the next LIVE SUPPORT signal can retry.
-    autoLastError = error.message || 'Deriv did not accept the Auto Bot order.';authoritativeDecisionState='BLOCKED';authoritativeDecisionError=autoLastError;
+    diagnosticStop(signal,stopCategory(error),error.message);autoLastError = error.message || 'Deriv did not accept the Auto Bot order.';authoritativeDecisionState='BLOCKED';authoritativeDecisionError=autoLastError;
     auditStage('execution-error',{...trace,type:signal.type,reason:autoLastError,riskCode:error.riskCode??null,executionCode:error.executionCode??null,uncertain:error.uncertain??null,proposalValidation:error.riskCode?'blocked by server risk before proposal/order':'not reported; failure stage unknown'});
     $('autoStatus').textContent = `Auto Bot is still ON. Request error: ${autoLastError}. Checking execution status before another purchase.`;
     trackRecentOrder();
@@ -952,11 +960,11 @@ $('clearActualPerformance').onclick = () => {
 updateActualPerformance();
 renderLastSettledOrder(lastSettledOrder);
 $('barrierPersistence').onchange=()=>{barrierEngine.reset();update();};
-$('exportBarrierAudit').onclick=()=>{auditStage('export-state',{risk:diagnosticRisk()});const blob=new Blob([JSON.stringify({schema:'part-one-barrier-audit-v3',exportedAt:Date.now(),capacity:2000,droppedEvents:auditDropped,defaults:barrierEngine.config,experimentalConfidenceUsedForTrading:false,execution:executionView,autoEligibility:balanceBook.autoEligibility,decisionBrain:balanceBook.brainLog,marketSwitches:balanceBook.switchLog,records:barrierAudit},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='part-one-barrier-audit.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('exportBarrierAudit').onclick=()=>{auditStage('export-state',{risk:diagnosticRisk()});const blob=new Blob([JSON.stringify({schema:'part-one-barrier-audit-v4',noTrade:autoDiagnostics.export(),pairOwnership:balanceBook.pairSelection.snapshot(marketNow()),pairEvents:balanceBook.pairSelection.events,completedTradeLedger:compactLedger.export(),exportedAt:Date.now(),capacity:2000,droppedEvents:auditDropped,defaults:barrierEngine.config,experimentalConfidenceUsedForTrading:false,execution:executionView,autoEligibility:balanceBook.autoEligibility,decisionBrain:balanceBook.brainLog,marketSwitches:balanceBook.switchLog,records:barrierAudit},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='part-one-barrier-audit.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 
 // Read-only presentation adapter. Rendering never advances analysis or submits orders.
 if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mountDashboard}) => {
-  mountDashboard(() => ({ticks,authoritativeAutoDecision,authoritativeDecisionState, sequence:liveTickNumber, analysis:barrierSnapshot,
+  mountDashboard(() => ({ledgerWarning:compactLedger.warning,pairOwnership:balanceBook.pairSelection.snapshot(marketNow()),noTrade:autoDiagnostics.snapshot(),ticks,authoritativeAutoDecision,authoritativeDecisionState, sequence:liveTickNumber, analysis:barrierSnapshot,
     market:$('symbol').value, account:selectedAccount(), connected:demoConnected,
     feedLive:socket?.readyState===1 && isRunning, botMode, autoEnabled:autoEnabled&&parallelAutoReady,
     active:autoInFlight||manualOrderPending||autoContractIds.size>0,

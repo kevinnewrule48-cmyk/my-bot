@@ -9,3 +9,12 @@
 .balance-decision{white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid #688799;background:#071c29;border-radius:8px;padding:9px;margin:8px 0;font-size:10px;line-height:1.5;color:#a5f2d5}
 
 .edge-environment-panel{padding:12px!important;background:linear-gradient(145deg,#142329,#10141e)!important}.edge-environment-panel h2{font-size:16px}.environment-rows{display:grid;gap:5px}.environment-row{display:grid;grid-template-columns:1fr 90px;gap:3px 8px;padding:7px!important;text-align:left!important;background:#17272b!important;border:1px solid #31504e!important;border-radius:8px!important;min-width:0}.environment-row[aria-pressed=true]{border-color:#54dfb2!important}.environment-row small{grid-column:1/-1;font-size:10px;white-space:normal}.environment-row meter{width:100%;height:13px}.environment-detail{white-space:pre-wrap;overflow-wrap:anywhere;font-size:10px;max-height:250px;overflow:auto;margin:7px 0}.edge-environment-panel .hint{font-size:10px;margin:6px 0}#digitRegimePanel[hidden]{display:none!important}
+
+/* Stable observational display; no execution controls or formulas. */
+.opportunity-gauges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.opportunity-gauges>div{min-height:75px;padding:10px;border:1px solid #ffffff1a;border-radius:12px;background:#ffffff05}
+.opportunity-gauges span{display:block;font-size:11px;min-height:28px}.opportunity-gauges strong{font-variant-numeric:tabular-nums}.opportunity-gauges progress{display:block;width:100%;height:6px;margin-top:6px;accent-color:#78cdb5}
+.compact-status{height:2.8em;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.balance-caption{min-height:2.8em}.balance-instrument details pre,.no-trade-panel pre{max-height:260px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.balance-instrument #balancePermission{min-height:4.2em;font-size:12px}.premium .compact-details>section{border:0;margin:0}.premium .compact-details>summary{cursor:pointer;padding:8px;font-weight:600}
+.premium #gateText,.premium #autoStatus,.premium #entryExecutionStatus{min-height:2.8em;max-height:4.2em;overflow:hidden;overflow-wrap:anywhere}.premium #tradeFacts{min-height:180px}.premium #sessionStats{min-height:120px}

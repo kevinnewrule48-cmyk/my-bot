@@ -90,17 +90,19 @@ const revokeExecution=()=>{
   return executionReset;
 };
 const syncParallelControl=async(recover=false)=>{
+  const revision=++parallelRevision;
   parallelAutoReady=false;const runId=recover?parallelRunId:crypto.randomUUID();parallelRunId=runId;
   autoControlPending=true;autoAuthorizationState=recover?'AUTO_RECOVERING':'AUTO_REQUESTING';
   try{
-    await executionReset;if(parallelRunId!==runId)return;
-    const response=await fetch('/api/auto/control',{method:'POST',signal:globalThis.AbortSignal?.timeout?.(15000),headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,runId,recover,revision:++parallelRevision,running:autoEnabled&&botMode==='auto'&&isRunning,live:isRunning&&socket?.readyState===1,accountId:selectedAccount()?.accountId,overUnder:overUnderEngineState.armed,differ:differEngineState.armed,eligibility:balanceBook.autoEligibility,eligibilityRevision})});
+    await executionReset;if(parallelRunId!==runId||parallelRevision!==revision)return;
+    const response=await fetch('/api/auto/control',{method:'POST',signal:globalThis.AbortSignal?.timeout?.(15000),headers:{'content-type':'application/json'},body:JSON.stringify({pageId:executionPageId,runId,recover,revision,running:autoEnabled&&botMode==='auto'&&isRunning,live:isRunning&&socket?.readyState===1,accountId:selectedAccount()?.accountId,overUnder:overUnderEngineState.armed,differ:differEngineState.armed,eligibility:balanceBook.autoEligibility,eligibilityRevision})});
     const controlResult=await response.json();
+    if(parallelRunId!==runId||parallelRevision!==revision)return;
     if(!response.ok)throw Error(controlResult.error||`Auto acknowledgment failed (${response.status})`);
     if(Number.isFinite(controlResult.serverTime))serverClockOffsetMs=controlResult.serverTime-Date.now();
-    if(parallelRunId===runId){parallelAutoReady=autoEnabled&&isRunning&&controlResult.runId===runId&&controlResult.authorization?.state==='AUTO_AUTHORIZED'&&controlResult.authorization?.pageId===executionPageId;autoAuthorizationState=parallelAutoReady?'AUTO_AUTHORIZED':autoEnabled?'AUTO_ERROR':'AUTO_OFF';autoLastError=parallelAutoReady?'':autoEnabled?'Server did not confirm this Auto session':'';auditStage('auto-acknowledgment',{browserState:autoAuthorizationState,server:controlResult.authorization});}
-  }catch(error){if(parallelRunId===runId){parallelAutoReady=false;autoAuthorizationState='AUTO_ERROR';autoLastError=error.message;auditStage('auto-control-error',{reason:error.message});} }
-  finally{if(parallelRunId===runId)autoControlPending=false;}
+    if(parallelRunId===runId&&parallelRevision===revision){parallelAutoReady=autoEnabled&&isRunning&&controlResult.runId===runId&&controlResult.authorization?.state==='AUTO_AUTHORIZED'&&controlResult.authorization?.pageId===executionPageId;autoAuthorizationState=parallelAutoReady?'AUTO_AUTHORIZED':autoEnabled?'AUTO_ERROR':'AUTO_OFF';autoLastError=parallelAutoReady?'':autoEnabled?'Server did not confirm this Auto session':'';auditStage('auto-acknowledgment',{browserState:autoAuthorizationState,server:controlResult.authorization});}
+  }catch(error){if(parallelRunId===runId&&parallelRevision===revision){parallelAutoReady=false;autoAuthorizationState='AUTO_ERROR';autoLastError=error.message;auditStage('auto-control-error',{reason:error.message});} }
+  finally{if(parallelRunId===runId&&parallelRevision===revision)autoControlPending=false;}
   renderParallel();
 };
 const verifyAutoAuthorization=async()=>{
@@ -111,7 +113,7 @@ const verifyAutoAuthorization=async()=>{
     if(runId!==parallelRunId||pageId!==executionPageId||autoControlPending)return;
     if(!response.ok)throw Error(result.error||'Auto status unavailable');
     const a=result.authorization;
-    if(a?.runId!==runId||a?.pageId!==pageId||a?.state==='AUTO_OFF'){parallelAutoReady=false;autoEnabled=false;autoAuthorizationState='AUTO_ERROR';autoLastError=`Authorization revoked: ${a?.lastEvent?.event??'session mismatch'} — ${a?.lastEvent?.reason??'Start a fresh Auto session'}`;}
+    if(a?.runId!==runId||a?.pageId!==pageId||a?.state==='AUTO_OFF'){parallelAutoReady=false;autoEnabled=false;autoAuthorizationState='AUTO_ERROR';autoLastError=`Authorization revoked: ${a?.lastEvent?.event??'session mismatch'} â€” ${a?.lastEvent?.reason??'Start a fresh Auto session'}`;}
     else if(a?.state==='AUTO_RECOVERING'){parallelAutoReady=false;autoAuthorizationState='AUTO_RECOVERING';tradabilitySyncKey=null;tradabilityServer=null;auditStage('AUTO AUTH LOST',{server:a,browserState:autoAuthorizationState});await syncParallelControl(true);if(parallelAutoReady)void syncTradability();}
     else if(a?.state==='AUTO_AUTHORIZED'){parallelAutoReady=isRunning&&botMode==='auto';autoAuthorizationState=parallelAutoReady?'AUTO_AUTHORIZED':'AUTO_OFF';}
     else throw Error('Unknown server Auto state');
@@ -124,7 +126,7 @@ const verifyAutoAuthorization=async()=>{
       demoConnected=false;autoEnabled=false;parallelRunId='';availableAccounts=[];
       const button=$('connect');if(button){button.disabled=false;button.textContent='Reconnect account';}
       const selector=$('accountSelector');if(selector){selector.innerHTML='';const option=document.createElement('option');option.textContent='Reconnect your Deriv account first';option.disabled=true;option.selected=true;selector.append(option);selector.disabled=true;}
-      $('entryExecutionStatus').textContent='SESSION EXPIRED · Reconnect your Deriv demo account.';
+      $('entryExecutionStatus').textContent='SESSION EXPIRED Â· Reconnect your Deriv demo account.';
       $('entryExecutionStatus').className='entryExecutionStatus negative';
     }
   }}
@@ -132,11 +134,11 @@ const verifyAutoAuthorization=async()=>{
 };
 const renderParallel=()=>{
   if(!$('differStatus'))return;
-  $('ouArm').textContent=overUnderEngineState.armed?'OVER/UNDER · ARMED':'OVER/UNDER · DISARMED';
-  $('differArm').textContent=differEngineState.armed?'DIFFER · ARMED':'DIFFER · DISARMED';
-  $('parallelMasterStatus').textContent=!autoEnabled?'AUTO OFF':!parallelAutoReady?autoAuthorizationState.replaceAll('_',' '):autoInFlight||autoContractIds.size?'AUTO EXECUTING':'AUTOBOT ON · SERVER CONFIRMED';
-  $('ouEngineStatus').textContent=!overUnderEngineState.armed?'DISARMED':!autoEnabled?'AUTOBOT OFF':autoInFlight||autoContractIds.size?'CONTRACT OPEN':differEngineState.executionLock||executionBlocked()?'ANALYZING · ACCOUNT PURCHASE LOCK':autoAwaitingReset?'WAITING FOR MOMENTUM RESET':barrierSnapshot?.selected?'READY':'ANALYZING';
-  $('differStatus').textContent=`${differEngineState.status}${differEngineState.candidate?' · digit '+differEngineState.candidate.digit:''}${differEngineState.cooldown?' · '+differEngineState.cooldown+' ticks':''}`;
+  $('ouArm').textContent=overUnderEngineState.armed?'OVER/UNDER Â· ARMED':'OVER/UNDER Â· DISARMED';
+  $('differArm').textContent=differEngineState.armed?'DIFFER Â· ARMED':'DIFFER Â· DISARMED';
+  $('parallelMasterStatus').textContent=!autoEnabled?'AUTO OFF':!parallelAutoReady?autoAuthorizationState.replaceAll('_',' '):autoInFlight||autoContractIds.size?'AUTO EXECUTING':'AUTOBOT ON Â· SERVER CONFIRMED';
+  $('ouEngineStatus').textContent=!overUnderEngineState.armed?'DISARMED':!autoEnabled?'AUTOBOT OFF':autoInFlight||autoContractIds.size?'CONTRACT OPEN':differEngineState.executionLock||executionBlocked()?'ANALYZING Â· ACCOUNT PURCHASE LOCK':autoAwaitingReset?'WAITING FOR MOMENTUM RESET':barrierSnapshot?.selected?'READY':'ANALYZING';
+  $('differStatus').textContent=`${differEngineState.status}${differEngineState.candidate?' Â· digit '+differEngineState.candidate.digit:''}${differEngineState.cooldown?' Â· '+differEngineState.cooldown+' ticks':''}`;
 };
 const maybeDifferOrder=async(signal)=>{
   if(!signal)return;
@@ -144,7 +146,7 @@ const maybeDifferOrder=async(signal)=>{
   const engine=differEngineState;
   const account=selectedAccount(),stake=Number($('stake').value);
   if(!parallelAutoReady||!autoEnabled||botMode!=='auto'||!engine.armed||!demoConnected||account?.accountType!=='demo'){engine.record('NOT AUTHORIZED');renderParallel();return;}
-  if(executionBlocked()||autoInFlight||manualHttpPending||manualOrderPending||autoContractIds.size||engine.executionLock){engine.record('ACCOUNT BUSY · signal expired; no delayed purchase');renderParallel();return;}
+  if(executionBlocked()||autoInFlight||manualHttpPending||manualOrderPending||autoContractIds.size||engine.executionLock){engine.record('ACCOUNT BUSY Â· signal expired; no delayed purchase');renderParallel();return;}
   if(!Number.isFinite(stake)||stake<=0||stake>Number($('maxStake').value)){engine.record('INVALID STAKE');renderParallel();return;}
   const attemptId=crypto.randomUUID();engine.pending(attemptId);liveDigitWheel.register(attemptId);
   regimeAttempt(attemptId,'DIGITDIFF','auto',stake,signal.barrier);
@@ -158,7 +160,7 @@ const maybeDifferOrder=async(signal)=>{
     }
     observeDigitRegime('receipt',{attemptId,receipt:result});
     engine.observe(result);if(selectedAccount()?.accountId!==account.accountId)return;showOrderEntry('DIGITDIFF',result,'DIFFER Auto');
-  }catch(error){engine.record((engine.executionLock?'RECONCILIATION REQUIRED · ':'BLOCKED · ')+error.message);}
+  }catch(error){engine.record((engine.executionLock?'RECONCILIATION REQUIRED Â· ':'BLOCKED Â· ')+error.message);}
   finally{trackRecentOrder();renderParallel();}
 };
 const $ = (id) => document.getElementById(id);
@@ -166,7 +168,7 @@ const demoRiskLimits=()=>({maxStake:Number($('maxStake').value),maxSessionLoss:N
 const barrierEngine = new DigitBarrierEngine();
 const barrierAudit = [];
 const autoDiagnostics=new AutoDiagnostics(),compactLedger=new CompactTradeLedger(),diagnosticExecutionSeen=new Set();
-const diagnosticStop=(candidate,category,reason=category)=>autoDiagnostics.record(candidate,category,'system',reason);
+const diagnosticStop=(candidate,category,reason=category,terminal=false)=>autoDiagnostics.record(candidate,category,'system',reason,terminal);
 let barrierSnapshot = null;
 let auditEventSequence=0,auditDropped=0,currentDecisionId=null;
 const orderDecisionIds=new Map();
@@ -216,7 +218,7 @@ const analyzeBoth = () => {
  if(snapshot!==barrierSnapshot){barrierSnapshot=snapshot;currentDecisionId=state?.selected?.id??state?.id??null;
   auditStage('balance-evaluation',{balanceStateId:state?.id,position:state?.position,candidates:state?.candidates.map(c=>({label:c.label,ready:c.ready,checks:c.checks}))});
   if(state)observeDigitRegime('candidate',{market:state.market,sequence:state.sequence,candidates:state.candidates.map(c=>({type:c.contractType,barrier:c.barrier,ready:c.ready}))});
-  $('barrierDiagnostics').textContent=snapshot.candidates.map(c=>`${c.label}: ${c.status} · ${c.checks.filter(x=>!x.pass).map(x=>`${x.name}: ${x.value} requires ${x.required}`).join('; ')}`).join('\n');
+  $('barrierDiagnostics').textContent=snapshot.candidates.map(c=>`${c.label}: ${c.status} Â· ${c.checks.filter(x=>!x.pass).map(x=>`${x.name}: ${x.value} requires ${x.required}`).join('; ')}`).join('\n');
  }
  return snapshot;
 };
@@ -311,7 +313,7 @@ const renderContractPayoutHistory = () => {
     const stake = Number(order.buyPrice ?? order.stake ?? 0);
     const payout = Number(order.payout ?? 0);
     const profit = Number(order.profit ?? 0);
-    return `<article class="contractPayoutRow ${won ? 'contractWon' : 'contractLost'}"><div><b>${order.label ?? 'CONTRACT'} · ${order.result??'UNVERIFIED'}</b><small>Entry ${order.entryDigit ?? '—'} → settlement ${order.settlementDigit ?? '—'} · ${order.source ?? 'Account order'}</small></div><div><span>Contract amount</span><strong>${money(stake)}</strong></div><div><span>Deriv payout</span><strong>${money(payout)}</strong></div><div><span>Profit / loss</span><strong class="${profit >= 0 ? 'positive' : 'negative'}">${profit >= 0 ? '+' : ''}${money(profit)}</strong></div></article>`;
+    return `<article class="contractPayoutRow ${won ? 'contractWon' : 'contractLost'}"><div><b>${order.label ?? 'CONTRACT'} Â· ${order.result??'UNVERIFIED'}</b><small>Entry ${order.entryDigit ?? 'â€”'} â†’ settlement ${order.settlementDigit ?? 'â€”'} Â· ${order.source ?? 'Account order'}</small></div><div><span>Contract amount</span><strong>${money(stake)}</strong></div><div><span>Deriv payout</span><strong>${money(payout)}</strong></div><div><span>Profit / loss</span><strong class="${profit >= 0 ? 'positive' : 'negative'}">${profit >= 0 ? '+' : ''}${money(profit)}</strong></div></article>`;
   }).join('');
 };
 const updateActualPerformance = () => {
@@ -331,7 +333,7 @@ const updateActualPerformance = () => {
   set('actualTotalOrders', accountOrderHistory.length);
   set('actualWinningOrders', wins, wins ? 'positive' : '');
   set('actualLosingOrders', losses, losses ? 'negative' : '');
-  set('actualWinRate', accountOrderHistory.length ? `${(wins / accountOrderHistory.length * 100).toFixed(1)}%` : '—', wins / Math.max(1, accountOrderHistory.length) >= .5 ? 'positive' : 'negative');
+  set('actualWinRate', accountOrderHistory.length ? `${(wins / accountOrderHistory.length * 100).toFixed(1)}%` : 'â€”', wins / Math.max(1, accountOrderHistory.length) >= .5 ? 'positive' : 'negative');
   set('actualConsecutiveWins', currentWins, currentWins ? 'positive' : '');
   set('actualConsecutiveLosses', currentLosses, currentLosses ? 'negative' : '');
   set('actualDrawdown', money(drawdown), drawdown ? 'negative' : '');
@@ -342,13 +344,13 @@ const renderLastSettledOrder = (order) => {
   if (!order) return;
   const settled = order.state === 'settled' || order.exitTick !== undefined && order.exitTick !== null;
   const won = order.won === true;
-  $('actualEntryTick').textContent = order.entryDigit ?? '—';
-  $('actualEntryDigit').textContent = order.entrySource==='purchase-time'?`Purchase-time price: ${order.purchaseQuote??'unavailable'} · Broker entry digit: ${order.brokerEntryDigit??'pending'}`:`Broker entry price: ${order.entryTick ?? '—'}`;
-  $('actualExitTick').textContent = settled ? (order.settlementDigit ?? '—') : '—';
+  $('actualEntryTick').textContent = order.entryDigit ?? 'â€”';
+  $('actualEntryDigit').textContent = order.entrySource==='purchase-time'?`Purchase-time price: ${order.purchaseQuote??'unavailable'} Â· Broker entry digit: ${order.brokerEntryDigit??'pending'}`:`Broker entry price: ${order.entryTick ?? 'â€”'}`;
+  $('actualExitTick').textContent = settled ? (order.settlementDigit ?? 'â€”') : 'â€”';
   $('actualExitDigit').textContent = `Settlement price: ${settled ? order.exitTick : 'waiting for the next tick'}`;
   $('actualOrderOutcome').textContent = settled ? (order.result ?? 'UNVERIFIED') : 'ORDER ENTERED';
   $('actualOrderOutcome').className = settled ? (won ? 'positive' : 'negative') : '';
-  $('actualOrderSide').textContent = settled ? `${order.label ?? 'ORDER'} · ${order.source ?? 'Account order'}` : `${order.label ?? 'ORDER'} · waiting for settlement`;
+  $('actualOrderSide').textContent = settled ? `${order.label ?? 'ORDER'} Â· ${order.source ?? 'Account order'}` : `${order.label ?? 'ORDER'} Â· waiting for settlement`;
 };
 const showOrderEntry = (type, result, source) => {
   if(result.lifecycle?.accountId&&result.lifecycle.accountId!==selectedAccount()?.accountId)return;
@@ -357,7 +359,7 @@ const showOrderEntry = (type, result, source) => {
   if(!record||record.state==='settled')return;
   const label = type==='DIGITDIFF'?`DIFFER ${result.barrier}`:`${result.type==='DIGITOVER'?'OVER':'UNDER'} ${result.barrier??'UNKNOWN'}`;
   lastSettledOrder = { ...record, lifecycle:record, label, source, time:Date.now() };
-  $('entryExecutionStatus').textContent = `ORDER ENTERED · ${label} · ${source} · entry number ${record.entryDigit??'pending from Deriv'} · waiting for settlement · contract ${record.contractId}`;
+  $('entryExecutionStatus').textContent = `ORDER ENTERED Â· ${label} Â· ${source} Â· entry number ${record.entryDigit??'pending from Deriv'} Â· waiting for settlement Â· contract ${record.contractId}`;
   $('entryExecutionStatus').className = 'entryExecutionStatus';
   clearTimeout(digitFlashTimer); digitFlash = { entryDigit:lastSettledOrder.entryDigit }; digitFlashTimer = setTimeout(() => { digitFlash = null; update(); }, 800);
   renderLastSettledOrder(lastSettledOrder); update();
@@ -388,7 +390,7 @@ const showContractResult = (type, result, source) => {
   const completedOrder={...record,lifecycle:record,won,buyPrice:Number(result.buyPrice||0),payout:Number(result.payout||0),profit:Number(result.profit||0),label,source,time:Date.now()};
   const current=liveDigitWheel.activeContractId===record.contractId||!liveDigitWheel.activeContractId&&(!lastSettledOrder||String(lastSettledOrder.contractId)===record.contractId);
   if(current){
-  $('entryExecutionStatus').textContent = `ORDER PLACED · ${outcome} · ${label} · ${source} · entry ${record.entryDigit??'unavailable'} · settlement ${record.settlementDigit??'unavailable'} · contract ${record.contractId}`;
+  $('entryExecutionStatus').textContent = `ORDER PLACED Â· ${outcome} Â· ${label} Â· ${source} Â· entry ${record.entryDigit??'unavailable'} Â· settlement ${record.settlementDigit??'unavailable'} Â· contract ${record.contractId}`;
   $('entryExecutionStatus').className = `entryExecutionStatus ${won ? 'positive' : 'negative'}`;
   lastSettledOrder = completedOrder;
   clearTimeout(digitFlashTimer); digitFlash = { exitDigit:record.settlementDigit, won }; digitFlashTimer = setTimeout(() => { digitFlash = null; update(); }, 800);
@@ -410,19 +412,19 @@ const updateAutoIndicator = () => {
     indicator.textContent = 'AUTO BOT OFF'; indicator.className = 'autoBotIndicator'; return;
   }
   if(!parallelAutoReady){indicator.textContent=autoAuthorizationState.replaceAll('_',' ');indicator.className='autoBotIndicator negative';return;}
-  if(executionBlocked()){indicator.textContent=`AUTO BOT · ${executionView.state.replaceAll('_',' ')}`;indicator.className='autoBotIndicator negative';return;}
+  if(executionBlocked()){indicator.textContent=`AUTO BOT Â· ${executionView.state.replaceAll('_',' ')}`;indicator.className='autoBotIndicator negative';return;}
   if (autoAwaitingReset && liveTickNumber - lastAutoSignalTick >= selectedAutoCooldown()) {
-    indicator.textContent = 'AUTO BOT PAUSED · WAITING FOR FRESH EVIDENCE';
+    indicator.textContent = 'AUTO BOT PAUSED Â· WAITING FOR FRESH EVIDENCE';
     indicator.className = 'autoBotIndicator negative'; return;
   }
   if (Number.isFinite(lastAutoSignalTick)) {
     const total = selectedAutoCooldown(), elapsed = Math.max(0, liveTickNumber - lastAutoSignalTick);
     if (elapsed < total) {
-      indicator.textContent = `AUTO BOT ON · COOLDOWN ${elapsed}/${total}`;
+      indicator.textContent = `AUTO BOT ON Â· COOLDOWN ${elapsed}/${total}`;
       indicator.className = 'autoBotIndicator regime-consolidation'; return;
     }
   }
-  indicator.textContent = 'AUTO BOT ON · READY'; indicator.className = 'autoBotIndicator positive';
+  indicator.textContent = 'AUTO BOT ON Â· READY'; indicator.className = 'autoBotIndicator positive';
 };
 const handleAutoSettlement = (result, won) => {
   autoContractIds.delete(result.contractId);
@@ -440,9 +442,9 @@ const updateCooldownMonitor = () => {
 const updateReport = () => {
   const wins = settled.filter(x => x.won).length;
   $('evaluated').textContent = settled.length;
-  $('winRate').textContent = settled.length ? `${(wins / settled.length * 100).toFixed(1)}%` : '—';
+  $('winRate').textContent = settled.length ? `${(wins / settled.length * 100).toFixed(1)}%` : 'â€”';
   $('winRate').className = settled.length ? (wins / settled.length >= .5 ? 'positive' : 'negative') : '';
-  $('outcomes').textContent = settled.length ? `${wins} win · ${settled.length - wins} loss` : 'No settled signals';
+  $('outcomes').textContent = settled.length ? `${wins} win Â· ${settled.length - wins} loss` : 'No settled signals';
   $('pending').textContent = pending.length;
   $('rule').textContent = 'OVER 1 / UNDER 8';
   updatePerformance();
@@ -473,7 +475,7 @@ updatePerformance = () => {
   if (lossLimit > 0 && grossLoss >= lossLimit) reasons.push('daily paper-loss limit reached');
   if (maxLosses > 0 && currentLosses >= maxLosses) reasons.push('maximum consecutive paper losses reached');
   if (target > 0 && targetProgress >= target) reasons.push('current-run paper-profit target reached');
-  $('riskGuard').textContent = reasons.length ? `Research guard: PAUSED — ${reasons.join('; ')}.` : 'Research guard: READY. It applies to paper-test signals, not confirmed account settlement.';
+  $('riskGuard').textContent = reasons.length ? `Research guard: PAUSED â€” ${reasons.join('; ')}.` : 'Research guard: READY. It applies to paper-test signals, not confirmed account settlement.';
   $('riskGuard').className = reasons.length ? 'hint negative' : 'hint positive';
   if (typeof updateDemoArmState === 'function') updateDemoArmState();
   if (typeof updateAutoState === 'function') updateAutoState();
@@ -489,7 +491,7 @@ const updateSideScores = (signal) => {
     const state = !side ? 'WAITING' : !signal.type ? 'EQUAL' : signal.type === type ? 'STRONGER' : 'WEAKER';
     const rate = side ? side.observed * 100 : 0;
     $(`${id}ScoreBar`).value = rate;
-    $(`${id}ScoreText`).textContent = `${side ? rate.toFixed(1) + '%' : '—'} · ${state}`;
+    $(`${id}ScoreText`).textContent = `${side ? rate.toFixed(1) + '%' : 'â€”'} Â· ${state}`;
     $(`${id}ScoreRow`).className = `sideScore score-${state.toLowerCase()}`;
   }
 };
@@ -501,9 +503,9 @@ const updateEntryStrength = () => {
 
 const updatePricing = () => {
   const render = (quote, priceId, breakEvenId) => {
-    if (!quote) { $(priceId).textContent = '—'; $(breakEvenId).textContent = 'No current quote'; return; }
+    if (!quote) { $(priceId).textContent = 'â€”'; $(breakEvenId).textContent = 'No current quote'; return; }
     const breakEven = quote.ask / quote.payout;
-    $(priceId).textContent = `$${quote.ask.toFixed(2)} → $${quote.payout.toFixed(2)}`;
+    $(priceId).textContent = `$${quote.ask.toFixed(2)} â†’ $${quote.payout.toFixed(2)}`;
     $(breakEvenId).textContent = `Break-even win rate ${(breakEven * 100).toFixed(1)}%`;
   };
   render(quotes.over, 'overPrice', 'overBreakEven'); render(quotes.under, 'underPrice', 'underBreakEven');
@@ -526,8 +528,8 @@ const settleSignals = () => {
     trade.won = trade.type === 'OVER' ? exit.digit > trade.barrier : exit.digit < trade.barrier;
     trade.pnl = trade.won && Number.isFinite(trade.paperPayout) && Number.isFinite(trade.paperCost) ? trade.paperPayout - trade.paperCost : (!trade.won && Number.isFinite(trade.paperCost) ? -trade.paperCost : null);
     settled.push(trade); pending.splice(index, 1);
-    const result = Number.isFinite(trade.pnl) ? ` · paper P/L ${trade.pnl >= 0 ? '+' : ''}${money(trade.pnl)}` : '';
-    logger(`<span><b class="${trade.type === 'OVER' ? 'positive' : 'negative'}">${trade.type} ${trade.barrier}</b> · ${trade.confidence}% test score · exit digit ${exit.digit}</span><span><b class="${trade.won ? 'positive' : 'negative'}">${trade.won ? 'WIN' : 'LOSS'}</b>${result}</span>`);
+    const result = Number.isFinite(trade.pnl) ? ` Â· paper P/L ${trade.pnl >= 0 ? '+' : ''}${money(trade.pnl)}` : '';
+    logger(`<span><b class="${trade.type === 'OVER' ? 'positive' : 'negative'}">${trade.type} ${trade.barrier}</b> Â· ${trade.confidence}% test score Â· exit digit ${exit.digit}</span><span><b class="${trade.won ? 'positive' : 'negative'}">${trade.won ? 'WIN' : 'LOSS'}</b>${result}</span>`);
   }
   updateReport();
 };
@@ -551,7 +553,7 @@ const update = () => {
   // from an explicitly started live-feed socket.
   if(!isRunning || !hasFreshLiveTick){
    $('sample').textContent='0'; $('sampleNote').textContent='Start Live Feed for current analysis';
-   $('price').textContent='—'; $('tickTime').textContent='Waiting for live feed';
+   $('price').textContent='â€”'; $('tickTime').textContent='Waiting for live feed';
    $('priceDigitCursor').textContent='Live feed is off'; $('digits').innerHTML='';
    showSignal(null); updateEntryStrength();
    return;
@@ -562,7 +564,7 @@ const update = () => {
   const c = counts(ticks), n = ticks.length, displayed = ticks.length, latest = ticks.at(-1);
   $('sample').textContent = n; $('sampleNote').textContent = n < 2 ? `Need ${2-n} more tick for sequence analysis` : `Rolling last ${n} ticks`;
   if(latest){ $('price').textContent = latest.price; $('tickTime').textContent = new Date(latest.time * 1000).toLocaleTimeString(); }
-  if(latest) $('priceDigitCursor').textContent = `Live ${$('symbol').value.trim()} price: ${latest.price} · last digit ${latest.digit}`;
+  if(latest) $('priceDigitCursor').textContent = `Live ${$('symbol').value.trim()} price: ${latest.price} Â· last digit ${latest.digit}`;
   $('digits').innerHTML = c.map((value,digit) => {
     return `<div class="digit"><b>${digit}</b><span>${displayed ? (value/displayed*100).toFixed(1) : '0.0'}%</span></div>`;
   }).join('');
@@ -611,10 +613,10 @@ const refreshPricing = () => {
 };
 const renderMarketScan = () => {
  const best=balanceBook.best();scannerRecommendedSymbol=best?.market??null;
- $('scannerRecommendation').textContent=best?`${best.market} · ${best.label}`:'NO QUALIFIED MARKET';
+ $('scannerRecommendation').textContent=best?`${best.market} Â· ${best.label}`:'NO QUALIFIED MARKET';
  $('scannerRecommendationNote').textContent='Compares enabled, actionable candidates using independent market histories. Keeps a valid market unless a challenger has stronger broad, recent and prior evidence beyond one-observation differences. Reasons are included in the audit export; no win probability is implied.';
  $('useScannerMarket').disabled=!best;
- $('marketScanResults').textContent=[...balanceBook.states.values()].map(s=>{const b=balanceBook.brain(s.market);return `${s.market}: analyzer ${s.selected?.label??s.status} · DECISION ${b.action} ${b.selected?.label??''} · ${b.reason}`;}).join(' · ');
+ $('marketScanResults').textContent=[...balanceBook.states.values()].map(s=>{const b=balanceBook.brain(s.market);return `${s.market}: analyzer ${s.selected?.label??s.status} Â· DECISION ${b.action} ${b.selected?.label??''} Â· ${b.reason}`;}).join(' Â· ');
  return {best,bestIsTrend:false};
 };
 const useScannerMarket = symbol => {
@@ -673,7 +675,7 @@ const startLive = () => {
   if(liveFeedSymbol!==symbol){
     saveMarketTicks(liveFeedSymbol);restoreMarketTicks(symbol);
     clearTimeout(distributionTimer);distributionTimer=undefined;quotes.over=null;quotes.under=null;
-    $('price').textContent='—';$('tickTime').textContent='Waiting for selected market';
+    $('price').textContent='â€”';$('tickTime').textContent='Waiting for selected market';
     $('priceDigitCursor').textContent=`Waiting for ${symbol} live price`;update();
   }
   balanceBook.executionMarket=symbol;
@@ -689,7 +691,7 @@ const startLive = () => {
     if(!feedWanted||(feedSocket&&socket!==feedSocket))return;
     clearTimeout(feedWatchdog);socket=null;feedSocket?.close();
     pauseFeedExecution(reason);
-    $('connection').textContent='RECONNECTING · purchases paused';$('connection').className='pill negative';
+    $('connection').textContent='RECONNECTING Â· purchases paused';$('connection').className='pill negative';
     auditStage('feed-reconnecting',{symbol,reason});
     clearTimeout(feedRetryTimer);
     feedRetryTimer=setTimeout(()=>{feedRetryTimer=null;if(feedWanted)startLive();},Math.min(30000,1000*2**Math.min(feedRetryCount++,5)));
@@ -701,7 +703,7 @@ const startLive = () => {
       if(socket!==feedSocket||!feedWanted)return;
       feedSocket.send(JSON.stringify({time:1}));
       feedSocket.send(JSON.stringify({ticks:symbol,subscribe:1}));
-      $('connection').textContent=`CONNECTING · ${symbol} · waiting for tick`;
+      $('connection').textContent=`CONNECTING Â· ${symbol} Â· waiting for tick`;
     };
     let lastEpoch=0;
     feedSocket.onmessage=e=>{
@@ -715,7 +717,7 @@ const startLive = () => {
         lastEpoch=epoch;watch();feedRetryCount=0;
         if(!isRunning){isRunning=true;void syncTradability();if(autoEnabled)void syncParallelControl();refreshPricing();}
         hasFreshLiveTick=true;
-        $('connection').textContent=`LIVE · ${symbol}`;$('connection').className='pill positive';
+        $('connection').textContent=`LIVE Â· ${symbol}`;$('connection').className='pill positive';
         addTick(data.tick.quote,epoch,data.tick.pip_size);
       }
       if(data.proposal){const kind=data.echo_req?.contract_type==='DIGITOVER'?'over':'under';quotes[kind]={ask:Number(data.proposal.ask_price),payout:Number(data.proposal.payout)};updatePricing();}
@@ -733,7 +735,7 @@ const backtest = () => {
     results.push(c.direction==='OVER'?ticks[i+1].digit>c.barrier:ticks[i+1].digit<c.barrier);i++;
   }
   const wins=results.filter(Boolean).length;
-  logger(`EDGE REPLAY · ${results.length} hypothetical entries · ${wins} wins / ${results.length-wins} losses. Next-tick simulation only; no broker payout or execution verification.`);
+  logger(`EDGE REPLAY Â· ${results.length} hypothetical entries Â· ${wins} wins / ${results.length-wins} losses. Next-tick simulation only; no broker payout or execution verification.`);
 };
 const loadAccounts = async ({ preserveSelection = false, refreshOnly = false } = {}) => {
   try {
@@ -743,7 +745,7 @@ const loadAccounts = async ({ preserveSelection = false, refreshOnly = false } =
     const selector = $('accountSelector'), selectedBeforeRefresh = selector.value; selector.innerHTML = '';
     for (const account of availableAccounts) {
       const option = document.createElement('option'); option.value = account.accountId;
-      option.textContent = `${account.accountType === 'demo' ? 'Demo' : 'Real'} account · ${account.currency}`;
+      option.textContent = `${account.accountType === 'demo' ? 'Demo' : 'Real'} account Â· ${account.currency}`;
       selector.append(option);
     }
     const priorAccount = availableAccounts.find((account) => account.accountId === selectedBeforeRefresh);
@@ -774,7 +776,7 @@ const loadRecentOrder = async (reconcile=false) => {
     executionTransportError='';
     if(result.execution){executionView=result.execution;autoContractIds.clear();if(executionView.blocking&&executionView.last?.request.mode==='auto'&&executionView.last.request.strategy!=='DIFFER'&&executionView.last.contractId)autoContractIds.add(executionView.last.contractId);manualOrderPending=executionView.blocking||manualHttpPending;}
     liveDigitWheel.observeExecution(result.execution);
-    for(const attempt of result.execution?.attempts??[]){compactLedger.receipt({...attempt,accountId:account.accountId});if(attempt.request?.mode==='auto'&&attempt.request?.candidate){if(attempt.contractId)autoDiagnostics.purchase(attempt.request.candidate,attempt.contractId);else if(attempt.error&&!diagnosticExecutionSeen.has(attempt.attemptId+':'+attempt.error.code)){diagnosticExecutionSeen.add(attempt.attemptId+':'+attempt.error.code);if(diagnosticExecutionSeen.size>10000)diagnosticExecutionSeen.delete(diagnosticExecutionSeen.values().next().value);diagnosticStop(attempt.request.candidate,stopCategory({...attempt.error,stage:attempt.derivRejection?.stage,failureKind:attempt.failureKind}),attempt.error.message);}}}
+    for(const attempt of result.execution?.attempts??[]){compactLedger.receipt({...attempt,accountId:account.accountId});if(attempt.request?.mode==='auto'&&attempt.request?.candidate){if(attempt.contractId)autoDiagnostics.purchase(attempt.request.candidate,attempt.contractId);else if(attempt.error&&!diagnosticExecutionSeen.has(attempt.attemptId+':'+attempt.error.code)){diagnosticExecutionSeen.add(attempt.attemptId+':'+attempt.error.code);if(diagnosticExecutionSeen.size>10000)diagnosticExecutionSeen.delete(diagnosticExecutionSeen.values().next().value);diagnosticStop(attempt.request.candidate,stopCategory({...attempt.error,stage:attempt.derivRejection?.stage,failureKind:attempt.failureKind}),attempt.error.message,attempt.state==='REJECTED');}}}
     const order=result.order;if(order)compactLedger.receipt({...order,accountId:account.accountId});
     if(order?.decision?.mode==='auto'){authoritativeAutoDecision=order.decision;authoritativeDecisionState=order.state==='settled'?'SETTLED':order.contractId?'PURCHASED':order.state==='rejected'?'BLOCKED':'PROPOSAL';authoritativeDecisionError=order.error??'';}
     if(order){observeDigitRegime('receipt',{receipt:order});balanceEvidence.receipt(order);if(order.candidate&&order.state==='settled'&&!balanceSeenSettlements.has(String(order.contractId))){balanceSeenSettlements.add(String(order.contractId));balanceBook.settled(order.symbol,balanceSettlementWatermark(order));if(authoritativeAutoDecision?.decisionId===order.decisionId)authoritativeDecisionState='SETTLED';}}
@@ -814,7 +816,7 @@ const loadAuthStatus = async () => {
     const button = $('connect');
     if (status.connected) { demoConnected = true; button.textContent = 'Deriv account connected'; button.disabled = true; loadAccounts().then(trackRecentOrder); return; }
     demoConnected = false; autoEnabled = false;
-    $('entryExecutionStatus').textContent = 'NO ORDER PLACED YET · Connect an account to execute.';
+    $('entryExecutionStatus').textContent = 'NO ORDER PLACED YET Â· Connect an account to execute.';
     $('entryExecutionStatus').className = 'entryExecutionStatus negative';
     updateAutoState(); updateDemoArmState();
     if (!status.configured) { button.textContent = 'Configure account sign-in'; button.title = 'Set DERIV_CLIENT_ID and an HTTPS DERIV_REDIRECT_URI on the server first.'; return; }
@@ -844,8 +846,8 @@ updateDemoArmState = () => {
 };
 const executeOrder = async (type,chosen=null) => {
   const state=balanceBook.current($('symbol').value);const candidate=chosen??state?.candidates.find(c=>c.contractType===type&&c.barrier===(type==='DIGITOVER'?1:8));
-  if(!balanceBook.available(candidate)){ $('demoOrderStatus').textContent='NO ORDER · chosen candidate is not currently qualified or its authorization was consumed';return;}
-  if(tradabilityBlocked()){$('demoOrderStatus').textContent='NEW ENTRY BLOCKED · '+(tradabilityServer?.reason??tradabilityEngine.snapshot?.state??'COLLECTING DATA');auditStage('tradability-block',{mode:'manual',type});return;}
+  if(!balanceBook.available(candidate)){ $('demoOrderStatus').textContent='NO ORDER Â· chosen candidate is not currently qualified or its authorization was consumed';return;}
+  if(tradabilityBlocked()){$('demoOrderStatus').textContent='NEW ENTRY BLOCKED Â· '+(tradabilityServer?.reason??tradabilityEngine.snapshot?.state??'COLLECTING DATA');auditStage('tradability-block',{mode:'manual',type});return;}
   if(botMode!=='manual')return;
   if(manualOrderPending||manualHttpPending||executionBlocked()||differEngineState.executionLock){trackRecentOrder();return;}
   auditStage('manual-attempt',{type,risk:diagnosticRisk(),note:'Manual path uses existing guards, not automatic READY gate'});
@@ -853,7 +855,7 @@ const executeOrder = async (type,chosen=null) => {
   if (!demoConnected || !account || !Number.isFinite(stake) || stake <= 0) return updateDemoArmState();
   const title = candidate.label;
   if (account.accountType === 'real' && !window.confirm(`Place one ${title} real-money order for ${money(stake)}?`)) return;
-  const button = type === 'DIGITOVER' ? $('executeOver') : $('executeUnder'); manualOrderPending = true; $('executeOver').disabled = true; $('executeUnder').disabled = true; $('demoOrderStatus').textContent = 'ORDER REQUEST SENT · Waiting for Deriv to accept it…';
+  const button = type === 'DIGITOVER' ? $('executeOver') : $('executeUnder'); manualOrderPending = true; $('executeOver').disabled = true; $('executeUnder').disabled = true; $('demoOrderStatus').textContent = 'ORDER REQUEST SENT Â· Waiting for Deriv to accept itâ€¦';
   const trace=beginOrderAudit(type,'manual',stake,candidate);
   manualHttpPending=true;
   try {
@@ -888,14 +890,14 @@ const maybeAutoOrder = async (signal) => {
   }
   const ticksSinceLast = currentTick - lastAutoSignalTick;
   // One current balance authorization is consumed per request; no fixed OU tick delay.
-  autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending order…`;
+  autoInFlight = true; autoLastError = ''; $('autoStatus').textContent = `LIVE SUPPORT confirmed for ${signal.label}. Sending orderâ€¦`;
   let trace;
   try {
     trace=beginOrderAudit(signal.contractType,'auto',stake,signal);
     authoritativeDecisionState='PROPOSAL';
     const response = await fetch('/api/order', { method:'POST', headers:{'content-type':'application/json'}, signal:globalThis.AbortSignal?.timeout?.(45000), body:JSON.stringify({ ...executionRequest(trace),browserAutoState:autoAuthorizationState,tradabilityMode,executionSessionId:parallelRunId,signalAt:executionNow(),gatePassed:barrierSnapshot?.selected?.ready===true,runId:parallelRunId,mode:'auto', armed:true, type:trace.candidate.contractType, symbol:trace.candidate.market, stake, accountId:account.accountId, accountType:'demo', realConfirmed:false,riskLimits:demoRiskLimits() }) });
     const result = await response.json();
-    if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode,executionCode:result.executionCode,attemptId:result.attemptId,uncertain:result.uncertain});
+    if (!response.ok) throw Object.assign(new Error(result.error || 'Auto order was not accepted.'),{riskCode:result.riskCode,executionCode:result.executionCode,stage:result.stage,receivedBytes:result.receivedBytes,limitBytes:result.limitBytes,attemptId:result.attemptId,uncertain:result.uncertain});
     acceptedOrderAudit(trace,result);
     lastAutoSignalTick = liveTickNumber;
     autoMomentumTrades += 1;
@@ -907,8 +909,8 @@ const maybeAutoOrder = async (signal) => {
   } catch (error) {
     // A rejected request must not silently turn the bot off. Keep it armed and
     // show the exact reason so the next LIVE SUPPORT signal can retry.
-    diagnosticStop(signal,stopCategory(error),error.message);autoLastError = error.message || 'Deriv did not accept the Auto Bot order.';authoritativeDecisionState='BLOCKED';authoritativeDecisionError=autoLastError;
-    auditStage('execution-error',{...trace,type:signal.type,reason:autoLastError,riskCode:error.riskCode??null,executionCode:error.executionCode??null,uncertain:error.uncertain??null,proposalValidation:error.riskCode?'blocked by server risk before proposal/order':'not reported; failure stage unknown'});
+    diagnosticStop(signal,stopCategory(error),error.message,error.uncertain===false);autoLastError = error.message || 'Deriv did not accept the Auto Bot order.';authoritativeDecisionState='BLOCKED';authoritativeDecisionError=autoLastError;
+    auditStage('execution-error',{...trace,type:signal.type,reason:autoLastError,riskCode:error.riskCode??null,executionCode:error.executionCode??null,stage:error.stage??null,receivedBytes:error.receivedBytes??null,limitBytes:error.limitBytes??null,uncertain:error.uncertain??null,proposalValidation:error.riskCode?'blocked by server risk before proposal/order':'not reported; failure stage unknown'});
     $('autoStatus').textContent = `Auto Bot is still ON. Request error: ${autoLastError}. Checking execution status before another purchase.`;
     trackRecentOrder();
   }
@@ -932,9 +934,9 @@ updateAutoState = () => {
   else if (executionBlocked()) $('autoStatus').textContent = `Execution: ${executionView.state.replaceAll('_',' ')}. ${executionView.last?.error?.message??'Monitoring current contract; no additional purchase.'}`;
   else if (researchGuardPaused()) $('autoStatus').textContent = 'Auto bot is paused by the research guard.';
   else if (autoAwaitingReset) $('autoStatus').textContent = 'Waiting for fresh post-settlement edge analysis.';
-  else if (autoInFlight) $('autoStatus').textContent = 'LIVE SUPPORT confirmed. Sending Auto Bot order…';
-  else if (!parallelAutoReady&&autoEnabled) $('autoStatus').textContent = `${autoAuthorizationState.replaceAll('_',' ')} · purchases paused. ${autoLastError||'Waiting for positive server acknowledgment.'}`;
-  else if (autoLastError) $('autoStatus').textContent = `${parallelAutoReady?'Server-authorized Auto · last request rejected':'Auto stopped'}. ${autoLastError}. See Execution engine for the verified outcome.`;
+  else if (autoInFlight) $('autoStatus').textContent = 'LIVE SUPPORT confirmed. Sending Auto Bot orderâ€¦';
+  else if (!parallelAutoReady&&autoEnabled) $('autoStatus').textContent = `${autoAuthorizationState.replaceAll('_',' ')} Â· purchases paused. ${autoLastError||'Waiting for positive server acknowledgment.'}`;
+  else if (autoLastError) $('autoStatus').textContent = `${parallelAutoReady?'Server-authorized Auto Â· last request rejected':'Auto stopped'}. ${autoLastError}. See Execution engine for the verified outcome.`;
   else if (autoEnabled) $('autoStatus').textContent = `Auto Bot uses the canonical Balance State. Each order consumes its authorization; only new post-settlement evidence can authorize another.`;
   else $('autoStatus').textContent = 'Auto bot is not active.';
   updateAutoIndicator();
@@ -943,17 +945,17 @@ $('realConfirm').addEventListener('change', updateDemoArmState); $('accountSelec
 $('manualMode').onclick = () => setBotMode('manual'); $('autoMode').onclick = () => { setBotMode('auto'); $('autoStatus').textContent = 'Auto mode selected. The market scanner is running; press Start Auto Bot when you are ready to allow automatic orders.'; scanMarkets(); };
 $('resetTargetCycle').onclick = () => { targetRunBaseline = performanceStats.net; updatePerformance(); updateDemoArmState(); };
 $('deleteToday').onclick = () => {
-  const approved = window.confirm('Delete today’s dashboard paper-test results, pending test signals, and log? This cannot delete Deriv account history or completed demo contracts.');
+  const approved = window.confirm('Delete todayâ€™s dashboard paper-test results, pending test signals, and log? This cannot delete Deriv account history or completed demo contracts.');
   if (!approved) return;
   pending.splice(0, pending.length); settled.splice(0, settled.length);
   manualOrdersInSetup = 0; targetRunBaseline = 0; lastSignalIndex = -Infinity;
-  $('log').innerHTML = '<p class="empty">Today’s dashboard results were deleted. New test signals will appear here.</p>';
+  $('log').innerHTML = '<p class="empty">Todayâ€™s dashboard results were deleted. New test signals will appear here.</p>';
   updateReport(); updateDemoArmState();
 };
 $('clearActualPerformance').onclick = () => {
   if (!window.confirm('Clear the displayed order-performance figures from this browser? Your Deriv account, completed orders, and balance will not be changed.')) return;
   accountOrderHistory = []; lastSettledOrder = null; localStorage.removeItem('derivAccountOrders'); updateActualPerformance(); update();
-  $('actualEntryTick').textContent = '—'; $('actualEntryDigit').textContent = 'Entry price: —'; $('actualExitTick').textContent = '—'; $('actualExitDigit').textContent = 'Settlement price: —'; $('actualOrderOutcome').textContent = 'NO ORDER'; $('actualOrderOutcome').className = ''; $('actualOrderSide').textContent = 'Waiting for an accepted order';
+  $('actualEntryTick').textContent = 'â€”'; $('actualEntryDigit').textContent = 'Entry price: â€”'; $('actualExitTick').textContent = 'â€”'; $('actualExitDigit').textContent = 'Settlement price: â€”'; $('actualOrderOutcome').textContent = 'NO ORDER'; $('actualOrderOutcome').className = ''; $('actualOrderSide').textContent = 'Waiting for an accepted order';
 };
 // Balance authorization replaces legacy momentum-reset pacing.
 ['stake','maxStake','dailyLoss','dailyProfitTarget','maxTrades','maxConsecutiveLosses','maxTradesPerSetup'].forEach(id=>$(id).addEventListener('input', updateRiskSummary)); updateRiskSummary();

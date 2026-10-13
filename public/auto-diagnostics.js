@@ -5,6 +5,8 @@ export function stopCategory(error={}){
  if(/Brain.*pre.BUY|pre.BUY.*evidence/i.test(text))return 'PRE-BUY EVIDENCE DETERIORATED';
  if(/Balance deteriorated/i.test(text))return 'BALANCE DETERIORATED';
  if(/continuity|server.observ|observation/i.test(text))return 'SERVER OBSERVATION / CONTINUITY FAILURE';
+ if(/Request too large|REQUEST_TOO_LARGE/i.test(text))return 'ORDER REQUEST TOO LARGE';
+ if(/account session expired/i.test(text))return 'SESSION EXPIRED';
  if(/expired/i.test(text))return 'SIGNAL EXPIRED';
  if(/stale/i.test(text))return 'STALE SIGNAL';
  if(/auth|session|permission|AUTO_STOPPED|PURCHASE_BLOCKED/i.test(text))return 'AUTO NOT AUTHORIZED';
@@ -15,7 +17,8 @@ export function stopCategory(error={}){
 }
 export class AutoDiagnostics{
  constructor({now=Date.now,capacity=2000}={}){this.now=now;this.capacity=capacity;this.records=new Map();this.counts={observations:0,qualified:0,brainRejected:0,preBuy:0,execution:0,proposalBuy:0,pairSwitches:0,purchased:0};this.reasons={};this.qualifiedOutcomes={};this.active=false;this.lastPurchase=null;this.observationsAtPurchase=0;this.seen=new Map();this.dropped=0;this.current=null;}
- record(candidate,category,kind='market',reason=category){const key=candidate?.id;if(!key)return;let r=this.records.get(key);if(!r){r={candidateId:key,market:candidate.market,label:candidate.label,qualified:!!candidate.ready,firstAt:this.now()};this.records.set(key,r);if(candidate.ready)this.counts.qualified++;}
+ record(candidate,category,kind='market',reason=category,terminal=false){const key=candidate?.id;if(!key)return;let r=this.records.get(key);if(!r){r={candidateId:key,market:candidate.market,label:candidate.label,qualified:!!candidate.ready,firstAt:this.now()};this.records.set(key,r);if(candidate.ready)this.counts.qualified++;}
+  if(r.terminal&&category!=='PURCHASED')return;if(terminal||category==='PURCHASED')r.terminal=true;
   if(r.category===category)return;if(r.qualified){if(r.category)this.qualifiedOutcomes[r.category]--;this.qualifiedOutcomes[category]=(this.qualifiedOutcomes[category]??0)+1;}r.category=category;r.kind=kind;r.reason=reason;r.at=this.now();this.current=r;
   this.reasons[category]=(this.reasons[category]??0)+1;
   if(category==='DECISION BRAIN REJECTED')this.counts.brainRejected++;
@@ -33,7 +36,7 @@ export class AutoDiagnostics{
     else if(e.action!=='TAKE')category=e.action==='WAIT'?'CANDIDATE DEVELOPING':'DECISION BRAIN REJECTED';
     else if(s.market!==market){category='CURRENT PAIR HELD / CHALLENGER NOT CONFIRMED';kind='ownership';}
     else if(c.id!==b.selected?.id)category='ANOTHER CANDIDATE SELECTED';
-    else {category=block??'QUALIFIED — AWAITING EXECUTION CHECK';kind=block?'system':'pending';}
+    else {category=block??'QUALIFIED â€” AWAITING EXECUTION CHECK';kind=block?'system':'pending';}
     this.record(c,category,kind,kind==='system'||kind==='ownership'?category:e?.reason??category);
    }
   }

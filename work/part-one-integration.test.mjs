@@ -1,3 +1,4 @@
+import {AutoDiagnostics,CompactTradeLedger,stopCategory} from '../public/auto-diagnostics.js';
 import {createTradeDecision} from '../public/trade-decision.js';
 import {BalanceBook,assertCandidate} from '../public/balance-engine.js';
 import {BalanceEvidence} from '../public/balance-scale.js';
@@ -15,7 +16,7 @@ test('Part One real app: independent READY leads to demo request, receipt and co
  const fields=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],{value:'0',checked:false,textContent:'',classList:{toggle(){},add(){},remove(){}},addEventListener(){},setCustomValidity(){},querySelector(){return null;},replaceChildren(){},append(){}}]));
  for(const [k,v] of Object.entries({symbol:'R_100',window:200,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo1',duration:1}))fields[k].value=String(v);
  const requests=[];
- const context=vm.createContext({performance,createTradeDecision,BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,TradabilityMarkets:class extends TradabilityMarkets {start(){}},TradabilityEngine,tradabilityBlocks,DifferEngine,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,console,document:{getElementById:id=>fields[id]},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async(url,options)=>{
+ const context=vm.createContext({AutoDiagnostics,CompactTradeLedger,stopCategory,performance,createTradeDecision,BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,TradabilityMarkets:class extends TradabilityMarkets {start(){}},TradabilityEngine,tradabilityBlocks,DifferEngine,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,console,document:{getElementById:id=>fields[id]},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async(url,options)=>{
  if(url==='/api/order'){requests.push(JSON.parse(options.body));return {ok:true,json:async()=>({contractId:'mock',entryTick:'100.03'})};}
  return {ok:true,json:async()=>({connected:false,configured:false})};
  }});

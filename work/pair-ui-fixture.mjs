@@ -1,0 +1,10 @@
+import {mountDashboard} from '/premium-dashboard.js';
+import {mountBalanceScale,BalanceEvidence} from '/balance-scale.js';
+import {BalanceBook,BALANCE_MARKETS} from '/balance-engine.js';
+import {TradabilityEngine} from '/tradability-engine.js';
+import {opportunityMetrics} from '/opportunity-metrics.js';
+let now=1000000;const book=new BalanceBook({now:()=>now}),engine=new TradabilityEngine(),evidence=new BalanceEvidence({storage:null});
+const state=()=>({ticks:book.current()?.ticks??[],analysis:book.current(),sequence:now,market:book.executionMarket,account:null,connected:false,feedLive:true,botMode:'auto',autoEnabled:false,active:false,cooldown:0,awaitingReset:false,quotes:{},orders:[],lastOrder:null,audit:[],execution:null,stake:1,tradability:{engine,mode:'monitor',events:[],connection:'LIVE',markets:[],environments:new Map(),now,selectWindow(){},setMode(){}},recheckExecution(){}});
+mountDashboard(state);const scale=mountBalanceScale({book,evidence,getExecution:()=>({market:book.executionMarket,mode:'auto',authorization:'OFF',feed:'LIVE'})});
+const output=document.createElement('pre');output.id='layout-test-result';document.body.append(output);
+const samples=[],metrics=[];let step=0;const timer=setInterval(()=>{now+=1000;for(let m=0;m<5;m++){const d=step%70<35?[3,5,7,8,9][(step+m)%5]:[0,9,1,8,2][(step+m)%5];book.push(BALANCE_MARKETS[m],{digit:d,epoch:now/1000,price:100+d/100});}book.best();if(step%10===0)book.inspect(BALANCE_MARKETS[Math.floor(step/10)%5]);scale.render();const box=document.querySelector('#balanceInstrument').getBoundingClientRect();if(step>50)samples.push(box.height);metrics.push(opportunityMetrics(book.current()));if(++step===250){clearInterval(timer);scale.stop();output.textContent=JSON.stringify({updates:step,heightMin:Math.min(...samples),heightMax:Math.max(...samples),heightChange:Math.max(...samples)-Math.min(...samples),openDetails:document.querySelectorAll('details[open]').length,metricExamples:metrics.filter(m=>m.quality!==null).filter((_,i)=>i%35===0)},null,2);}},20);

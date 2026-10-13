@@ -1,3 +1,4 @@
+import {AutoDiagnostics,CompactTradeLedger,stopCategory} from '../public/auto-diagnostics.js';
 import {createTradeDecision} from '../public/trade-decision.js';
 import {TradabilityMarkets} from '../public/tradability-markets.js';
 import {BalanceBook,assertCandidate} from '../public/balance-engine.js';
@@ -34,7 +35,7 @@ async function fixture(ou,differ,connected=false){
  const fields=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],{value:'0',checked:false,textContent:'',classList:{toggle(){},add(){},remove(){}},addEventListener(){},setAttribute(){},setCustomValidity(){},querySelector(){return null;},replaceChildren(){},append(){}}]));
  for(const [k,v] of Object.entries({symbol:'R_100',window:100,barrierPersistence:1,stake:1,maxStake:5000,autoCooldownTicks:5,accountSelector:'demo',duration:1}))fields[k].value=String(v);
  const requests=[],urls=[];
- const context=vm.createContext({performance,createTradeDecision,TradabilityMarkets:class extends TradabilityMarkets{start(){}},BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,URLSearchParams,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,console,document:{getElementById:id=>fields[id],createElement:()=>({})},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async(url,options)=>{
+ const context=vm.createContext({AutoDiagnostics,CompactTradeLedger,stopCategory,performance,createTradeDecision,TradabilityMarkets:class extends TradabilityMarkets{start(){}},BalanceBook,assertCandidate,BalanceEvidence,queueMicrotask,TradabilityEngine,tradabilityBlocks,DifferEngine,crypto,URLSearchParams,liveDigitWheel:new DigitWheelState(),heatMap,DigitBarrierEngine,extractLastDigit,proposalRequest,diagnoseSnapshot,console,document:{getElementById:id=>fields[id],createElement:()=>({})},localStorage:{getItem:()=>null,setItem(){}},setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},fetch:async(url,options)=>{
   if(url==='/api/order'){requests.push(JSON.parse(options.body));return new Promise(()=>{});}
   urls.push(url);return {ok:true,json:async()=>({connected,configured:true,pageId:'fresh-page',accounts:connected?[{accountId:'demo',accountType:'demo',currency:'USD',balance:1000}]:[]})};
  }});

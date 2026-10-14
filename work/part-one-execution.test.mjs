@@ -24,7 +24,7 @@ function bought(s,buy,contractId=100){s.reply(buy,{buy:{contract_id:contractId,b
 function settled(s,monitor,contractId=100,profit=.1,extras={}){s.reply(monitor,{subscription:{id:'sub-'+contractId},proposal_open_contract:{contract_id:contractId,entry_tick:100.12,exit_tick:profit>0?100.15:100.10,is_sold:1,status:profit>0?'won':'lost',profit,payout:profit>0?1.1:0,...extras}});}
 test('25 sequential complete lifecycles: matching proposal, BUY, contract, P/L, reset, next order',async()=>{
  const f=fixture();for(let i=1;i<=25;i++){const {flow,s,buy}=await proposed(f,'sequence-'+i);assert.ok(buy);const m=bought(s,buy,i);assert.equal((await flow.entry).contractId,i);settled(s,m,i,i%2?.1:-1);assert.equal((await flow.settlement).contractId,i);assert.equal(f.engine.snapshot(credentials.accountId).state,'IDLE');assert.equal(f.timers.size,0);}
- assert.equal(f.settled.length,25);assert.equal(f.socket.sent.filter(r=>r.buy).length,25);assert.equal(f.socket.sent.filter(r=>r.forget).length,25);assert.equal(f.socket.listeners.message.length,1);assert.ok(f.socket.sent.every(r=>Number.isInteger(r.req_id)));assert.equal(new Set(f.socket.sent.map(r=>r.req_id)).size,f.socket.sent.length);
+ assert.equal(f.settled.length,25);assert.equal(f.socket.sent.filter(r=>r.buy).length,25);assert.equal(f.socket.sent.filter(r=>r.forget).length,25);assert.equal(f.socket.listeners.message.length,2,'one execution listener plus one bounded frame observer, no accumulation');assert.ok(f.socket.sent.every(r=>Number.isInteger(r.req_id)));assert.equal(new Set(f.socket.sent.map(r=>r.req_id)).size,f.socket.sent.length);
  for(const stage of ['TRADE_AUTHORIZED','PROPOSAL_PENDING','PROPOSAL_RESPONSE_RECEIVED','PROPOSAL_ID_RECEIVED','BUY_PENDING','BUY_RESPONSE_RECEIVED','CONTRACT_ID_RECEIVED','OPEN_CONTRACT_SUBSCRIPTION_ACTIVE','SETTLED','WIN_LOSS_DETECTED','PROFIT_LOSS_RECORDED','STATE_RESET','READY_FOR_NEXT_TRADE'])assert.equal(f.logs.filter(e=>e.stage===stage).length,25,stage);
 });
 test('proposal rejection reports full error and releases without BUY',async()=>{const f=fixture(),flow=f.engine.execute(credentials,{...base,attemptId:'reject-proposal'});await flush();const req=f.socket.last('proposal');f.socket.reply(req,{error:{code:'InvalidContractProposal',message:'Proposal rejected'}});await assert.rejects(flow.entry,e=>e.code==='InvalidContractProposal'&&e.orderNotSubmitted);assert.equal(f.socket.sent.filter(r=>r.buy).length,0);assert.equal(f.engine.snapshot(credentials.accountId).blocking,false);const log=f.logs.find(e=>e.stage==='API_ERROR');assert.equal(log.error.echo_req.req_id,req.req_id);});
@@ -72,4 +72,18 @@ test('InvalidContractProposal after BUY is rejected, not unconfirmed; next fresh
  assert.equal(executionOutcome({state:'RECONCILIATION_REQUIRED',buySent:true,error:{code:'InvalidContractProposal'}}).buy,'SENT · OUTCOME UNCONFIRMED');
  assert.equal(executionOutcome({state:'REJECTED',buySent:false}).settlement,'NOT APPLICABLE · NO CONTRACT');
  assert.equal(executionOutcome({state:'CONTRACT_OPEN',buySent:true,contractId:82}).settlement,'WAITING');
+});
+
+test('integrated frame dump captures rejected BUY and preserves fresh-order recovery',async()=>{
+ const f=fixture(),{flow,s,buy}=await proposed(f,'frame-rejected');
+ s.reply(buy,{msg_type:'buy',error:{code:'InvalidContractProposal',message:'Unknown contract proposal'},authorize:'SECRET-FRAME'});
+ await assert.rejects(flow.entry,/Unknown contract proposal/);
+ const dump=f.logs.find(e=>e.stage==='WS_FRAME_ERROR');assert.ok(dump);assert.ok(dump.frames.length<=30);
+ const proposal=dump.frames.find(x=>x.direction==='INCOMING'&&x.payload.proposal);
+ const sent=dump.frames.find(x=>x.direction==='OUTGOING'&&x.payload.buy);
+ assert.equal(sent.payload.buy,proposal.payload.proposal.id);assert.equal(sent.payload.price,proposal.payload.proposal.ask_price);
+ assert.equal(dump.frames.at(-1).payload.error.code,'InvalidContractProposal');assert.equal(JSON.stringify(dump).includes('SECRET-FRAME'),false);
+ assert.equal(s.sent.filter(x=>x.buy).length,1);assert.equal(f.engine.snapshot(credentials.accountId).blocking,false);
+ const next=await proposed(f,'frame-next-fresh');const monitor=bought(next.s,next.buy,999);await next.flow.entry;settled(next.s,monitor,999);await next.flow.settlement;
+ assert.equal(f.engine.snapshot(credentials.accountId).state,'IDLE');assert.equal(s.sent.filter(x=>x.buy).length,2);
 });

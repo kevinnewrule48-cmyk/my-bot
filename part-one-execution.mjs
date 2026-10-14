@@ -1,3 +1,4 @@
+import {attachFrameDebugger} from './websocket-frame-debugger.mjs';
 import {validateTradeDecision,decisionMismatch} from './public/trade-decision.js';
 import {continuationAllowed,freeze} from './public/balance-engine.js';
 import {validateBalanceRequest,validateBalancePurchase,assertProposalBinding} from './balance-authorization.mjs';
@@ -35,6 +36,7 @@ event(id,a,stage,details={}){const account=this.account(id);const e={timestamp:t
   if(this.channels.get(key)?.ws.readyState===1)return this.channels.get(key);
   if(this.connecting.has(key))return this.connecting.get(key);
   const promise=(async()=>{const ws=await this.connect(credentials),ch={ws,generation:randomUUID(),requests:new Map(),warm:new Map(),warmConfig:null,tickSymbols:new Set(),latestTicks:new Map()};this.channels.set(key,ch);
+   attachFrameDebugger(ws,{now:this.now,onError:dump=>this.event(id,this.current(id),'WS_FRAME_ERROR',dump)});
    ws.addEventListener('message',e=>{try{this.receive(id,ch,JSON.parse(e.data));}catch(error){const a=this.current(id);this.event(id,a,'HANDLER_ERROR',{error:{code:error.code??'HANDLER',message:error.message}});if(a){if(a.buySent)this.unresolved(id,a,{code:'HANDLER_ERROR',message:error.message});else this.reject(id,a,{code:error.code??'HANDLER_ERROR',message:error.message});}}});
    let closed=false;const disconnect=()=>{if(closed||this.channels.get(key)!==ch)return;closed=true;this.onDisconnect(id);if(this.channels.get(key)===ch)this.channels.delete(key);ch.warm.clear();if(ws.readyState===1)ws.close();this.event(id,this.current(id),'SOCKET_DISCONNECTED');const a=this.current(id);if(!a)return;if(!a.buySent)this.reject(id,a,{code:'DISCONNECTED_BEFORE_BUY',message:'Connection lost before BUY; no purchase sent'});else{this.unresolved(id,a,{code:'DISCONNECTED_AFTER_BUY',message:'Connection lost after BUY; reconciling without buying again'});void this.reconcile(credentials,a).catch(e=>this.event(id,a,'RECONNECT_ERROR',{error:{code:e.code,message:e.message}}));}};
    ws.addEventListener('close',disconnect);ws.addEventListener('error',disconnect);this.event(id,this.current(id),'SOCKET_CONNECTED');return ch;

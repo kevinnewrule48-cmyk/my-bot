@@ -64,6 +64,7 @@ const riseFallRoute=riseFallRoutes(riseFall,{getSession,cookieValue,json,readJso
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if(await riseFallRoute(req,res,url))return;
+  if(url.pathname==='/api/diagnostic/demo-test'&&req.method==='POST'){const {demoTestRoute}=await import('./demo-test-route.mjs');return demoTestRoute(req,res,{session:getSession(req),json,readJson,deriv,execution,demoRisk,guardedDemoOrder,riseFall});}
   if(url.pathname.startsWith('/api/part-two/'))return json(res,410,{error:'Part Two has been replaced by Rise/Fall.'});
   if(url.pathname.startsWith('/part-two/')){res.writeHead(302,{location:'/rise-fall/index.html'});return res.end();}
   if(url.pathname==='/api/tradability/status'&&req.method==='GET'){
@@ -184,7 +185,7 @@ const server = http.createServer(async (req, res) => {
       if(strategy==='OVER_UNDER')validateBalanceRequest({candidate,balanceState,type,barrier,symbol,mode,decisionId});
       const requiredChecks=['Barrier','Momentum','Zone','Stability','Score','Persistence','Confidence','Quality'];
       const verifiedGate=gatePassed===true&&(type==='DIGITDIFF'||candidate?.ready===true||(strategyEvidence?.selected===(type==='DIGITOVER'?'OVER':'UNDER')&&requiredChecks.every(name=>strategyEvidence?.checks?.some(c=>c.name===name&&c.pass===true))));
-      if(mode==='auto'&&strategy==='OVER_UNDER'&&decision.lockedAt<(session.autoEligibilityChangedAt??0))throw Error('TRADE BLOCKED â€” eligibility changed after decision');
+      if(mode==='auto'&&strategy==='OVER_UNDER'&&decision.lockedAt<(session.autoEligibilityChangedAt??0))throw Error('TRADE BLOCKED — eligibility changed after decision');
       const permission=purchasePermission(session,{mode,executionSessionId,attemptId:clientAttemptId,accountId,type,barrier,symbol,strategy,decisionId,signalAt,gatePassed:verifiedGate});
       const gate=()=>tradability.status(session,accountId,symbol,tradabilityMode);
       const authorizePurchase=()=>permission()&&gate().allowed&&!riseFall.busy(accountId);
@@ -211,7 +212,7 @@ const server = http.createServer(async (req, res) => {
       const request={attemptId,decisionId,executionSessionId,strategyEvidence,decision,candidate,balanceState,browserAutoState:['AUTO_AUTHORIZED','AUTO_EXECUTING'].includes(browserAutoState)?browserAutoState:'UNREPORTED',type,strategy,barrier,symbol,stake:amount,currency:selectedAccount.currency,mode,riskLimits,authorizePurchase};
       const existing=execution.find(accountId,attemptId);
       if(existing&&['type','symbol','stake','mode','currency'].some(k=>existing.request[k]!==request[k]))return json(res,409,{error:'Attempt ID already belongs to a different order'});
-      if(existing&&strategy==='OVER_UNDER'&&existing.request.decisionId!==decisionId)return json(res,409,{error:'TRADE BLOCKED â€” AUTHORITATIVE DECISION MISMATCH: attempt belongs to another decision'});
+      if(existing&&strategy==='OVER_UNDER'&&existing.request.decisionId!==decisionId)return json(res,409,{error:'TRADE BLOCKED — AUTHORITATIVE DECISION MISMATCH: attempt belongs to another decision'});
       if(existing&&existing.request.barrier!==barrier)return json(res,409,{error:'Attempt barrier mismatch'});
       const place=()=>execution.execute(credentials,request);
       const orderFlow = existing?execution.flow(accountId,existing):accountType==='demo'?await guardedDemoOrder(demoRisk,accountId,request,place):place();

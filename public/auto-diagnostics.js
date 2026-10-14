@@ -36,7 +36,7 @@ export class AutoDiagnostics{
     else if(e.action!=='TAKE')category=e.action==='WAIT'?'CANDIDATE DEVELOPING':'DECISION BRAIN REJECTED';
     else if(s.market!==market){category='CURRENT PAIR HELD / CHALLENGER NOT CONFIRMED';kind='ownership';}
     else if(c.id!==b.selected?.id)category='ANOTHER CANDIDATE SELECTED';
-    else {category=block??'QUALIFIED â€” AWAITING EXECUTION CHECK';kind=block?'system':'pending';}
+    else {category=block??'QUALIFIED — AWAITING EXECUTION CHECK';kind=block?'system':'pending';}
     this.record(c,category,kind,kind==='system'||kind==='ownership'?category:e?.reason??category);
    }
   }

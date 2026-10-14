@@ -1,3 +1,4 @@
+import {adaptiveAssessment} from './adaptive-decision.js';
 // Deterministic interpretation of existing digit evidence. No predictive claim.
 export const BARRIER_KEYS=Object.freeze(['OVER:1','OVER:2','UNDER:8','UNDER:7']);
 export const ALL_BARRIERS=Object.freeze(Object.fromEntries(BARRIER_KEYS.map(k=>[k,true])));
@@ -24,7 +25,14 @@ export function assessCandidate(state,candidate){
  if(prior.support<=reference.support||recent.support<=reference.support||prior.clearance<=reference.clearance||recent.clearance<=reference.clearance)return finish('WAIT','ESTABLISHED','Broad advantage exists, but consecutive blocks have not confirmed both support and clearance.');
  return finish('TAKE','ACTIONABLE','Broad history and consecutive blocks agree on support and clearance; current dangerous-digit pressure is not returning.');
 }
-export function evaluateBrain(state,mask=ALL_BARRIERS){
+export function evaluateBrain(state,mask=ALL_BARRIERS,options={}){
+ if(options.profile==='adaptive-paper'){
+  const enabled=eligibility(mask),evaluations=state.candidates.map(c=>({...adaptiveAssessment(state,c,options),enabled:enabled[barrierKey(c)]}));
+  const ranked=evaluations.filter(e=>e.enabled&&e.action==='TAKE').sort((a,b)=>b.score-a.score||a.candidateId.localeCompare(b.candidateId));
+  const selected=state.candidates.find(c=>c.id===ranked[0]?.candidateId)??null;
+  return {version:'adaptive-paper-v3',paperOnly:true,eligibility:enabled,evaluations,selected,action:selected?'TAKE':evaluations.some(e=>e.enabled&&e.action==='WAIT')?'WAIT':'REJECT',reason:ranked[0]?.reason??'No enabled candidate reaches the paper score threshold.'};
+ }
+ if(options.profile)throw Error('Unknown decision profile');
  const enabled=eligibility(mask);
  const evaluations=state.candidates.map(c=>({...assessCandidate(state,c),enabled:enabled[barrierKey(c)]}));
  const candidates=state.candidates.filter(c=>evaluations.some(e=>e.candidateId===c.id&&e.enabled&&e.action==='TAKE'));

@@ -96,11 +96,11 @@ export class DigitWheelState {
 export const liveDigitWheel = new DigitWheelState();
 
 export function mountDigitWheel(host, model = liveDigitWheel) {
-  host.innerHTML = `<div class="card-heading"><h2>LIVE DIGIT WHEEL</h2><span>LIVE / ENTRY / RESULT</span></div>
-    <div class="digit-wheel" aria-label="Live last-digit wheel">
-      <div class="wheel-center"><small>LIVE PRICE</small><div class="wheel-price"><span></span><strong></strong></div><p>LAST DIGIT: <b>—</b></p></div>
-      ${Array.from({length:10},(_,d)=>{const a=d*Math.PI/5;return `<div class="wheel-digit" data-digit="${d}" style="--x:${50+40*Math.sin(a)}%;--y:${50-40*Math.cos(a)}%"><b>${d}</b><small>0.0%</small><em class="wheel-entry"></em><em class="wheel-result"></em></div>`;}).join('')}
-    </div><p class="wheel-status" role="status">Live tracking · no active contract</p>`;
+  host.innerHTML = `<div class="card-heading"><h2>DIGIT FLOW · 0–9</h2><span>LIVE / ENTRY / RESULT</span></div>
+    <div class="wheel-center"><small>LIVE PRICE</small><div class="wheel-price"><span></span><strong></strong></div><p>LAST DIGIT: <b>—</b></p></div>
+    <div class="digit-wheel digit-strip" aria-label="Live digits 0 through 9">
+      ${Array.from({length:10},(_,d)=>`<div class="wheel-digit" data-digit="${d}"><b>${d}</b><small>0.0%</small><em class="wheel-entry"></em><em class="wheel-result"></em></div>`).join('')}
+    </div><p class="tracker-boundary">No active candidate · boundary shading unavailable</p><p class="wheel-status" role="status">Live tracking · no active contract</p>`;
   const cells=[...host.querySelectorAll('.wheel-digit')], price=host.querySelector('.wheel-price');
   let priorTick=null, priorResult=null; const animations=new Map();
   const animate=(node,frames,duration)=>{
@@ -120,8 +120,8 @@ export function mountDigitWheel(host, model = liveDigitWheel) {
       cell.classList.toggle('is-won',d===s.resultDigit&&s.contractStatus==='WON');
       cell.classList.toggle('is-lost',d===s.resultDigit&&s.contractStatus==='LOST');
       cell.querySelector('small').textContent=(s.stats[d]?.percent??0).toFixed(1)+'%';
-      cell.querySelector('.wheel-entry').textContent=d===s.entryDigit?'ENTRY':'';
-      cell.querySelector('.wheel-result').textContent=d===s.resultDigit?(s.contractStatus==='WON'?'💰 WIN':s.contractStatus==='LOST'?'😞 LOSS':'SETTLED'):'';
+      cell.querySelector('.wheel-entry').textContent=d===s.entryDigit?`ENTRY: ${d}`:'';
+      cell.querySelector('.wheel-result').textContent=d===s.resultDigit?`RESULT: ${d} · ${s.contractStatus==='WON'?'WIN':s.contractStatus==='LOST'?'LOSS':'SETTLED'}`:'';
       if (s.tick!==priorTick) {
         animations.get(cell)?.cancel();
         if(d===s.liveDigit)animate(cell,[{filter:'brightness(1.7)'},{filter:'brightness(1)'}],160);
@@ -133,4 +133,22 @@ export function mountDigitWheel(host, model = liveDigitWheel) {
   };
   const unsubscribe=model.subscribe(render); render(model);
   return ()=>{unsubscribe();for(const animation of animations.values())animation.cancel();};
+}
+
+// Presentation only. Barrier equality loses for both OVER and UNDER.
+export function digitBoundary(candidate){
+ const direction=candidate?.direction??candidate?.type?.replace('DIGIT','');
+ if(!['OVER','UNDER'].includes(direction)||!Number.isInteger(candidate?.barrier)||candidate.barrier<0||candidate.barrier>9)return null;
+ return Array.from({length:10},(_,digit)=>({digit,winning:direction==='OVER'?digit>candidate.barrier:digit<candidate.barrier,boundary:digit===candidate.barrier}));
+}
+export function paintDigitBoundary(candidate){
+ const slots=digitBoundary(candidate);
+ for(const host of document.querySelectorAll('.live-wheel-panel')){
+  for(const [digit,cell] of [...host.querySelectorAll('.wheel-digit')].entries()){
+   cell.classList.toggle('in-winning-set',!!slots?.[digit].winning);
+   cell.classList.toggle('in-losing-set',!!slots&&!slots[digit].winning);
+   cell.classList.toggle('at-barrier',!!slots?.[digit].boundary);
+  }
+  host.querySelector('.tracker-boundary').textContent=slots?`${candidate.market??''} · ${candidate.label??(candidate.direction??candidate.type)+' '+candidate.barrier} · teal: winning digits / red: losing digits · shading is not trade authorization`:'No active candidate · boundary shading unavailable';
+ }
 }

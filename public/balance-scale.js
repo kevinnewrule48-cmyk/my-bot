@@ -1,3 +1,4 @@
+import {paintDigitBoundary} from './live-digit-wheel.js';
 import {opportunityMetrics} from './opportunity-metrics.js';
 import {BALANCE_MARKETS,BARRIERS} from './balance-engine.js';
 export function scaleRegion(c){const depth=Math.abs(c.scalePosition);return `${c.label} · ${depth<10?'near center':depth<25?'developing':depth<50?'established':'deep'} displacement`;}
@@ -48,6 +49,7 @@ export function mountBalanceScale({book,evidence,getExecution=()=>({}),execute=(
   const pos=s?.position??0;el('balanceWeight').style.left=`${50+pos/2}%`;put('balancePosition',pos.toFixed(1));
   const candidate=s?.candidates.find(c=>c.direction===book.manualSelection.direction&&c.barrier===book.manualSelection.barrier);
   put('balanceHeadline',s?`${s.market} · ${s.lean} lean · current analysis candidate ${s.selected?.label??'NONE'} · latest analysis ${new Date(s.createdAt).toLocaleTimeString()}`:(x.feedError??'Waiting for normalized ticks.'));
+  paintDigitBoundary(x.mode==='manual'?candidate:brain?.selected);
   const decision=x.decision,dc=decision?.candidate,decisionDisplayState=decision&&(!Number.isFinite(now)||now>decision.expiresAt)&&!['PURCHASED','SETTLED','BLOCKED'].includes(x.decisionState)?'EXPIRED · NO NEW PURCHASE':x.decisionState;
   put('authoritativeAutoDecision',decision?`AUTO DECISION · ${decisionDisplayState}\n${dc.market} · ${dc.label} · support ${(100*dc.observed).toFixed(1)}%\nDecision: ${decision.decisionId}\n${x.decisionError??''}`:'AUTO DECISION · ANALYZING · no locked decision');
   const b=s?.broadBalance,f=s?.fine,c=s?.selected??s?.candidates.filter(c=>c.direction===s.lean).sort((a,b)=>b.excessSupport-a.excessSupport)[0];

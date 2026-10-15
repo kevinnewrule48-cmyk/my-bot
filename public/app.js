@@ -1,3 +1,4 @@
+import {mountProLayout} from './pro-dashboard-layout.js';
 import {AutoDiagnostics,CompactTradeLedger,stopCategory} from './auto-diagnostics.js';
 import {createTradeDecision} from './trade-decision.js';
 import {BalanceBook,assertCandidate,analyzeBalance} from './balance-engine.js';
@@ -977,6 +978,7 @@ if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mount
     minimum:null, persistence:Number($('barrierPersistence').value),
     stake:Number($('stake').value),tradability:tradabilityState()}));
 mountBalanceScale({book:balanceBook,evidence:balanceEvidence,onEligibility:updateAutoEligibility,getExecution:()=>({eligibilityPending,decision:authoritativeAutoDecision,decisionState:authoritativeDecisionState,decisionError:authoritativeDecisionError,feed:tradabilityMarkets.connection,feedError:tradabilityMarkets.errors.get(balanceBook.inspectedMarket),market:$('symbol').value,mode:botMode,authorization:autoAuthorizationState,account:selectedAccount(),busy:autoInFlight||manualHttpPending||executionBlocked()}),execute:candidate=>{if(botMode!=='manual')return;useScannerMarket(candidate.market);return executeOrder(candidate.contractType,candidate);}});
+mountProLayout();
 }).catch(error => console.error('Dashboard presentation could not load',error));
 // The main Start/Stop remains the only AutoBot switch. Arm switches do not start it.
 for(const id of ['startAuto','stopAuto','manualMode']){

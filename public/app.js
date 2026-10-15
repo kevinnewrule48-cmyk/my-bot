@@ -21,6 +21,7 @@ const EntryStabilityRecovery = class {
 // One-way research telemetry: no return value is read by the trading code.
 const observeDigitRegime = (event, data) => {
   try {
+    try{if(event==='tick'&&typeof CustomEvent==='function')globalThis.dispatchEvent?.(new CustomEvent('part-one-memory-tick',{detail:data}));}catch{}
     if(globalThis.partOneRegimeObserver)globalThis.partOneRegimeObserver(event,data);
     else {const queue=globalThis.partOneRegimeQueue??(globalThis.partOneRegimeQueue=[]);if(queue.length>=256){queue.shift();globalThis.partOneRegimeQueueDropped=(globalThis.partOneRegimeQueueDropped??0)+1;}queue.push([event,JSON.parse(JSON.stringify(data))]);}
   } catch (error) { console.warn('Shadow observer failed; execution unchanged', error.message); }
@@ -962,7 +963,7 @@ $('clearActualPerformance').onclick = () => {
 updateActualPerformance();
 renderLastSettledOrder(lastSettledOrder);
 $('barrierPersistence').onchange=()=>{barrierEngine.reset();update();};
-$('exportBarrierAudit').onclick=()=>{auditStage('export-state',{risk:diagnosticRisk()});const blob=new Blob([JSON.stringify({schema:'part-one-barrier-audit-v4',noTrade:autoDiagnostics.export(),pairOwnership:balanceBook.pairSelection.snapshot(marketNow()),pairEvents:balanceBook.pairSelection.events,completedTradeLedger:compactLedger.export(),exportedAt:Date.now(),capacity:2000,droppedEvents:auditDropped,defaults:barrierEngine.config,experimentalConfidenceUsedForTrading:false,execution:executionView,autoEligibility:balanceBook.autoEligibility,decisionBrain:balanceBook.brainLog,marketSwitches:balanceBook.switchLog,records:barrierAudit},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='part-one-barrier-audit.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('exportBarrierAudit').onclick=()=>{auditStage('export-state',{risk:diagnosticRisk()});const blob=new Blob([JSON.stringify({schema:'part-one-barrier-audit-v4',marketMemory:globalThis.partOneMemoryAudit??null,noTrade:autoDiagnostics.export(),pairOwnership:balanceBook.pairSelection.snapshot(marketNow()),pairEvents:balanceBook.pairSelection.events,completedTradeLedger:compactLedger.export(),exportedAt:Date.now(),capacity:2000,droppedEvents:auditDropped,defaults:barrierEngine.config,experimentalConfidenceUsedForTrading:false,execution:executionView,autoEligibility:balanceBook.autoEligibility,decisionBrain:balanceBook.brainLog,marketSwitches:balanceBook.switchLog,records:barrierAudit},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='part-one-barrier-audit.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 
 // Read-only presentation adapter. Rendering never advances analysis or submits orders.
 if (typeof window !== 'undefined') import('./premium-dashboard.js').then(({mountDashboard}) => {

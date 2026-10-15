@@ -63,6 +63,7 @@ const riseFall=new RiseFallService({connect:connectExecution,accounts:async sess
 const riseFallRoute=riseFallRoutes(riseFall,{getSession,cookieValue,json,readJson});
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  if(url.pathname.startsWith('/api/market-memory/')){const {memoryRoute}=await import('./market-memory-service.mjs');return memoryRoute(req,res,url,{root,execution,getSession,readJson,json,deriv});}
   if(await riseFallRoute(req,res,url))return;
   if(url.pathname==='/api/diagnostic/demo-test'&&req.method==='POST'){const {demoTestRoute}=await import('./demo-test-route.mjs');return demoTestRoute(req,res,{session:getSession(req),json,readJson,deriv,execution,demoRisk,guardedDemoOrder,riseFall});}
   if(url.pathname.startsWith('/api/part-two/'))return json(res,410,{error:'Part Two has been replaced by Rise/Fall.'});
@@ -260,5 +261,6 @@ const server = http.createServer(async (req, res) => {
   } catch { res.writeHead(404); res.end('Not found'); }
 });
 
+void import('./market-memory-service.mjs').then(m=>m.startMemory(root,execution)).catch(e=>console.error('Market memory unavailable:',e.message));
 const port = Number(process.env.PORT) || 3000;
 server.listen(port, '0.0.0.0', () => console.log(`Deriv Over/Under Lab: http://localhost:${port}`));

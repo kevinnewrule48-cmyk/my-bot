@@ -1,0 +1,36 @@
+/* Part One layout only: keep the terminal centered at comfortable reading widths. */
+body > header, body > main,
+body.premium > header, body.premium > main {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1400px;
+  margin-inline: auto;
+  padding-inline: clamp(12px, 2vw, 24px);
+}
+body > main p, body > main pre { overflow-wrap: anywhere; }
+body > main > *, .premium .terminal > *, .premium .compact-column > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.premium main pre { max-width: 100%; overflow: auto; }
+@media (max-width: 1100px) {
+  .premium .terminal { display: flex; flex-direction: column; gap: 8px; }
+  .premium .terminal .compact-workspace,
+  .premium .terminal .compact-column,
+  .premium .terminal-grid,
+  .premium #marketColumn, .premium #analysisColumn, .premium #executionColumn {
+    display: contents;
+  }
+  .premium .terminal .lower-panels { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .premium .terminal .dashboard-stack { width: 100%; }
+  .premium .headerActions { width: 100%; margin-left: 0; flex-wrap: wrap; }
+  .premium .headerAccount { width: 100%; flex-wrap: wrap; }
+  .premium .headerAccount label, .premium .headerAccount select { min-width: 0; }
+  .premium .header-strip { width: 100%; margin-left: 0; flex-wrap: wrap; }
+}
+@media (max-width: 480px) {
+  .premium .candidate-grid, .premium .controls,
+  .premium .regime-summary { grid-template-columns: minmax(0, 1fr); }
+  .premium .controls label { min-width: 0; }
+  .premium .workspace-heading, .premium .card-heading { flex-wrap: wrap; }
+}

@@ -40,7 +40,7 @@ test('actual wheel, lower result panel and history agree: entry 8 → 3 WIN; ent
   lifecycle=reduceContract(lifecycle,{...base,entryTick:100.07,exitTick:100+exit/100,status:'won'});
   context.receipt={...base,lifecycle,status:'won',exitTick:100+exit/100,profit:.1,buyPrice:1,payout:1.1};
   vm.runInContext("showContractResult('DIGITOVER',receipt,'Manual bot')",context);
-  assert.equal(cells[8].querySelector('.wheel-entry').textContent,'ENTRY');assert.equal(cells[exit].querySelector('.wheel-result').textContent,'💰 WIN');
+  assert.equal(cells[8].querySelector('.wheel-entry').textContent,'ENTRY: 8');assert.equal(cells[exit].querySelector('.wheel-result').textContent,`RESULT: ${exit} · WIN`);
   assert.equal(cells.filter(n=>n.querySelector('.wheel-entry').textContent).length,1);
   assert.equal(Number(fields.actualEntryTick.textContent),8);assert.equal(Number(fields.actualExitTick.textContent),exit);assert.equal(fields.actualOrderOutcome.textContent,'WON');
   const history=vm.runInContext('accountOrderHistory[0]',context);assert.equal(history.entryDigit,8);assert.equal(history.settlementDigit,exit);assert.equal(history.result,'WON');
